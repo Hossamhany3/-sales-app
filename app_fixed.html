@@ -260,6 +260,35 @@
             .toast { font-size: 0.85rem; padding: 10px 16px; }
         }
 
+        /* مبيعات التجار */
+        .merchant-statement { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
+        .merchant-statement-header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .merchant-statement-header h3 { margin: 0; font-size: 1rem; color: white; }
+        .merchant-statement-table { width: 100%; border-collapse: collapse; }
+        .merchant-statement-table th { background: var(--primary-light); color: var(--primary); font-size: 0.82rem; padding: 10px 12px; text-align: right; border-bottom: 2px solid var(--border); }
+        .merchant-statement-table td { padding: 10px 12px; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
+        .merchant-statement-table .positive { color: var(--danger); font-weight: 700; }
+        .merchant-statement-table .negative { color: var(--success); font-weight: 700; }
+        .merchant-statement-total { background: #f8fafc; padding: 12px 16px; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; }
+        .merchant-statement-total .debt { color: var(--danger); }
+        .merchant-statement-total .credit { color: var(--success); }
+        .ms-summary-card { background: white; border-radius: 12px; padding: 10px 14px; border: 1px solid var(--border); flex: 1; min-width: 120px; font-size: 0.85rem; }
+        .ms-summary-card .value { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
+        .ms-summary-card.danger .value { color: var(--danger); }
+        .ms-summary-card.success .value { color: var(--success); }
+        .ms-summary-card.primary .value { color: var(--primary); }
+        .sale-row { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .sale-row:last-child { border-bottom: none; }
+        .sale-row .info { flex: 1; min-width: 200px; }
+        .sale-row .info .name { font-weight: 700; font-size: 0.95rem; }
+        .sale-row .info .detail { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+        .sale-row .balance { font-weight: 700; }
+        .sale-row .balance.debt { color: var(--danger); }
+        .sale-row .balance.credit { color: var(--success); }
+        .sale-row .balance.clear { color: var(--text-muted); }
+        .sale-actions { display: flex; gap: 6px; }
+        .sale-actions button { padding: 6px 10px; font-size: 0.78rem; min-height: 32px; border-radius: 6px; }
+
         /* طباعة */
         @media print {
             .app-header, .side-nav, .overlay, #toast-container,
@@ -322,6 +351,7 @@
         <button data-page="merchants">🧑‍💼 العملاء والموردين</button>
         <button data-page="transactions">💰 الخزينة والمعاملات</button>
         <button data-page="installments">📅 إدارة عقود التقسيط</button>
+        <button data-page="merchantSales">🏪 مبيعات التجار</button>
         <button data-page="reports">📈 التقارير المحاسبية</button>
         <button data-page="settings">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
@@ -529,6 +559,86 @@
             <div id="installmentsList"></div>
         </div>
 
+        <div id="merchantSales" class="page">
+            <h2>🏪 تسجيل بيع لتاجر</h2>
+            <div class="card">
+                <form id="merchantSaleForm">
+                    <div class="form-group">
+                        <label>التاجر</label>
+                        <div style="display:flex; gap:8px;">
+                            <select id="msMerchantId" required style="flex:1;">
+                                <option value="">اختر تاجر...</option>
+                            </select>
+                            <button type="button" id="msNewMerchantBtn" class="btn-sm btn-outline">➕ جديد</button>
+                        </div>
+                    </div>
+                    <div id="msNewMerchantFields" style="display:none;">
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>اسم التاجر</label>
+                                <input type="text" id="msNewName">
+                            </div>
+                            <div class="form-group">
+                                <label>رقم الهاتف</label>
+                                <div style="display:flex; gap:8px;">
+                                    <input type="tel" id="msNewPhone" style="flex:1;">
+                                    <button type="button" id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>اسم الجهاز</label>
+                            <input type="text" id="msDeviceName" required placeholder="مثال: Samsung S24">
+                        </div>
+                        <div class="form-group">
+                            <label>سعر البيع</label>
+                            <input type="number" id="msSellPrice" step="any" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات</label>
+                        <input type="text" id="msNotes" placeholder="اختياري">
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button type="submit" style="flex:1;">💳 تسجيل البيع</button>
+                    </div>
+                </form>
+            </div>
+
+            <h2>💰 تسديد دفعة من تاجر</h2>
+            <div class="card">
+                <form id="merchantPaymentForm">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>التاجر</label>
+                            <select id="mpMerchantId" required>
+                                <option value="">اختر تاجر...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>المبلغ المدفوع</label>
+                            <input type="number" id="mpAmount" step="any" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات</label>
+                        <input type="text" id="mpNotes" placeholder="اختياري">
+                    </div>
+                    <button type="submit">💵 تسجيل الدفعة</button>
+                </form>
+            </div>
+
+            <h2>📋 كشف حساب وكشل المديونيات</h2>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchMerchantSales" placeholder="بحث باسم التاجر..." oninput="renderMerchantSales()">
+            </div>
+            <div id="msSummary" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;"></div>
+            <div id="merchantSalesList"></div>
+        </div>
+
         <div id="reports" class="page">
             <h2>📈 المركز المالي والأرباح</h2>
             <div class="card">
@@ -712,7 +822,7 @@
 
     const DB_NAME = 'SalesManagementDB';
     const DB_VERSION = 2;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates'];
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments'];
 
     let db = null;
     let dbReady = null;
@@ -814,11 +924,13 @@
         else if (name === 'transactions') transactions = data;
         else if (name === 'installments') installments = data;
         else if (name === 'msgTemplates') msgTemplates = data;
+        else if (name === 'merchantSales') merchantSales = data;
+        else if (name === 'merchantPayments') merchantPayments = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (!data) continue;
@@ -862,6 +974,8 @@
     let msgTemplates = {};
     let appPassword = localStorage.getItem('appPassword') || '';
     let openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+    let merchantSales = [];
+    let merchantPayments = [];
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
@@ -880,6 +994,8 @@
                 reminder: '',
                 late: ''
             };
+            merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
+            merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
         }
         // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
@@ -1188,13 +1304,15 @@
         localStorage.setItem('transactions', JSON.stringify(transactions));
         localStorage.setItem('installments', JSON.stringify(installments));
         localStorage.setItem('msgTemplates', JSON.stringify(msgTemplates));
+        localStorage.setItem('merchantSales', JSON.stringify(merchantSales));
+        localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
         localStorage.setItem('openingCapital', String(openingCapital));
         await saveAllToIDB();
         updateStorageInfo();
     }
 
     function updateStorageInfo() {
-        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, openingCapital });
+        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, openingCapital });
         const sizeKB = (new Blob([total]).size / 1024).toFixed(1);
         document.getElementById('storageSize').textContent = sizeKB + ' KB';
         const pct = Math.min((parseFloat(sizeKB) / 5000) * 100, 100);
@@ -1232,6 +1350,9 @@
         if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
         if (document.getElementById('instMerchantId')) document.getElementById('instMerchantId').innerHTML = '<option value="">-- اختر العميل --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
+        const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
+        if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
+        if (document.getElementById('mpMerchantId')) document.getElementById('mpMerchantId').innerHTML = msMerchOptions;
     }
 
     function getDateRange() {
@@ -2091,6 +2212,229 @@
         }
     };
 
+    // ====== مبيعات التجار ======
+    function calcMerchantBalance(merchantId) {
+        let totalSales = merchantSales.filter(s => s.merchantId == merchantId).reduce((sum, s) => sum + (s.sellPrice || 0), 0);
+        let totalPayments = merchantPayments.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.amount || 0), 0);
+        return { totalSales, totalPayments, balance: totalSales - totalPayments };
+    }
+
+    function getMerchantDebtSummary() {
+        let summary = {};
+        merchantSales.forEach(s => {
+            if (!summary[s.merchantId]) {
+                let m = merchants.find(x => x.id == s.merchantId);
+                summary[s.merchantId] = { name: m?.name || s.merchantName, phone: m?.phone || s.phone, totalSales: 0, totalPayments: 0 };
+            }
+            summary[s.merchantId].totalSales += s.sellPrice || 0;
+        });
+        merchantPayments.forEach(p => {
+            if (summary[p.merchantId]) {
+                summary[p.merchantId].totalPayments += p.amount || 0;
+            }
+        });
+        return summary;
+    }
+
+    window.recordMerchantPayment = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let bal = calcMerchantBalance(merchantId);
+        let amount = prompt('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.min(bal.balance, 0).toString());
+        if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
+            let val = parseFloat(amount);
+            // سجل الدفعة
+            let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
+            merchantPayments.push(pay);
+            // سجل في الحركات المالية
+            transactions.push({
+                id: Date.now() + 1, type: 'payment_in', amount: val,
+                merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
+            });
+            saveData(); renderMerchantSales(); renderTransactions();
+            showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
+        }
+    };
+
+    window.showMerchantStatement = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let sales = merchantSales.filter(s => s.merchantId == merchantId);
+        let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+        let bal = calcMerchantBalance(merchantId);
+
+        let rows = [];
+        sales.forEach(s => {
+            rows.push({ date: s.date, desc: 'بيع: ' + s.deviceName, debit: s.sellPrice, credit: 0 });
+        });
+        payments.forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
+        });
+        rows.sort((a, b) => a.date.localeCompare(b.date));
+
+        let html = '<div class="merchant-statement">';
+        html += '<div class="merchant-statement-header"><h3>📋 كشف حساب ' + m.name + '</h3><button class="btn-sm" style="background:rgba(255,255,255,0.2);color:white;" onclick="document.getElementById(\'msStatement\').innerHTML=\'\'">✖ إغلاق</button></div>';
+        html += '<table class="merchant-statement-table"><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>';
+        rows.forEach(r => {
+            html += '<tr><td>' + r.date.slice(0,10) + '</td><td>' + r.desc + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        html += '<div class="merchant-statement-total"><span>الرصيد المتبقي</span><span class="' + (bal.balance > 0 ? 'debt' : 'credit') + '">' + bal.balance.toFixed(2) + ' ج</span></div>';
+        html += '</div>';
+
+        let stDiv = document.getElementById('msStatement') || (() => {
+            let d = document.createElement('div'); d.id = 'msStatement';
+            document.getElementById('merchantSalesList').parentNode.insertBefore(d, document.getElementById('merchantSalesList'));
+            return d;
+        })();
+        stDiv.innerHTML = html;
+    };
+
+    window.sendMerchantWhatsApp = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let bal = calcMerchantBalance(merchantId);
+        let msg = 'السلام عليكم ' + m.name + ' 🌙\n';
+        msg += 'نود تذكيركم بأن الرصيد المتبقي لدينا هو ' + bal.balance.toFixed(2) + ' ج.\n';
+        msg += 'نرجو التكرم بتسوية المبلغ في أقرب وقت.\nشكراً لتعاملكم معنا 🙏';
+        let phone = m.phone.replace(/^0/, '20').replace(/[^0-9]/g, '');
+        window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+    };
+
+    function renderMerchantSales() {
+        let container = document.getElementById('merchantSalesList');
+        let term = getSearchTerm('MerchantSales');
+        let summary = getMerchantDebtSummary();
+
+        // Summary cards
+        let totalDebt = 0; let merchantCount = Object.keys(summary).length;
+        Object.values(summary).forEach(s => { let b = s.totalSales - s.totalPayments; if (b > 0) totalDebt += b; });
+        document.getElementById('msSummary').innerHTML =
+            '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + merchantCount + '</div></div>' +
+            '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
+            '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>';
+
+        // Build list
+        let list = Object.entries(summary);
+        if (term) {
+            list = list.filter(([id, s]) => s.name.toLowerCase().includes(term));
+        }
+
+        if (list.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد مبيعات للتجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع لتاجر من الأعلى') + '</div></div>';
+            return;
+        }
+
+        let html = '';
+        list.forEach(([id, s]) => {
+            let b = s.totalSales - s.totalPayments;
+            let balClass = b > 0 ? 'debt' : (b < 0 ? 'credit' : 'clear');
+            html += '<div class="sale-row">';
+            html += '<div class="info"><div class="name">' + s.name + '</div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
+            html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
+            html += '<div class="sale-actions">';
+            html += '<button class="btn-sm btn-success" onclick="showMerchantStatement(' + id + ')">📋 كشف</button>';
+            html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + id + ')">💵 دفعة</button>';
+            html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + id + ')">📱 واتساب</button>';
+            html += '</div></div>';
+        });
+        container.innerHTML = html;
+    }
+
+    // ====== Event handlers لمبيعات التجار ======
+    document.getElementById('msNewMerchantBtn').addEventListener('click', () => {
+        let f = document.getElementById('msNewMerchantFields');
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('msLoadContactsBtn').addEventListener('click', async () => {
+        if ('contacts' in navigator && 'ContactsManager' in window) {
+            try {
+                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    document.getElementById('msNewName').value = contacts[0].name.join(' ') || '';
+                    document.getElementById('msNewPhone').value = contacts[0].tel[0] || '';
+                }
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
+            }
+        } else {
+            showToast('ميزة جهات الاتصال غير متاحة على هذا الجهاز', 'error');
+        }
+    });
+
+    document.getElementById('merchantSaleForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let merchantId = parseInt(document.getElementById('msMerchantId').value);
+            let isNew = false;
+            if (!merchantId) {
+                let name = document.getElementById('msNewName').value.trim();
+                let phone = document.getElementById('msNewPhone').value.trim();
+                if (!name || !phone) { showToast('اختر تاجر أو أدخل اسم ورقم تاجر جديد', 'error'); return; }
+                let newMerchant = { id: Date.now(), name, phone, address: '' };
+                merchants.push(newMerchant);
+                merchantId = newMerchant.id;
+                isNew = true;
+                refreshSelectors();
+            }
+
+            let deviceName = document.getElementById('msDeviceName').value.trim();
+            let sellPrice = parseFloat(document.getElementById('msSellPrice').value);
+            let notes = document.getElementById('msNotes').value.trim();
+            if (!deviceName || !sellPrice || sellPrice <= 0) { showToast('أدخل اسم الجهاز وسعر البيع', 'error'); return; }
+
+            let sale = {
+                id: Date.now(),
+                merchantId,
+                merchantName: merchants.find(m => m.id == merchantId)?.name || '',
+                phone: merchants.find(m => m.id == merchantId)?.phone || '',
+                deviceName,
+                sellPrice,
+                date: new Date().toISOString(),
+                notes
+            };
+            merchantSales.push(sale);
+
+            // تسجيل في الخزينة كبيع (اختياري — أو نتركه كمديونية فقط)
+            // يمكن إضافة custom type هنا أو الاكتفاء بـ merchantSales
+
+            document.getElementById('merchantSaleForm').reset();
+            document.getElementById('msNewMerchantFields').style.display = 'none';
+            if (isNew) { document.getElementById('msMerchantId').value = merchantId; }
+            saveData(); renderMerchantSales(); renderDashboard();
+            showToast('✅ تم تسجيل بيع ' + deviceName + ' لـ ' + sale.merchantName + ' بقيمة ' + sellPrice.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    });
+
+    document.getElementById('merchantPaymentForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let merchantId = parseInt(document.getElementById('mpMerchantId').value);
+            let amount = parseFloat(document.getElementById('mpAmount').value);
+            let notes = document.getElementById('mpNotes').value.trim();
+            if (!merchantId) { showToast('اختر تاجر', 'error'); return; }
+            if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+            let m = merchants.find(x => x.id == merchantId);
+            if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+
+            let pay = { id: Date.now(), merchantId, amount, date: new Date().toISOString(), notes: notes || 'دفعة من ' + m.name };
+            merchantPayments.push(pay);
+            transactions.push({
+                id: Date.now() + 1, type: 'payment_in', amount,
+                merchantId, notes: 'دفعة من تاجر: ' + m.name + (notes ? ' - ' + notes : ''), date: new Date().toISOString()
+            });
+
+            document.getElementById('merchantPaymentForm').reset();
+            saveData(); renderMerchantSales(); renderTransactions(); renderDashboard();
+            showToast('✅ تم تسجيل دفعة ' + amount.toFixed(2) + ' ج من ' + m.name);
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    });
+
     function generateFullInstallmentPDF(inst) {
         let merchant = merchants.find(m => m.id == inst.merchantId);
         let p = products.find(x => x.id == inst.productId);
@@ -2306,6 +2650,7 @@
         if (!confirm('🔴 تأكيد نهائي: هل تريد فعلاً مسح كل البيانات؟')) return;
         products = []; merchants = []; transactions = []; installments = [];
         msgTemplates = { reminder: '', late: '' };
+        merchantSales = []; merchantPayments = [];
         openingCapital = 0;
         localStorage.setItem('openingCapital', '0');
         saveData();
@@ -2321,7 +2666,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                openingCapital
+                merchantSales, merchantPayments, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -2357,6 +2702,8 @@
                     transactions = data.transactions || [];
                     installments = data.installments || [];
                     msgTemplates = data.msgTemplates || msgTemplates;
+                    merchantSales = data.merchantSales || [];
+                    merchantPayments = data.merchantPayments || [];
                     if (data.openingCapital !== undefined) {
                         openingCapital = data.openingCapital;
                         localStorage.setItem('openingCapital', String(openingCapital));
@@ -2403,7 +2750,7 @@
             switchPage(pageId);
             toggleMenu(true);
             renderDashboard(); renderProducts(); renderMerchants(); 
-            renderTransactions(); renderInstallments(); refreshSelectors();
+            renderTransactions(); renderInstallments(); renderMerchantSales(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
     });
@@ -2487,7 +2834,7 @@
     setTimeout(() => {
         checkAppLock();
         refreshSelectors(); renderProducts(); renderMerchants(); 
-        renderTransactions(); renderInstallments(); renderDashboard();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
         initSettingsPage();
     }, 100);
 </script>
