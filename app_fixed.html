@@ -348,7 +348,6 @@
         <button class="close-nav" id="closeNavBtn">✖ إغلاق القائمة</button>
         <button data-page="dashboard">📊 لوحة التحكم والمؤشرات</button>
         <button data-page="products">📦 إدارة المخزون والأصناف</button>
-        <button data-page="merchants">🧑‍💼 العملاء والموردين</button>
         <button data-page="transactions">💰 الخزينة والمعاملات</button>
         <button data-page="installments">📅 إدارة عقود التقسيط</button>
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
@@ -440,39 +439,19 @@
             <div id="productsList"></div>
         </div>
 
-        <div id="merchants" class="page">
-            <h2>إضافة عميل / مورد</h2>
-            <div class="card">
-                <form id="merchantForm">
-                    <input type="hidden" id="merchantId">
-                    <div class="form-group">
-                        <label>الاسم</label>
-                        <input type="text" id="merchantName" required placeholder="اسم العميل الرباعي">
-                    </div>
-                    <div class="form-group">
-                        <label>رقم الهاتف</label>
-                        <div style="display:flex; gap:8px;">
-                            <input type="tel" id="merchantPhone" required style="flex:1;">
-                            <button type="button" id="loadContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>العنوان / ملاحظات</label>
-                        <input type="text" id="merchantAddress">
-                    </div>
-                    <button type="submit">💾 حفظ جهة الاتصال</button>
-                </form>
-            </div>
-            <h2>قائمة العملاء</h2>
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchMerchants" placeholder="بحث في العملاء..." oninput="renderMerchants()">
-            </div>
-            <div id="merchantsList"></div>
-        </div>
 
         <div id="transactions" class="page">
             <h2>📋 سجل الحركات المالية</h2>
+
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="transNewName" placeholder="اسم العميل (اختياري)" style="flex:1; min-width:120px;">
+                    <input type="tel" id="transNewPhone" placeholder="رقم الهاتف (اختياري)" style="flex:1; min-width:120px;">
+                    <button type="button" id="transContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
+                    <button type="button" id="transSaveContactBtn" class="btn-sm btn-success">💾 حفظ</button>
+                </div>
+            </div>
+
             <div class="flex-between" style="gap:10px; margin-bottom:16px;">
                 <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#86efac; flex:1;">
                     <div style="font-size:1.3rem; margin-bottom:2px;">💰</div>
@@ -508,6 +487,22 @@
                         <label>العميل</label>
                         <div style="display:flex; gap:8px;">
                             <select id="instMerchantId" required style="flex:1;"></select>
+                            <button type="button" id="instNewMerchantBtn" class="btn-sm btn-outline">➕ جديد</button>
+                        </div>
+                        <div id="instNewMerchantFields" style="display:none;">
+                            <div class="grid-2">
+                                <div class="form-group">
+                                    <label>اسم العميل</label>
+                                    <input type="text" id="instNewName">
+                                </div>
+                                <div class="form-group">
+                                    <label>رقم الهاتف</label>
+                                    <div style="display:flex; gap:8px;">
+                                        <input type="tel" id="instNewPhone" style="flex:1;">
+                                        <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1285,7 +1280,7 @@
         if (autoBackupTimer) clearInterval(autoBackupTimer);
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
-                const backup = { date: new Date().toISOString(), products, merchants, transactions, installments, msgTemplates };
+                const backup = { date: new Date().toISOString(), products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, openingCapital };
                 localStorage.setItem('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -1340,6 +1335,54 @@
             });
         });
     }
+
+
+    // ====== Inline new merchant for installments ======
+
+    document.getElementById('transContactsBtn').addEventListener('click', async () => {
+        if ('contacts' in navigator && 'ContactsManager' in window) {
+            try {
+                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    document.getElementById('transNewName').value = contacts[0].name.join(' ') || '';
+                    document.getElementById('transNewPhone').value = contacts[0].tel[0] || '';
+                }
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
+            }
+        } else {
+            showToast('ميزة جهات الاتصال غير متاحة', 'error');
+        }
+    });
+    document.getElementById('transSaveContactBtn').addEventListener('click', () => {
+        let name = document.getElementById('transNewName').value.trim();
+        let phone = document.getElementById('transNewPhone').value.trim();
+        if (!name || !phone) { showToast('أدخل الاسم ورقم الهاتف', 'error'); return; }
+        let m = { id: Date.now(), name, phone, address: '' };
+        merchants.push(m);
+        refreshSelectors();
+        showToast('تم حفظ ' + name + ' في جهات الاتصال');
+    });
+
+    document.getElementById('instNewMerchantBtn').addEventListener('click', () => {
+        let f = document.getElementById('instNewMerchantFields');
+        f.style.display = f.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('instContactsBtn').addEventListener('click', async () => {
+        if ('contacts' in navigator && 'ContactsManager' in window) {
+            try {
+                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    document.getElementById('instNewName').value = contacts[0].name.join(' ') || '';
+                    document.getElementById('instNewPhone').value = contacts[0].tel[0] || '';
+                }
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
+            }
+        } else {
+            showToast('ميزة جهات الاتصال غير متاحة على هذا الجهاز', 'error');
+        }
+    });
 
     function refreshSelectors() {
         const filteredProducts = filterList(products, '', ['name']);
@@ -1581,96 +1624,12 @@
         }
     };
 
-    document.getElementById('merchantForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        try {
-            let name = document.getElementById('merchantName').value.trim();
-            if (!validateRequired(name, 'اسم العميل')) return;
-            let phone = document.getElementById('merchantPhone').value.trim();
-            if (!validateRequired(phone, 'رقم الهاتف')) return;
+   );
 
-            let id = document.getElementById('merchantId').value;
-            let m = {
-                id: id ? parseInt(id) : Date.now(),
-                name: name,
-                phone: phone,
-                address: document.getElementById('merchantAddress').value.trim()
-            };
-            if (id) {
-                let idx = merchants.findIndex(x => x.id == id);
-                merchants[idx] = m;
-                showToast('تم تحديث العميل');
-            } else {
-                merchants.push(m);
-                showToast('تم الإضافة');
-            }
-            saveData(); renderMerchants(); refreshSelectors();
-            e.target.reset(); document.getElementById('merchantId').value = '';
-        } catch (err) {
-            showError('حدث خطأ أثناء حفظ العميل', err.message);
-        }
-    });
 
-    function renderMerchants() {
-        const container = document.getElementById('merchantsList');
-        const term = getSearchTerm('Merchants');
-        const filtered = filterList(merchants, term, ['name', 'phone', 'address']);
-        if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا يوجد عملاء') + '</div><div class="empty-sub">أضف عميلاً جديداً من الفورم أعلاه</div></div>';
-            return;
-        }
-        container.innerHTML = filtered.map(m => {
-            let debt = installments.filter(i => i.merchantId == m.id && !i.isPaid).reduce((s, i) => s + i.remainingBalance, 0);
-            let contractCount = installments.filter(i => i.merchantId == m.id).length;
-            return '' +
-            '<div class="card">' +
-                '<div class="flex-between" style="margin-bottom:6px;">' +
-                    '<strong style="font-size:1.05rem;">👤 ' + m.name + '</strong>' +
-                    (debt > 0 ? '<span class="badge badge-danger">دين: ' + debt.toFixed(0) + ' ج</span>' : '<span class="badge badge-success">✅ لا دين</span>') +
-                '</div>' +
-                '<div style="border-top:1px solid var(--border); padding-top:8px; margin-top:6px;">' +
-                    '<div style="display:flex; gap:12px; flex-wrap:wrap; font-size:0.88rem; color:var(--text-muted); margin-bottom:10px;">' +
-                        '<span>📞 ' + m.phone + '</span>' +
-                        '<span>📍 ' + (m.address || 'لا يوجد عنوان') + '</span>' +
-                        (contractCount > 0 ? '<span>📅 عقود: ' + contractCount + '</span>' : '') +
-                    '</div>' +
-                '</div>' +
-                '<div style="display:flex; gap:6px; flex-wrap:wrap;">' +
-                    '<button class="btn-sm whatsapp-btn" onclick="sendWhatsApp(\'' + m.phone + '\',\'أهلاً بك، يرجى العلم أن الرصيد المستحق هو ' + debt.toFixed(2) + ' ج.م\')" style="flex:1;">📲 واتساب</button>' +
-                    '<button class="btn-sm btn-outline" onclick="editMerchant(' + m.id + ')" style="flex:0;">✏️</button>' +
-                    '<button class="btn-sm btn-danger" onclick="deleteMerchant(' + m.id + ')" style="flex:0;">🗑️</button>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
     
-    window.editMerchant = (id) => {
-        let m = merchants.find(x => x.id == id);
-        if (m) {
-            document.getElementById('merchantId').value = m.id;
-            document.getElementById('merchantName').value = m.name;
-            document.getElementById('merchantPhone').value = m.phone;
-            document.getElementById('merchantAddress').value = m.address;
-            switchPage('merchants');
-        }
-    };
-
-    window.deleteMerchant = (id) => {
-        try {
-            if (installments.some(i => i.merchantId == id) || transactions.some(t => t.merchantId == id)) {
-                showToast('لا يمكن حذف العميل لارتباطه بحسابات قائمة', 'error'); return;
-            }
-            if (confirm('تأكيد حذف العميل ' + (merchants.find(x => x.id == id)?.name || '') + '؟')) {
-                merchants = merchants.filter(x => x.id != id);
-                saveData(); renderMerchants(); refreshSelectors();
-                showToast('تم الحذف');
-            }
-        } catch (err) {
-            showError('حدث خطأ أثناء الحذف', err.message);
-        }
-    };
-
-    // ====== عمليات المخزون (مباع / لم يباع / مصروف) ======
+    
+        // ====== عمليات المخزون (مباع / لم يباع / مصروف) ======
     window.sellProduct = (id) => {
         try {
             let p = products.find(x => x.id == id);
@@ -1777,31 +1736,7 @@
         }
     });
 
-    document.getElementById('loadContactsBtn').addEventListener('click', async () => {
-        if ('contacts' in navigator && 'ContactsManager' in window) {
-            try {
-                const supported = await navigator.contacts.getProperties();
-                const contacts = await navigator.contacts.select(
-                    supported.includes('tel') ? ['name','tel'] : ['name'],
-                    { multiple: false }
-                );
-                if (contacts.length > 0) {
-                    let c = contacts[0];
-                    if (c.name && c.name[0]) document.getElementById('merchantName').value = c.name[0];
-                    if (c.tel && c.tel[0]) document.getElementById('merchantPhone').value = c.tel[0].replace(/\s+/g,'');
-                    showToast('تم جلب بيانات جهة الاتصال');
-                }
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    showToast('تعذّر الوصول إلى جهات الاتصال', 'error');
-                }
-            }
-        } else {
-            showToast('ميزة جلب الاتصالات غير مدعومة في هذا المتصفح — يرجى الإدخال اليدوي', 'error');
-        }
-    });
-
-    function renderTransactions() {
+     {
         const container = document.getElementById('transactionsLog');
         const term = getSearchTerm('Transactions');
         const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)' };
@@ -1916,6 +1851,17 @@
         e.preventDefault();
         try {
             let mId = document.getElementById('instMerchantId').value;
+            if (!mId) {
+                let newName = document.getElementById('instNewName').value.trim();
+                let newPhone = document.getElementById('instNewPhone').value.trim();
+                if (newName && newPhone) {
+                    let newM = { id: Date.now(), name: newName, phone: newPhone, address: '' };
+                    merchants.push(newM);
+                    mId = newM.id;
+                    refreshSelectors();
+                    document.getElementById('instMerchantId').value = mId;
+                }
+            }
             let pId = document.getElementById('instProductId').value;
             let price = parseFloat(document.getElementById('purchasePrice').value);
             let upfront = parseFloat(document.getElementById('paidUpfront').value) || 0;
@@ -2333,7 +2279,7 @@
             html += '<div class="info"><div class="name">' + s.name + '</div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
             html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
             html += '<div class="sale-actions">';
-            html += '<button class="btn-sm btn-success" onclick="showMerchantStatement(' + id + ')">📋 كشف</button>';
+            html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + id + ')">📋 PDF</button>';
             html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + id + ')">💵 دفعة</button>';
             html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + id + ')">📱 واتساب</button>';
             html += '</div></div>';
@@ -2412,7 +2358,9 @@
     document.getElementById('merchantPaymentForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
-            let merchantId = parseInt(document.getElementById('mpMerchantId').value);
+            let mpEl = document.getElementById('mpMerchantId');
+            if (!mpEl) { showToast('عنصر التاجر غير موجود', 'error'); return; }
+            let merchantId = parseInt(mpEl.value);
             let amount = parseFloat(document.getElementById('mpAmount').value);
             let notes = document.getElementById('mpNotes').value.trim();
             if (!merchantId) { showToast('اختر تاجر', 'error'); return; }
@@ -2435,6 +2383,71 @@
         }
     });
 
+
+    window.generateMerchantStatementPDF = (merchantId) => {
+        try {
+            let m = merchants.find(x => x.id == merchantId);
+            if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+            let sales = merchantSales.filter(s => s.merchantId == merchantId);
+            let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+            let bal = calcMerchantBalance(merchantId);
+            let rows = [];
+            sales.forEach(s => rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || ''), debit: s.sellPrice, credit: 0 }));
+            payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
+            rows.sort((a, b) => a.date.localeCompare(b.date));
+            let rowsHtml = rows.map(r => {
+                return '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.date.slice(0,10) + '</td>' +
+                    '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.desc + '</td>' +
+                    '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9; color:#059669; font-weight:bold;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
+                    '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9; color:#dc2626; font-weight:bold;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>';
+            }).join('');
+            let balColor = bal.balance > 0 ? '#ef4444' : (bal.balance < 0 ? '#059669' : '#0f172a');
+            let balLabel = bal.balance > 0 ? 'مديونية' : (bal.balance < 0 ? 'زيادة' : 'مسدد');
+            let htmlContent = '' +
+                '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif; direction:rtl; padding:24px; background:#f8fafc; color:#0f172a; max-width:780px; margin:auto; box-sizing:border-box;">' +
+                    '<div style="text-align:center; margin-bottom:24px;">' +
+                        '<h1 style="color:#4f46e5; font-size:1.6rem; margin:0 0 4px 0;">📄 كشف حساب تاجر</h1>' +
+                        '<p style="color:#64748b; font-size:0.9rem; margin:0;">نظام الإدارة المحاسبية للموبايلات</p>' +
+                    '</div>' +
+                    '<div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px;">' +
+                        '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
+                            '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>اسم التاجر:</strong> ' + m.name + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>رقم الهاتف:</strong> ' + (m.phone || '—') + '</td></tr>' +
+                            '<tr><td style="padding:8px 4px;"><strong>إجمالي المبيعات:</strong> ' + bal.totalSales.toFixed(2) + ' ج</td><td style="padding:8px 4px;"><strong>إجمالي المدفوعات:</strong> ' + bal.totalPayments.toFixed(2) + ' ج</td></tr>' +
+                        '</table>' +
+                    '</div>' +
+                    '<h3 style="color:#0f172a;margin:0 0 14px 0;">📋 تفاصيل الحركات</h3>' +
+                    '<table style="width:100%;border-collapse:collapse;text-align:right;background:#fff;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;">' +
+                        '<thead><tr style="background:#4f46e5;color:white;">' +
+                            '<th style="padding:10px 8px;">التاريخ</th><th style="padding:10px 8px;">البيان</th><th style="padding:10px 8px;">مدين (عليه)</th><th style="padding:10px 8px;">دائن (له)</th>' +
+                        '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+                    '<div style="margin-top:20px;padding:14px;background:' + (bal.balance > 0 ? '#fef2f2' : '#f0fdf4') + ';border-radius:10px;border:2px solid ' + balColor + ';text-align:center;">' +
+                        '<span style="font-size:1.1rem;font-weight:bold;color:' + balColor + ';">' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج</span>' +
+                    '</div>' +
+                    '<div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">' +
+                        'تم إنشاء هذا المستند آلياً — نظام إدارة الموبايلات' +
+                    '</div>' +
+                '</div>';
+            let name = m.name;
+            let printWindow = window.open('', '_blank', 'width=900,height=700');
+            if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+            printWindow.document.write('<!DOCTYPE html>\n' +
+                '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>كشف حساب - ' + name + '</title>\n<style>' +
+                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\\'Segoe UI\\',Tahoma,Arial,sans-serif;}' +
+                '@media print{body{background:white}.no-print{display:none!important}@page{margin:1cm;size:A4}}' +
+                '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+                '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+                '.content-wrap{padding-top:56px;}' +
+                '</style></head><body>' +
+                '<div class="print-bar no-print"><span>📄 كشف حساب — ' + name + '</span><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
+                '<div class="content-wrap">' + htmlContent + '</div>' +
+                '<script>window.onafterprint = () => window.close();<\\/script>' +
+                '</body></html>');
+            printWindow.document.close();
+            showToast('تم فتح نافذة الطباعة، اختر حفظ كـ PDF');
+        } catch (err) {
+            showError('حدث خطأ أثناء إنشاء PDF', err.message);
+        }
+    };
     function generateFullInstallmentPDF(inst) {
         let merchant = merchants.find(m => m.id == inst.merchantId);
         let p = products.find(x => x.id == inst.productId);
@@ -2654,8 +2667,8 @@
         openingCapital = 0;
         localStorage.setItem('openingCapital', '0');
         saveData();
-        refreshSelectors(); renderProducts(); renderMerchants();
-        renderTransactions(); renderInstallments(); renderDashboard(); initSettingsPage();
+        refreshSelectors(); renderProducts();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard(); initSettingsPage();
         showToast('تم مسح جميع البيانات');
     });
 
@@ -2710,8 +2723,8 @@
                     }
                     await saveData();
                     refreshSelectors();
-                    renderProducts(); renderMerchants(); renderTransactions();
-                    renderInstallments(); renderDashboard(); initSettingsPage();
+                    renderProducts(); renderTransactions();
+                    renderInstallments(); renderMerchantSales(); renderDashboard(); initSettingsPage();
                     showToast('تم استيراد النسخة الاحتياطية بنجاح!');
                 } catch (parseErr) {
                     showToast('الملف غير صالح — خطأ في قراءة البيانات', 'error');
@@ -2749,7 +2762,7 @@
             const pageId = btn.getAttribute('data-page');
             switchPage(pageId);
             toggleMenu(true);
-            renderDashboard(); renderProducts(); renderMerchants(); 
+            renderDashboard(); renderProducts();
             renderTransactions(); renderInstallments(); renderMerchantSales(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
@@ -2833,7 +2846,7 @@
     // التحميل الأولي
     setTimeout(() => {
         checkAppLock();
-        refreshSelectors(); renderProducts(); renderMerchants(); 
+        refreshSelectors(); renderProducts();
         renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
         initSettingsPage();
     }, 100);
