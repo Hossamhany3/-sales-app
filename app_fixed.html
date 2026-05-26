@@ -802,16 +802,25 @@
         for (const name of STORE_NAMES) {
             const data = await idbGetAll(name);
             if (data && data.length > 0) {
-                window[name] = data;
+                assignData(name, data);
             }
         }
         return true;
     }
 
+    function assignData(name, data) {
+        if (name === 'products') products = data;
+        else if (name === 'merchants') merchants = data;
+        else if (name === 'transactions') transactions = data;
+        else if (name === 'installments') installments = data;
+        else if (name === 'msgTemplates') msgTemplates = data;
+    }
+
     async function saveAllToIDB() {
         if (!db) return;
+        const allData = { products, merchants, transactions, installments, msgTemplates };
         for (const name of STORE_NAMES) {
-            const data = window[name];
+            const data = allData[name];
             if (!data) continue;
             if (!Array.isArray(data)) {
                 await idbPut(name, data);
@@ -872,6 +881,8 @@
                 late: ''
             };
         }
+        // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
+        openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
 
         if (!msgTemplates || !msgTemplates.reminder) {
             msgTemplates = {
@@ -2295,6 +2306,8 @@
         if (!confirm('🔴 تأكيد نهائي: هل تريد فعلاً مسح كل البيانات؟')) return;
         products = []; merchants = []; transactions = []; installments = [];
         msgTemplates = { reminder: '', late: '' };
+        openingCapital = 0;
+        localStorage.setItem('openingCapital', '0');
         saveData();
         refreshSelectors(); renderProducts(); renderMerchants();
         renderTransactions(); renderInstallments(); renderDashboard(); initSettingsPage();
@@ -2307,7 +2320,8 @@
             const backup = {
                 version: 2,
                 date: new Date().toISOString(),
-                products, merchants, transactions, installments, msgTemplates
+                products, merchants, transactions, installments, msgTemplates,
+                openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -2343,6 +2357,10 @@
                     transactions = data.transactions || [];
                     installments = data.installments || [];
                     msgTemplates = data.msgTemplates || msgTemplates;
+                    if (data.openingCapital !== undefined) {
+                        openingCapital = data.openingCapital;
+                        localStorage.setItem('openingCapital', String(openingCapital));
+                    }
                     await saveData();
                     refreshSelectors();
                     renderProducts(); renderMerchants(); renderTransactions();

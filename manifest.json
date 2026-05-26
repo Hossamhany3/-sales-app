@@ -3,6 +3,7 @@
   "short_name": "إدارة المبيعات",
   "description": "نظام متكامل لإدارة المبيعات والتقسيط والمخزون",
   "start_url": "./app_fixed.html",
+  "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
   "background_color": "#0f172a",
