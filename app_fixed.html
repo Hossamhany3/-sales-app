@@ -519,13 +519,15 @@
                 <form id="installmentForm">
                     <div class="form-group">
                         <label>اسم العميل</label>
-                        <select id="instMerchantId" required style="width:100%;" onchange="autoFillInstPhone()"></select>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="instName" required placeholder="اسم العميل" style="flex:1;">
+                            <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label>رقم الهاتف (للتذكير)</label>
+                        <label>رقم الهاتف</label>
                         <div style="display:flex; gap:8px;">
                             <input type="tel" id="instPhone" style="flex:1;" placeholder="رقم الهاتف">
-                            <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1354,6 +1356,7 @@
             try {
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
+                    document.getElementById('instName').value = contacts[0].name.join(' ') || '';
                     document.getElementById('instPhone').value = contacts[0].tel[0] || '';
                 }
             } catch (err) {
@@ -1372,7 +1375,6 @@
         if (document.getElementById('transProductId')) document.getElementById('transProductId').innerHTML = prodOptions;
         if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
-        if (document.getElementById('instMerchantId')) document.getElementById('instMerchantId').innerHTML = '<option value="">-- اختر العميل --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('mpMerchantId')) document.getElementById('mpMerchantId').innerHTML = msMerchOptions;
@@ -1382,12 +1384,6 @@
     function autoFillMsPrice() {
         let pid = document.getElementById('msProductId').value;
         if (!pid) return;
-    }
-
-    function autoFillInstPhone() {
-        const mId = document.getElementById('instMerchantId').value;
-        const m = merchants.find(x => x.id == mId);
-        document.getElementById('instPhone').value = m?.phone || '';
     }
 
     function getDateRange() {
@@ -1898,7 +1894,21 @@
     document.getElementById('installmentForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
-            let mId = document.getElementById('instMerchantId').value;
+            let name = document.getElementById('instName').value.trim();
+            let phone = document.getElementById('instPhone').value.trim();
+            if (!name) { showToast('أدخل اسم العميل', 'error'); return; }
+
+            let existing = merchants.find(m => m.name === name && m.phone === phone);
+            let mId;
+            if (existing) {
+                mId = existing.id;
+            } else {
+                let newM = { id: Date.now(), name, phone, address: '' };
+                merchants.push(newM);
+                mId = newM.id;
+                refreshSelectors();
+            }
+
             let pId = document.getElementById('instProductId').value;
             let price = parseFloat(document.getElementById('purchasePrice').value);
             let upfront = parseFloat(document.getElementById('paidUpfront').value) || 0;
