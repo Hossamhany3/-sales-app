@@ -2343,13 +2343,21 @@
         try {
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
-            let newPrice = prompt('تعديل سعر بيع ' + (sale.deviceName || '') + '\nالسعر الحالي: ' + (sale.sellPrice || 0).toFixed(2) + ' ج', sale.sellPrice);
+
+            let newPrice = prompt('✏️ تعديل بيع ' + (sale.deviceName || '') +
+                '\n' + 'السعر الحالي: ' + (sale.sellPrice || 0).toFixed(2) + ' ج' +
+                '\n' + 'الملاحظات الحالية: ' + (sale.notes || 'بدون') +
+                '\n\nأدخل السعر الجديد:', sale.sellPrice);
             if (newPrice === null) return;
             let price = parseFloat(newPrice);
             if (isNaN(price) || price <= 0) { showToast('سعر غير صالح', 'error'); return; }
             sale.sellPrice = price;
+
+            let newNotes = prompt('أدخل الملاحظات الجديدة:', sale.notes || '');
+            if (newNotes !== null) sale.notes = newNotes.trim();
+
             saveData(); renderMerchantSales(); renderDashboard();
-            showToast('✅ تم تحديث سعر البيع');
+            showToast('✅ تم تحديث بيانات البيع');
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -2359,7 +2367,11 @@
         try {
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
-            if (!confirm('⚠️ حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟')) return;
+            if (!confirm('⚠️ حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)')) return;
+
+            let p = products.find(x => x.name === sale.deviceName);
+            if (p) p.stock++;
+
             merchantSales = merchantSales.filter(s => s.id != id);
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('تم حذف بيع ' + (sale.deviceName || ''));
@@ -2381,7 +2393,7 @@
             '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
             '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>';
 
-        // Build list
+        // Build per-merchant list
         let list = Object.entries(summary);
         if (term) {
             list = list.filter(([id, s]) => s.name.toLowerCase().includes(term));
@@ -2393,18 +2405,35 @@
         }
 
         let html = '';
-        list.forEach(([id, s]) => {
+        list.forEach(([merchantId, s]) => {
             let b = s.totalSales - s.totalPayments;
             let balClass = b > 0 ? 'debt' : (b < 0 ? 'credit' : 'clear');
-            html += '<div class="sale-row">';
-            html += '<div class="info"><div class="name">' + s.name + '</div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
+            let sales = merchantSales.filter(sale => sale.merchantId == merchantId).sort((a, b2) => b2.date.localeCompare(a.date));
+
+            html += '<div class="card" style="padding:14px 16px;">';
+            html += '<div class="sale-row" style="cursor:pointer;" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
+            html += '<div class="info"><div class="name">' + s.name + ' <span style="color:var(--text-muted);font-size:0.8rem;font-weight:400;">(' + sales.length + ' أصناف)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
             html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
             html += '<div class="sale-actions">';
-            html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + id + ')">📋 PDF</button>';
-            html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + id + ')">💵 دفعة</button>';
-            html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + id + ')">📱 واتساب</button>';
-            html += '<button class="btn-sm" style="background:var(--primary-light);color:var(--primary);border:1px solid var(--border);padding:6px 8px;min-height:32px;font-size:0.85rem;" onclick="editMerchantSale(\'' + id + '\')">✏️</button>';
-            html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);padding:6px 8px;min-height:32px;font-size:0.85rem;" onclick="deleteMerchantSale(\'' + id + '\')">🗑️</button>';
+            html += '<button class="btn-sm btn-success" onclick="event.stopPropagation();generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
+            html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();recordMerchantPayment(' + merchantId + ')">💵 دفعة</button>';
+            html += '<button class="whatsapp-btn btn-sm" onclick="event.stopPropagation();sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
+            html += '</div></div>';
+
+            // Individual items list
+            html += '<div class="schedule-wrapper open" style="margin-top:8px;">';
+            html += '<div class="schedule-header"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
+            sales.forEach(sale => {
+                let d = new Date(sale.date).toLocaleDateString('ar-EG');
+                html += '<div class="schedule-item" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">';
+                html += '<span class="schedule-inst-num" style="font-size:0.9rem;">' + (sale.deviceName || '') + '</span>';
+                html += '<span class="schedule-amount" style="font-size:0.9rem;">' + (sale.sellPrice || 0).toFixed(2) + ' ج</span>';
+                html += '<span style="color:var(--text-muted);font-size:0.82rem;">' + d + '</span>';
+                html += '<div style="display:flex;gap:4px;">';
+                html += '<button class="btn-sm btn-outline" style="padding:4px 10px;min-height:30px;font-size:0.78rem;" onclick="editMerchantSale(' + sale.id + ')">✏️</button>';
+                html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);padding:4px 10px;min-height:30px;font-size:0.78rem;" onclick="deleteMerchantSale(' + sale.id + ')">🗑️</button>';
+                html += '</div></div>';
+            });
             html += '</div></div>';
         });
         container.innerHTML = html;
@@ -2465,6 +2494,7 @@
                 notes
             };
             merchantSales.push(sale);
+            p.stock--;
 
             document.getElementById('merchantSaleForm').reset();
             saveData(); renderMerchantSales(); renderDashboard();
