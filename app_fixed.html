@@ -462,15 +462,6 @@
         <div id="transactions" class="page">
             <h2>📋 سجل الحركات المالية</h2>
 
-            <div class="card" style="margin-bottom:16px;">
-                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <input type="text" id="transNewName" placeholder="اسم العميل (اختياري)" style="flex:1; min-width:120px;">
-                    <input type="tel" id="transNewPhone" placeholder="رقم الهاتف (اختياري)" style="flex:1; min-width:120px;">
-                    <button type="button" id="transContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
-                    <button type="button" id="transSaveContactBtn" class="btn-sm btn-success">💾 حفظ</button>
-                </div>
-            </div>
-
             <div class="flex-between" style="gap:10px; margin-bottom:16px;">
                 <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#86efac; flex:1;">
                     <div style="font-size:1.3rem; margin-bottom:2px;">💰</div>
@@ -527,25 +518,14 @@
             <div class="card">
                 <form id="installmentForm">
                     <div class="form-group">
-                        <label>العميل</label>
+                        <label>اسم العميل</label>
+                        <select id="instMerchantId" required style="width:100%;" onchange="autoFillInstPhone()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>رقم الهاتف (للتذكير)</label>
                         <div style="display:flex; gap:8px;">
-                            <select id="instMerchantId" required style="flex:1;"></select>
-                            <button type="button" id="instNewMerchantBtn" class="btn-sm btn-outline">➕ جديد</button>
-                        </div>
-                        <div id="instNewMerchantFields" style="display:none;">
-                            <div class="grid-2">
-                                <div class="form-group">
-                                    <label>اسم العميل</label>
-                                    <input type="text" id="instNewName">
-                                </div>
-                                <div class="form-group">
-                                    <label>رقم الهاتف</label>
-                                    <div style="display:flex; gap:8px;">
-                                        <input type="tel" id="instNewPhone" style="flex:1;">
-                                        <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
-                                    </div>
-                                </div>
-                            </div>
+                            <input type="tel" id="instPhone" style="flex:1;" placeholder="رقم الهاتف">
+                            <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1347,6 +1327,7 @@
         localStorage.setItem('openingCapital', String(openingCapital));
         await saveAllToIDB();
         updateStorageInfo();
+        renderDashboard();
     }
 
     function updateStorageInfo() {
@@ -1380,23 +1361,7 @@
     }
 
 
-    // ====== Inline new merchant for installments ======
-
-    document.getElementById('transContactsBtn').addEventListener('click', async () => {
-        if ('contacts' in navigator && 'ContactsManager' in window) {
-            try {
-                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
-                if (contacts.length > 0) {
-                    document.getElementById('transNewName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('transNewPhone').value = contacts[0].tel[0] || '';
-                }
-            } catch (err) {
-                if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
-            }
-        } else {
-            showToast('ميزة جهات الاتصال غير متاحة', 'error');
-        }
-    });
+    // ====== Installment contacts fetch ======
     document.getElementById('transSaveContactBtn').addEventListener('click', () => {
         let name = document.getElementById('transNewName').value.trim();
         let phone = document.getElementById('transNewPhone').value.trim();
@@ -1407,17 +1372,12 @@
         showToast('تم حفظ ' + name + ' في جهات الاتصال');
     });
 
-    document.getElementById('instNewMerchantBtn').addEventListener('click', () => {
-        let f = document.getElementById('instNewMerchantFields');
-        f.style.display = f.style.display === 'none' ? 'block' : 'none';
-    });
     document.getElementById('instContactsBtn').addEventListener('click', async () => {
         if ('contacts' in navigator && 'ContactsManager' in window) {
             try {
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
-                    document.getElementById('instNewName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('instNewPhone').value = contacts[0].tel[0] || '';
+                    document.getElementById('instPhone').value = contacts[0].tel[0] || '';
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
@@ -1439,6 +1399,12 @@
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('mpMerchantId')) document.getElementById('mpMerchantId').innerHTML = msMerchOptions;
+    }
+
+    function autoFillInstPhone() {
+        const mId = document.getElementById('instMerchantId').value;
+        const m = merchants.find(x => x.id == mId);
+        document.getElementById('instPhone').value = m?.phone || '';
     }
 
     function getDateRange() {
@@ -1941,17 +1907,6 @@
         e.preventDefault();
         try {
             let mId = document.getElementById('instMerchantId').value;
-            if (!mId) {
-                let newName = document.getElementById('instNewName').value.trim();
-                let newPhone = document.getElementById('instNewPhone').value.trim();
-                if (newName && newPhone) {
-                    let newM = { id: Date.now(), name: newName, phone: newPhone, address: '' };
-                    merchants.push(newM);
-                    mId = newM.id;
-                    refreshSelectors();
-                    document.getElementById('instMerchantId').value = mId;
-                }
-            }
             let pId = document.getElementById('instProductId').value;
             let price = parseFloat(document.getElementById('purchasePrice').value);
             let upfront = parseFloat(document.getElementById('paidUpfront').value) || 0;
@@ -2980,6 +2935,12 @@
     window.addEventListener('resize', () => {
         clearTimeout(chartTimer);
         chartTimer = setTimeout(() => drawChart(), 300);
+    });
+
+    // تحديث تلقائي عند تغيير البيانات من تبويب آخر
+    window.addEventListener('storage', () => {
+        checkAppLock(); refreshSelectors(); renderProducts();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
     });
 
     // التحميل الأولي
