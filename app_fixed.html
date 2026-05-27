@@ -29,6 +29,10 @@
             --text-main: #1e293b;
             --text-muted: #64748b;
             --border: #e2e8f0;
+            --header-bg: linear-gradient(135deg, #4f46e5, #6366f1);
+            --header-text: #ffffff;
+            --sidebar-bg: linear-gradient(180deg, #0f172a, #1e293b);
+            --sidebar-text: #e2e8f0;
             --radius-sm: 10px;
             --radius: 16px;
             --radius-lg: 20px;
@@ -37,14 +41,37 @@
             --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        [data-theme="dark"] {
+            --primary: #818cf8;
+            --primary-hover: #6366f1;
+            --primary-light: #1e1b4b;
+            --secondary: #e2e8f0;
+            --accent: #fbbf24;
+            --success: #34d399;
+            --success-light: #064e3b;
+            --danger: #f87171;
+            --danger-light: #450a0a;
+            --background: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --header-bg: linear-gradient(135deg, #1e1b4b, #312e81);
+            --header-text: #e0e7ff;
+            --sidebar-bg: linear-gradient(180deg, #0f172a, #0f172a);
+            --sidebar-text: #cbd5e1;
+            --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-hover: 0 10px 15px -3px rgba(0,0,0,0.4);
+        }
+
         * { box-sizing: border-box; font-family: 'Cairo', sans-serif; margin: 0; padding: 0; }
         body { background: var(--background); color: var(--text-main); min-height: 100dvh; }
         
         .container { max-width: 800px; margin: auto; min-height: 100dvh; position: relative; padding-bottom: 40px; }
         
         .app-header {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: white;
+            background: var(--header-bg);
+            color: var(--header-text);
             padding: 16px 24px;
             display: flex;
             align-items: center;
@@ -61,7 +88,7 @@
         
         .side-nav {
             position: fixed; top: 0; right: -280px; width: 280px; height: 100%;
-            background: linear-gradient(180deg, #0f172a, #1e293b); color: white;
+            background: var(--sidebar-bg); color: var(--sidebar-text);
             transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 30; padding: 24px; display: flex; flex-direction: column; gap: 8px;
             box-shadow: -4px 0 25px rgba(0,0,0,0.3);
@@ -91,10 +118,10 @@
         input, select, textarea {
             width: 100%; padding: 11px 14px; border-radius: var(--radius-sm);
             border: 1px solid var(--border); font-size: 0.95rem;
-            background: #f8fafc; transition: all var(--transition);
-            font-family: 'Cairo', sans-serif;
+            background: var(--card-bg); transition: all var(--transition);
+            font-family: 'Cairo', sans-serif; color: var(--text-main);
         }
-        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); background: white; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
         input[readonly] { background: var(--primary-light); color: var(--primary); font-weight: bold; border-color: #c7d2fe; }
         
         button { background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 0.95rem; transition: all var(--transition); min-height: 44px; }
@@ -121,7 +148,7 @@
         .badge-primary { background: var(--primary-light); color: #3730a3; }
         .badge-info { background: #e0f2fe; color: #075985; }
 
-        .stat-card { background: white; border-radius: 16px; padding: 14px; text-align: center; border: 1px solid var(--border); flex: 1; min-width: 100px; box-shadow: var(--shadow-card); }
+        .stat-card { background: var(--card-bg); border-radius: 16px; padding: 14px; text-align: center; border: 1px solid var(--border); flex: 1; min-width: 100px; box-shadow: var(--shadow-card); }
         .stat-card .value { font-size: 1.3rem; font-weight: 800; margin-top: 6px; }
         .stat-card.revenue .value { color: var(--primary); }
         .stat-card.profit .value { color: var(--success); }
@@ -136,21 +163,21 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
 
-        .schedule-toggle { background: var(--secondary); color: #94a3b8; width: 100%; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; border-radius: 10px; padding: 10px; }
-        .schedule-toggle:hover { background: #1e293b; color: white; }
-        .schedule-wrapper { display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b; }
+        .schedule-toggle { background: var(--secondary); color: var(--text-muted); width: 100%; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; border-radius: 10px; padding: 10px; }
+        .schedule-toggle:hover { background: var(--primary); color: white; }
+        .schedule-wrapper { display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
         .schedule-wrapper.open { display: block; }
-        .schedule-header { background: var(--secondary); color: #94a3b8; padding: 10px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
-        .schedule-item { background: #0f172a; border-bottom: 1px solid #1e293b; padding: 14px 16px; }
+        .schedule-header { background: var(--secondary); color: var(--text-muted); padding: 10px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
+        .schedule-item { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 14px 16px; }
         .schedule-item:last-child { border-bottom: none; }
         .schedule-item.paid-slot { opacity: 0.6; }
         .schedule-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .schedule-inst-num { font-size: 1rem; font-weight: 700; color: #f8fafc; }
-        .schedule-inst-date { font-size: 0.82rem; color: #64748b; }
+        .schedule-inst-num { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+        .schedule-inst-date { font-size: 0.82rem; color: var(--text-muted); }
         .schedule-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.9rem; }
-        .schedule-label { color: #94a3b8; }
-        .schedule-amount { color: #f8fafc; font-weight: 600; }
-        .schedule-collected { color: #10b981; font-weight: 700; }
+        .schedule-label { color: var(--text-muted); }
+        .schedule-amount { color: var(--text-main); font-weight: 600; }
+        .schedule-collected { color: var(--success); font-weight: 700; }
         .schedule-actions { display: flex; gap: 8px; margin-top: 10px; }
         .btn-collect { background: #166534; color: #4ade80; border: 1px solid #16a34a; flex: 1; padding: 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; }
         .btn-collect:hover { background: #15803d; }
@@ -159,7 +186,7 @@
         .btn-whatsapp-sm:hover { background: #166534; }
 
         .search-box { position: relative; margin-bottom: 14px; }
-        .search-box input { padding-right: 40px; padding-left: 36px; border-radius: 50px; background: white; }
+        .search-box input { padding-right: 40px; padding-left: 36px; border-radius: 50px; background: var(--card-bg); }
         .search-box .search-icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1rem; pointer-events: none; }
         .search-clear { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 4px 8px; min-height: 36px; display: none; }
         .search-clear.show { display: flex; align-items: center; }
@@ -168,7 +195,7 @@
         .pagination { display: flex; justify-content: center; gap: 4px; margin: 16px 0; flex-wrap: wrap; }
         .pagination button {
             padding: 6px 12px; border-radius: 10px; font-size: 0.85rem;
-            background: white; color: var(--primary); border: 1px solid var(--border);
+            background: var(--card-bg); color: var(--primary); border: 1px solid var(--border);
             min-width: 36px; min-height: 36px; font-weight: 600; box-shadow: none;
         }
         .pagination button:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); transform: none; }
@@ -204,7 +231,7 @@
 
         /* إشعار فتح التطبيق */
         .alert-banner {
-            background: #fef3c7; border: 1px solid #f59e0b;
+            background: #fef3c7; border: 1px solid var(--accent);
             border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
             display: none; flex-direction: column; gap: 8px;
         }
@@ -212,12 +239,12 @@
         .alert-banner .alert-title { font-weight: 700; color: #92400e; display: flex; align-items: center; gap: 8px; }
         .alert-banner .alert-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #78350f; padding: 4px 0; border-bottom: 1px dashed #fde68a; }
         .alert-banner .alert-item:last-child { border-bottom: none; }
-        .alert-banner.danger { background: #fee2e2; border-color: var(--danger); }
-        .alert-banner.danger .alert-title { color: #991b1b; }
-        .alert-banner.danger .alert-item { color: #7f1d1d; border-color: #fecaca; }
+        .alert-banner.danger { background: var(--danger-light); border-color: var(--danger); }
+        .alert-banner.danger .alert-title { color: var(--danger); }
+        .alert-banner.danger .alert-item { color: var(--text-main); border-color: var(--border); }
 
         /* رسم بياني */
-        .chart-container { background: white; border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
+        .chart-container { background: var(--card-bg); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
         .chart-container canvas { width: 100% !important; height: 200px !important; }
         .chart-legend { display: flex; gap: 20px; justify-content: center; margin-top: 8px; font-size: 0.85rem; }
         .chart-legend span { display: flex; align-items: center; gap: 6px; }
@@ -231,7 +258,7 @@
         }
         .receipt-overlay.show { display: flex; }
         .receipt-box {
-            background: white; border-radius: 20px; padding: 24px;
+            background: var(--card-bg); border-radius: 20px; padding: 24px;
             max-width: 360px; width: 100%; direction: rtl;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
@@ -261,7 +288,7 @@
         }
 
         /* مبيعات التجار */
-        .merchant-statement { background: white; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
+        .merchant-statement { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
         .merchant-statement-header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
         .merchant-statement-header h3 { margin: 0; font-size: 1rem; color: white; }
         .merchant-statement-table { width: 100%; border-collapse: collapse; }
@@ -269,10 +296,10 @@
         .merchant-statement-table td { padding: 10px 12px; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
         .merchant-statement-table .positive { color: var(--danger); font-weight: 700; }
         .merchant-statement-table .negative { color: var(--success); font-weight: 700; }
-        .merchant-statement-total { background: #f8fafc; padding: 12px 16px; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; }
+        .merchant-statement-total { background: var(--card-bg); padding: 12px 16px; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; }
         .merchant-statement-total .debt { color: var(--danger); }
         .merchant-statement-total .credit { color: var(--success); }
-        .ms-summary-card { background: white; border-radius: 12px; padding: 10px 14px; border: 1px solid var(--border); flex: 1; min-width: 120px; font-size: 0.85rem; }
+        .ms-summary-card { background: var(--card-bg); border-radius: 12px; padding: 10px 14px; border: 1px solid var(--border); flex: 1; min-width: 120px; font-size: 0.85rem; }
         .ms-summary-card .value { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
         .ms-summary-card.danger .value { color: var(--danger); }
         .ms-summary-card.success .value { color: var(--success); }
@@ -372,6 +399,7 @@
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
         <button data-page="reports">📈 التقارير المحاسبية</button>
         <button data-page="settings">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
+        <button id="themeToggleBtn">🌙 الوضع الليلي</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
     </div>
     <div class="overlay" id="overlay"></div>
@@ -2948,6 +2976,24 @@
         renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
         initSettingsPage();
     }, 100);
+
+    // ====== Theme switcher ======
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        const btn = document.getElementById('themeToggleBtn');
+        if (btn) btn.textContent = theme === 'dark' ? '☀️ الوضع النهاري' : '🌙 الوضع الليلي';
+        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0f172a' : '#4f46e5';
+    }
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') applyTheme('dark');
+
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+        toggleMenu(true);
+    });
 </script>
 </body>
 </html>
