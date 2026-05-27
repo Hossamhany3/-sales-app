@@ -598,16 +598,6 @@
                             <option value="">-- اختر صنف --</option>
                         </select>
                     </div>
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>اسم الجهاز</label>
-                            <input type="text" id="msDeviceName" required placeholder="يتم الملء تلقائياً">
-                        </div>
-                        <div class="form-group">
-                            <label>سعر البيع (ج.م)</label>
-                            <input type="number" id="msSellPrice" step="any" required placeholder="يتم الملء تلقائياً">
-                        </div>
-                    </div>
                     <div class="form-group">
                         <label>ملاحظات</label>
                         <input type="text" id="msNotes" placeholder="اختياري">
@@ -1391,9 +1381,7 @@
 
     function autoFillMsPrice() {
         let pid = document.getElementById('msProductId').value;
-        if (!pid) { document.getElementById('msDeviceName').value = ''; document.getElementById('msSellPrice').value = ''; return; }
-        let p = products.find(x => x.id == pid);
-        if (p) { document.getElementById('msDeviceName').value = p.name; document.getElementById('msSellPrice').value = p.sellPrice; }
+        if (!pid) return;
     }
 
     function autoFillInstPhone() {
@@ -2421,8 +2409,12 @@
                 refreshSelectors();
             }
 
-            let deviceName = document.getElementById('msDeviceName').value.trim();
-            let sellPrice = parseFloat(document.getElementById('msSellPrice').value);
+            let pid = document.getElementById('msProductId').value;
+            if (!pid) { showToast('اختر صنفاً من المخزون', 'error'); return; }
+            let p = products.find(x => x.id == pid);
+            if (!p) { showToast('الصنف غير موجود', 'error'); return; }
+            let deviceName = p.name;
+            let sellPrice = p.sellPrice;
             let notes = document.getElementById('msNotes').value.trim();
             if (!deviceName || !sellPrice || sellPrice <= 0) { showToast('أدخل اسم الجهاز وسعر البيع', 'error'); return; }
 
