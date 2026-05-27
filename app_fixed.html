@@ -592,14 +592,20 @@
                         <label>رقم الهاتف</label>
                         <input type="tel" id="msNewPhone" required placeholder="رقم الهاتف">
                     </div>
+                    <div class="form-group">
+                        <label>الجهاز (من المخزون)</label>
+                        <select id="msProductId" required onchange="autoFillMsPrice()">
+                            <option value="">-- اختر صنف --</option>
+                        </select>
+                    </div>
                     <div class="grid-2">
                         <div class="form-group">
                             <label>اسم الجهاز</label>
-                            <input type="text" id="msDeviceName" required placeholder="مثال: Samsung S24">
+                            <input type="text" id="msDeviceName" required placeholder="يتم الملء تلقائياً">
                         </div>
                         <div class="form-group">
-                            <label>سعر البيع</label>
-                            <input type="number" id="msSellPrice" step="any" required placeholder="0.00">
+                            <label>سعر البيع (ج.م)</label>
+                            <input type="number" id="msSellPrice" step="any" required placeholder="يتم الملء تلقائياً">
                         </div>
                     </div>
                     <div class="form-group">
@@ -1380,6 +1386,14 @@
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('mpMerchantId')) document.getElementById('mpMerchantId').innerHTML = msMerchOptions;
+        if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
+    }
+
+    function autoFillMsPrice() {
+        let pid = document.getElementById('msProductId').value;
+        if (!pid) { document.getElementById('msDeviceName').value = ''; document.getElementById('msSellPrice').value = ''; return; }
+        let p = products.find(x => x.id == pid);
+        if (p) { document.getElementById('msDeviceName').value = p.name; document.getElementById('msSellPrice').value = p.sellPrice; }
     }
 
     function autoFillInstPhone() {
