@@ -388,6 +388,7 @@
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
         <div class="app-title">الإدارة المحاسبية للموبايلات</div>
+        <button class="menu-icon" id="themeToggleBtn" title="تبديل الثيم">🌙</button>
     </div>
     
     <div class="side-nav" id="sideNav">
@@ -399,7 +400,6 @@
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
         <button data-page="reports">📈 التقارير المحاسبية</button>
         <button data-page="settings">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
-        <button id="themeToggleBtn">🌙 الوضع الليلي</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
     </div>
     <div class="overlay" id="overlay"></div>
@@ -2982,7 +2982,7 @@
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
         const btn = document.getElementById('themeToggleBtn');
-        if (btn) btn.textContent = theme === 'dark' ? '☀️ الوضع النهاري' : '🌙 الوضع الليلي';
+        if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
         document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0f172a' : '#4f46e5';
     }
 
@@ -2992,7 +2992,6 @@
     document.getElementById('themeToggleBtn').addEventListener('click', () => {
         const current = document.documentElement.getAttribute('data-theme');
         applyTheme(current === 'dark' ? 'light' : 'dark');
-        toggleMenu(true);
     });
 </script>
 </body>
