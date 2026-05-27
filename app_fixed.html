@@ -2672,19 +2672,53 @@
             let name = m?.name || 'عميل';
             let content = generateFullInstallmentPDF(inst);
 
-            let win = window.open('', '_blank', 'width=900,height=700');
-            if (!win) { showToast('يرجى السماح بفتح النوافذ المنبثقة', 'error'); return; }
-
-            win.document.write('<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>خطة تقسيط - ' + name + '</title>\n<style>\n' +
-                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:Segoe UI,Tahoma,Arial,sans-serif;direction:rtl;padding:24px;}' +
+            let fullHtml = '<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>خطة تقسيط - ' + name + '</title>\n<style>\n' +
+                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:DejaVu Sans,Segoe UI,Tahoma,Arial,sans-serif;direction:rtl;padding:24px;}' +
                 '@media print{body{background:white}@page{margin:1cm;size:A4}}' +
-                '</style>\n</head>\n<body>' + content + '\n</body>\n</html>');
-            win.document.close();
-            showToast('✅ تم فتح المستند — استخدم قائمة المتصفح للحفظ أو المشاركة');
+                '</style>\n</head>\n<body>' + content + '\n</body>\n</html>';
+
+            // Try html2pdf first
+            if (typeof html2pdf !== 'undefined') {
+                let iframe = document.createElement('iframe');
+                iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;';
+                document.body.appendChild(iframe);
+                let doc = iframe.contentDocument || iframe.contentWindow.document;
+                doc.open(); doc.write(fullHtml); doc.close();
+
+                setTimeout(() => {
+                    html2pdf().set({
+                        margin: [10, 10, 10, 10],
+                        filename: 'خطة_تقسيط_' + name + '_' + Date.now() + '.pdf',
+                        html2canvas: { scale: 2, useCORS: true, allowTaint: false },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    }).from(iframe.contentDocument.body).save().then(() => {
+                        document.body.removeChild(iframe);
+                        showToast('✅ تم حفظ ملف PDF');
+                    }).catch(() => {
+                        document.body.removeChild(iframe);
+                        fallbackDownload(fullHtml, name);
+                    });
+                }, 500);
+            } else {
+                fallbackDownload(fullHtml, name);
+            }
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
     };
+
+    function fallbackDownload(html, name) {
+        let blob = new Blob([html], { type: 'text/html' });
+        let url = URL.createObjectURL(blob);
+        let link = document.createElement('a');
+        link.href = url;
+        link.download = 'خطة_تقسيط_' + name + '_' + Date.now() + '.html';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        showToast('✅ تم التحميل — افتح الملف ثم استخدم "مشاركة → حفظ كـ PDF"');
+    }
 
     function downloadCSV(filename, header, rows) {
         let csv = '\uFEFF' + header.join(',') + '\n';
