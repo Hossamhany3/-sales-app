@@ -2295,68 +2295,48 @@
         let phone = m.phone.replace(/^0/, '20').replace(/[^0-9]/g, '');
         if (!phone) { showToast('رقم الهاتف غير متاح', 'error'); return; }
         let bal = calcMerchantBalance(merchantId);
-        let sales = merchantSales.filter(s => s.merchantId == merchantId);
-        let payments = merchantPayments.filter(p => p.merchantId == merchantId);
-        let rows = [];
-        sales.forEach(s => rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || ''), debit: s.sellPrice, credit: 0 }));
-        payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
-        rows.sort((a, b) => a.date.localeCompare(b.date));
-        let rowsHtml = rows.map(r => '<tr style="background:#fff;"><td style="padding:6px 4px;border:1px solid #e2e8f0;">' + r.date.slice(0,10) + '</td><td style="padding:6px 4px;border:1px solid #e2e8f0;">' + r.desc + '</td><td style="padding:6px 4px;border:1px solid #e2e8f0;color:#059669;font-weight:bold;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:6px 4px;border:1px solid #e2e8f0;color:#dc2626;font-weight:bold;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>').join('');
-        let balColor = bal.balance > 0 ? '#ef4444' : (bal.balance < 0 ? '#059669' : '#0f172a');
-        let balLabel = bal.balance > 0 ? 'مديونية' : (bal.balance < 0 ? 'زيادة' : 'مسدد');
-        let fullHtml = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب - ' + m.name + '</title>' +
-            '<style>body{font-family:Tahoma,Arial,sans-serif;margin:0;padding:20px;color:#0f172a;direction:rtl;}' +
-            'h1{color:#4f46e5;font-size:20px;margin:0 0 4px 0;text-align:center;}' +
-            '.header{text-align:center;margin-bottom:20px;}' +
-            '.info-box{background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:16px;}' +
-            'table{width:100%;border-collapse:collapse;}' +
-            'th{background:#4f46e5;color:white;padding:8px;text-align:center;border:1px solid #4f46e5;}' +
-            'td{padding:6px 4px;text-align:center;border:1px solid #e2e8f0;}' +
-            '.summary{margin-top:16px;padding:12px;border-radius:8px;border:2px solid ' + balColor + ';text-align:center;font-size:18px;font-weight:bold;color:' + balColor + ';background:' + (bal.balance > 0 ? '#fef2f2' : '#f0fdf4') + ';}' +
-            '.footer{text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:12px;}' +
-            '</style></head><body>' +
-            '<div class="header"><h1>كشف حساب تاجر</h1><p style="color:#64748b;font-size:13px;margin:0;">نظام الإدارة المحاسبية للموبايلات</p></div>' +
-            '<div class="info-box"><table><tr><td style="border:none;text-align:right;padding:4px;"><strong>اسم التاجر:</strong> ' + m.name + '</td><td style="border:none;text-align:right;padding:4px;"><strong>رقم الهاتف:</strong> ' + (m.phone || '—') + '</td></tr>' +
-            '<tr><td style="border:none;text-align:right;padding:4px;"><strong>اجمالي المبيعات:</strong> ' + bal.totalSales.toFixed(2) + ' ج</td><td style="border:none;text-align:right;padding:4px;"><strong>اجمالي المدفوعات:</strong> ' + bal.totalPayments.toFixed(2) + ' ج</td></tr></table></div>' +
-            '<h3 style="margin:0 0 12px 0;font-size:16px;">تفاصيل الحركات</h3>' +
-            '<table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
-            '<div class="summary">' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج</div>' +
-            '<div class="footer">تم إنشاء هذا المستند آلياً — نظام إدارة الموبايلات</div></body></html>';
-
-        let tempDiv = document.createElement('div');
-        tempDiv.innerHTML = fullHtml;
-        tempDiv.style.position = 'fixed';
-        tempDiv.style.left = '0';
-        tempDiv.style.top = '0';
-        tempDiv.style.width = '780px';
-        tempDiv.style.zIndex = '-1';
-        tempDiv.style.opacity = '0';
-        document.body.appendChild(tempDiv);
-
+        if (typeof html2pdf === 'undefined') {
+            let msg = 'كشف حساب ' + m.name + '\nالرصيد: ' + bal.balance.toFixed(2) + ' ج\nاجمالي المبيعات: ' + bal.totalSales.toFixed(2) + ' ج\nاجمالي المدفوعات: ' + bal.totalPayments.toFixed(2) + ' ج';
+            window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+            return;
+        }
         try {
+            let sales = merchantSales.filter(s => s.merchantId == merchantId);
+            let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+            let rows = [];
+            sales.forEach(s => rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || ''), debit: s.sellPrice, credit: 0 }));
+            payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
+            rows.sort((a, b) => a.date.localeCompare(b.date));
+            let trs = '';
+            rows.forEach(r => {
+                trs += '<tr><td style="border:1px solid #ddd;padding:6px;text-align:center;">' + r.date.slice(0,10) + '</td><td style="border:1px solid #ddd;padding:6px;text-align:center;">' + r.desc + '</td><td style="border:1px solid #ddd;padding:6px;text-align:center;color:#059669;font-weight:bold;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="border:1px solid #ddd;padding:6px;text-align:center;color:#dc2626;font-weight:bold;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>';
+            });
+            let balColor = bal.balance > 0 ? '#ef4444' : (bal.balance < 0 ? '#059669' : '#0f172a');
+            let balLabel = bal.balance > 0 ? 'مديونية' : (bal.balance < 0 ? 'زيادة' : 'مسدد');
+            let div = document.createElement('div');
+            div.innerHTML =
+                '<div style="direction:rtl;padding:20px;font-family:Tahoma,Arial,sans-serif;">' +
+                '<h1 style="color:#4f46e5;text-align:center;font-size:20px;margin:0 0 4px;">كشف حساب تاجر</h1>' +
+                '<p style="text-align:center;color:#64748b;font-size:13px;margin:0 0 20px;">نظام الإدارة المحاسبية للموبايلات</p>' +
+                '<div style="background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:16px;">' +
+                '<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:4px;"><b>اسم التاجر:</b> ' + m.name + '</td><td style="padding:4px;"><b>رقم الهاتف:</b> ' + (m.phone || '—') + '</td></tr>' +
+                '<tr><td style="padding:4px;"><b>اجمالي المبيعات:</b> ' + bal.totalSales.toFixed(2) + ' ج</td><td style="padding:4px;"><b>اجمالي المدفوعات:</b> ' + bal.totalPayments.toFixed(2) + ' ج</td></tr></table></div>' +
+                '<h3 style="margin:0 0 12px;font-size:16px;">تفاصيل الحركات</h3>' +
+                '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#4f46e5;color:white;"><th style="padding:8px;text-align:center;border:1px solid #4f46e5;">التاريخ</th><th style="padding:8px;text-align:center;border:1px solid #4f46e5;">البيان</th><th style="padding:8px;text-align:center;border:1px solid #4f46e5;">مدين</th><th style="padding:8px;text-align:center;border:1px solid #4f46e5;">دائن</th></tr></thead><tbody>' + trs + '</tbody></table>' +
+                '<div style="margin-top:16px;padding:12px;border-radius:8px;border:2px solid ' + balColor + ';text-align:center;font-size:18px;font-weight:bold;color:' + balColor + ';background:' + (bal.balance > 0 ? '#fef2f2' : '#f0fdf4') + ';">' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج</div>' +
+                '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:12px;">تم إنشاء هذا المستند آلياً</div></div>';
+            div.style.position = 'fixed'; div.style.left = '0'; div.style.top = '0'; div.style.width = '780px'; div.style.zIndex = '-1'; div.style.opacity = '0';
+            document.body.appendChild(div);
             let fileName = 'كشف حساب - ' + m.name + '.pdf';
-            if (typeof html2pdf !== 'undefined') {
-                let pdf = await html2pdf().set({
-                    margin: { top: 10, bottom: 10, left: 10, right: 10 },
-                    filename: fileName,
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true, logging: false },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                }).from(tempDiv).save(fileName);
-                let blob = pdf.output('blob');
-                if (blob && blob.size > 100) {
-                    if ('share' in navigator) {
-                        try { await navigator.share({ files: [new File([blob], fileName, { type: 'application/pdf' })], title: 'كشف حساب ' + m.name }); document.body.removeChild(tempDiv); return; } catch (e) { if (e.name !== 'AbortError') throw e; }
-                    }
-                }
-                showToast('PDF: \u2705 تم تحميل كشف الحساب بصيغة PDF');
-                window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent('كشف حساب ' + m.name + ' - تم تحميل الملف'), '_blank');
-            } else {
-                let msg = 'كشف حساب ' + m.name + '\nالرصيد: ' + bal.balance.toFixed(2) + ' ج\nاجمالي المبيعات: ' + bal.totalSales.toFixed(2) + ' ج\nاجمالي المدفوعات: ' + bal.totalPayments.toFixed(2) + ' ج';
-                window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+            let pdf = await html2pdf().set({ margin: 10, filename: fileName, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(div).save();
+            let blob = pdf.output('blob');
+            document.body.removeChild(div);
+            if (blob && blob.size > 200 && 'share' in navigator) {
+                try { await navigator.share({ files: [new File([blob], fileName, { type: 'application/pdf' })], title: 'كشف حساب ' + m.name }); return; } catch (e) { if (e.name !== 'AbortError') console.log(e); }
             }
-        } catch (err) { showError('فشل', err.message); }
-        document.body.removeChild(tempDiv);
+            showToast('PDF: تم تحميل كشف الحساب - أرسله عبر واتساب');
+            window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent('كشف حساب ' + m.name + ' - ' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج'), '_blank');
+        } catch (err) { showError('فشل في إنشاء PDF', err.message); }
     };
 
     window.editMerchantSale = (id) => {
