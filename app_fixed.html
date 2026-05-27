@@ -2093,6 +2093,7 @@
                     '<span>' + (paidCount/inst.numInstallments*100).toFixed(0) + '%</span>' +
                 '</div>' +
                 '<div class="flex-between" style="margin-bottom:4px;">' +
+                    '<button class="btn-sm btn-outline" onclick="sendPlanAsPDF(' + inst.id + ')">📄 طباعة PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
                     '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
                     '<button class="schedule-toggle btn-sm" onclick="toggleSchedule(' + inst.id + ')">📅 جدول الأقساط ▾</button>' +
@@ -2538,6 +2539,128 @@
             showError('حدث خطأ أثناء إنشاء PDF', err.message);
         }
     };
+
+    function generateFullInstallmentPDF(inst) {
+        let merchant = merchants.find(m => m.id == inst.merchantId);
+        let p = products.find(x => x.id == inst.productId);
+        let deviceName = p?.name || inst.deviceName || 'غير محدد';
+        let schedule = getInstSchedule(inst);
+        let paidCount = schedule.filter(s => s.isPaid).length;
+
+        let cardsHtml = schedule.map(slot => {
+            let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
+            let statusColor = slot.isPaid ? '#059669' : '#f97316';
+            let statusText = slot.isPaid ? '✅ مسدد' : '⏳ غير مسدد';
+            return '' +
+                '<div style="border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:14px; background:#fff; page-break-inside:avoid; box-shadow:0 2px 4px rgba(0,0,0,0.04);">' +
+                    '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px dashed #e2e8f0; padding-bottom:8px; margin-bottom:12px;">' +
+                        '<span style="font-size:1.15rem; font-weight:bold; color:#0f172a;">القسط رقم (' + slot.index + ')</span>' +
+                        '<span style="font-size:0.85rem; font-weight:bold; color:' + statusColor + '; background:' + (slot.isPaid ? '#d1fae5' : '#fff7ed') + '; padding:3px 10px; border-radius:50px;">' + statusText + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
+                        '<span style="color:#475569; font-weight:bold;">التاريخ:</span>' +
+                        '<span style="font-weight:600;">' + dueDate + '</span>' +
+                    '</div>' +
+                    '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
+                        '<span style="color:#475569; font-weight:bold;">المبلغ المستحق:</span>' +
+                        '<span style="font-weight:bold; font-size:1.05rem; color:#0f172a;">' + inst.monthlyAmount.toFixed(2) + ' ج.م</span>' +
+                    '</div>' +
+                    '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
+                        '<span style="color:#475569; font-weight:bold;">المبلغ المحصّل:</span>' +
+                        '<span style="font-weight:bold; color:#059669;">' + (slot.paidAmount > 0 ? slot.paidAmount.toFixed(2) + ' ج.م' : '..................... ج.م') + '</span>' +
+                    '</div>' +
+                    '<div style="margin-top:12px; padding-top:10px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between;">' +
+                        '<span style="color:#475569; font-weight:bold;">توقيع المستلم:</span>' +
+                        '<span style="color:#94a3b8;">.....................................</span>' +
+                    '</div>' +
+                '</div>';
+        }).join('');
+
+        return '' +
+            '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif; direction:rtl; padding:24px; background:#f8fafc; color:#0f172a; max-width:780px; margin:auto; box-sizing:border-box;">' +
+                '<div style="text-align:center; margin-bottom:24px;">' +
+                    '<h1 style="color:#4f46e5; font-size:1.6rem; margin:0 0 4px 0;">📄 خطة التقسيط وإيصالات الأقساط</h1>' +
+                    '<p style="color:#64748b; font-size:0.9rem; margin:0;">نظام الإدارة المحاسبية للموبايلات</p>' +
+                '</div>' +
+
+                '<div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">' +
+                    '<table style="width:100%; border-collapse:collapse; text-align:right;">' +
+                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>اسم العميل:</strong> ' + (merchant?.name || 'عميل') + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>رقم الهاتف:</strong> ' + (merchant?.phone || '—') + '</td></tr>' +
+                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الجهاز:</strong> ' + deviceName + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>سعر الكاش:</strong> ' + inst.purchasePrice.toFixed(2) + ' ج.م</td></tr>' +
+                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>المقدم:</strong> ' + inst.paidUpfront.toFixed(2) + ' ج.م</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الإجمالي المُقسّط:</strong> ' + inst.totalAfterInterest.toFixed(2) + ' ج.م</td></tr>' +
+                        '<tr><td style="padding:8px 4px;"><strong>عدد الأقساط:</strong> ' + inst.numInstallments + ' شهر</td><td style="padding:8px 4px;"><strong>القسط الشهري:</strong> <span style="color:#4f46e5; font-weight:bold;">' + inst.monthlyAmount.toFixed(2) + ' ج.م</span></td></tr>' +
+                    '</table>' +
+                    '<div style="margin-top:12px; padding:10px; background:#ede9fe; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">' +
+                        '<span style="color:#4f46e5; font-weight:bold;">الأقساط المسددة: ' + paidCount + ' / ' + inst.numInstallments + '</span>' +
+                        '<span style="color:#ef4444; font-weight:bold;">الباقي: ' + inst.remainingBalance.toFixed(2) + ' ج.م</span>' +
+                    '</div>' +
+                '</div>' +
+
+                '<h3 style="color:#0f172a; margin:0 0 14px 0; display:flex; align-items:center; gap:8px;">📅 جدول الأقساط التفصيلي</h3>' +
+                cardsHtml +
+
+                '<div style="text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid #cbd5e1; color:#94a3b8; font-size:0.82rem;">' +
+                    'تم إنشاء هذا المستند آلياً — نظام إدارة الموبايلات' +
+                '</div>' +
+            '</div>';
+    }
+
+    window.sendPlanAsPDF = (id) => {
+        try {
+            let inst = installments.find(i => i.id == id);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            let m = merchants.find(x => x.id == inst.merchantId);
+            let htmlContent = generateFullInstallmentPDF(inst);
+            let name = m?.name || 'عميل';
+
+            let printWindow = window.open('', '_blank', 'width=900,height=700');
+            if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+
+            printWindow.document.write('<!DOCTYPE html>\n' +
+'<html lang="ar" dir="rtl">\n' +
+'<head>\n' +
+'    <meta charset="UTF-8">\n' +
+'    <title>خطة تقسيط - ' + name + '</title>\n' +
+'    <style>\n' +
+'        * { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+'        body { background: #f8fafc; font-family: \'Segoe UI\', Tahoma, Arial, sans-serif; }\n' +
+'        @media print {\n' +
+'            body { background: white; }\n' +
+'            .no-print { display: none !important; }\n' +
+'            @page { margin: 1cm; size: A4; }\n' +
+'        }\n' +
+'        .print-bar {\n' +
+'            position: fixed; top: 0; left: 0; right: 0;\n' +
+'            background: #4f46e5; color: white; padding: 10px 20px;\n' +
+'            display: flex; justify-content: space-between; align-items: center;\n' +
+'            z-index: 999;\n' +
+'        }\n' +
+'        .print-bar button {\n' +
+'            background: white; color: #4f46e5; border: none;\n' +
+'            padding: 8px 20px; border-radius: 8px; font-size: 0.95rem;\n' +
+'            font-weight: bold; cursor: pointer;\n' +
+'        }\n' +
+'        .content-wrap { padding-top: 56px; }\n' +
+'    </style>\n' +
+'</head>\n' +
+'<body>\n' +
+'    <div class="print-bar no-print">\n' +
+'        <span>📄 خطة تقسيط — ' + name + '</span>\n' +
+'        <button onclick="window.print()">🖨️ طباعة / حفظ PDF</button>\n' +
+'    </div>\n' +
+'    <div class="content-wrap">' + htmlContent + '</div>\n' +
+'    <script>\n' +
+'        window.onafterprint = () => window.close();\n' +
+'    <\/script>\n' +
+'</body>\n' +
+'</html>');
+            printWindow.document.close();
+            showToast('تم فتح نافذة الطباعة، اختر "حفظ كـ PDF"');
+        } catch (err) {
+            showError('حدث خطأ أثناء إنشاء PDF', err.message);
+        }
+    };
+
     function downloadCSV(filename, header, rows) {
         let csv = '\uFEFF' + header.join(',') + '\n';
         rows.forEach(r => { csv += r.join(',') + '\n'; });
