@@ -1889,7 +1889,7 @@
         document.getElementById(id).addEventListener('input', updateInstallmentCalc)
     );
 
-    document.getElementById('firstDueDate').valueAsDate = new Date();
+    (function() { let d = new Date(); d.setMonth(d.getMonth() + 1); document.getElementById('firstDueDate').valueAsDate = d; })();
 
     document.getElementById('installmentForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -1962,7 +1962,7 @@
             }
 
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard();
-            e.target.reset(); updateInstallmentCalc(); document.getElementById('firstDueDate').valueAsDate = new Date();
+            e.target.reset(); updateInstallmentCalc(); (function() { let d = new Date(); d.setMonth(d.getMonth() + 1); document.getElementById('firstDueDate').valueAsDate = d; })();
             showToast('تم اعتماد العقد بنجاح');
 
             if (confirm('هل ترغب في حفظ وطباعة إيصالات التقسيط (PDF) الآن؟')) sendPlanAsPDF(instId);
