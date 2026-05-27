@@ -308,6 +308,25 @@
         .mt-8 { margin-top: 8px; }
         .mb-8 { margin-bottom: 8px; }
         .gap-8 { gap: 8px; }
+.storage-bar {
+    background: #e2e8f0;
+    border-radius: 50px;
+    height: 8px;
+    overflow: hidden;
+    margin: 6px 0;
+}
+.storage-bar-fill {
+    height: 100%;
+    border-radius: 50px;
+    transition: width 0.5s;
+}
+.storage-bar-fill.safe { background: var(--success); }
+.storage-bar-fill.warn { background: var(--accent); }
+.storage-bar-fill.danger { background: var(--danger); }
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
     </style>
 </head>
 <body>
@@ -472,6 +491,30 @@
             <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
                 يتم تسجيل الحركات تلقائياً من شاشات: <strong>المخزون</strong> (بيع، شراء)، <strong>التقسيط</strong> (مقدم، تحصيل).
             </p>
+            <div class="card" id="expenseFormCard">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleExpenseForm()">
+                    <span style="font-size:1.3rem;">📉</span>
+                    <strong style="flex:1;">تسجيل مصروف جديد</strong>
+                    <span id="expenseToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="expenseForm" style="display:none;">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>اسم المصروف</label>
+                            <input type="text" id="expenseName" required placeholder="مثال: إيجار المحل - فاتورة كهرباء">
+                        </div>
+                        <div class="form-group">
+                            <label>المبلغ (ج.م)</label>
+                            <input type="number" id="expenseAmount" step="any" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات</label>
+                        <input type="text" id="expenseNotes" placeholder="اختياري">
+                    </div>
+                    <button type="submit">➕ تسجيل المصروف</button>
+                </form>
+            </div>
             <div class="search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchTransactions" placeholder="بحث في العمليات..." oninput="renderTransactions()">
@@ -1624,10 +1667,7 @@
         }
     };
 
-   );
 
-
-    
     
         // ====== عمليات المخزون (مباع / لم يباع / مصروف) ======
     window.sellProduct = (id) => {
@@ -1736,7 +1776,56 @@
         }
     });
 
-     {
+    window.toggleExpenseForm = function() {
+        const form = document.getElementById('expenseForm');
+        const icon = document.getElementById('expenseToggleIcon');
+        if (!form) return;
+        const isHidden = form.style.display === 'none';
+        form.style.display = isHidden ? 'block' : 'none';
+        if (icon) icon.textContent = isHidden ? '▲' : '▼';
+    };
+
+    document.getElementById('expenseForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let name = document.getElementById('expenseName').value.trim();
+            let amount = parseFloat(document.getElementById('expenseAmount').value);
+            let notes = document.getElementById('expenseNotes').value.trim();
+            if (!name) { showToast('أدخل اسم المصروف', 'error'); return; }
+            if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+            transactions.push({
+                id: Date.now(), type: 'expense', amount: amount,
+                notes: name + (notes ? ' - ' + notes : ''),
+                date: new Date().toISOString()
+            });
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expenseForm').style.display = 'none';
+            let icon = document.getElementById('expenseToggleIcon');
+            if (icon) icon.textContent = '▼';
+            saveData(); renderTransactions(); renderDashboard();
+            showToast('📉 تم تسجيل مصروف: ' + name + ' — ' + amount.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    });
+
+    window.deleteTransaction = (id) => {
+        try {
+            let t = transactions.find(x => x.id == id);
+            if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
+            let isLinked = installments.some(i => !i.isPaid && i.merchantId == t.merchantId &&
+                t.notes && (t.notes.includes('قسط') || t.notes.includes('مقدم')));
+            if (isLinked) { showToast('لا يمكن حذف حركة مرتبطة بعقد تقسيط نشط', 'error'); return; }
+            if (!confirm('⚠️ حذف حركة "' + (t.notes || t.type || '') + '" بقيمة ' + (t.amount || 0).toFixed(2) + ' ج؟')) return;
+            transactions = transactions.filter(x => x.id != id);
+            saveData(); renderTransactions(); renderDashboard();
+            showToast('تم حذف الحركة');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
         const term = getSearchTerm('Transactions');
         const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)' };
@@ -1812,6 +1901,7 @@
                         '</div>' +
                     '</div>' +
                     '<strong style="color:' + textColor + '; font-size:1rem; white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
+                    '<button class="btn-sm" style="background:none;color:var(--danger);padding:4px 6px;min-height:30px;font-size:0.9rem;border:none;box-shadow:none;" onclick="deleteTransaction(' + t.id + ')" title="حذف">🗑️</button>' +
                 '</div>';
             });
         });
@@ -1945,6 +2035,23 @@
         });
     }
 
+    window.deleteInstallment = (id) => {
+        try {
+            let inst = installments.find(i => i.id == id);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            let m = merchants.find(x => x.id == inst.merchantId);
+            if (!confirm('⚠️ حذف عقد تقسيط #' + id + '\nالعميل: ' + (m?.name || '') + '\nالجهاز: ' + (inst.deviceName || '') + '\nالمتبقي: ' + (inst.remainingBalance || 0).toFixed(2) + ' ج\n\nسيتم إعادة المخزون.')) return;
+            let p = products.find(x => x.id == inst.productId);
+            if (p) { p.stock = (p.stock || 0) + 1; }
+            transactions = transactions.filter(t => !(t.notes || '').includes('#' + id));
+            installments = installments.filter(i => i.id != id);
+            saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard(); refreshSelectors();
+            showToast('✅ تم حذف العقد #' + id);
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
     function renderInstallments() {
         const container = document.getElementById('installmentsList');
         const term = getSearchTerm('Installments');
@@ -2033,6 +2140,7 @@
                 '<div class="flex-between" style="margin-bottom:4px;">' +
                     '<button class="btn-sm btn-outline" onclick="sendPlanAsPDF(' + inst.id + ')">📄 طباعة PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
+                    '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
                     '<button class="schedule-toggle btn-sm" onclick="toggleSchedule(' + inst.id + ')">📅 جدول الأقساط ▾</button>' +
                 '</div>' +
                 '<div class="schedule-wrapper" id="schedule-' + inst.id + '">' +
@@ -2247,6 +2355,35 @@
         window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
     };
 
+    window.editMerchantSale = (id) => {
+        try {
+            let sale = merchantSales.find(s => s.id == id);
+            if (!sale) { showToast('البيع غير موجود', 'error'); return; }
+            let newPrice = prompt('تعديل سعر بيع ' + (sale.deviceName || '') + '\nالسعر الحالي: ' + (sale.sellPrice || 0).toFixed(2) + ' ج', sale.sellPrice);
+            if (newPrice === null) return;
+            let price = parseFloat(newPrice);
+            if (isNaN(price) || price <= 0) { showToast('سعر غير صالح', 'error'); return; }
+            sale.sellPrice = price;
+            saveData(); renderMerchantSales(); renderDashboard();
+            showToast('✅ تم تحديث سعر البيع');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.deleteMerchantSale = (id) => {
+        try {
+            let sale = merchantSales.find(s => s.id == id);
+            if (!sale) { showToast('البيع غير موجود', 'error'); return; }
+            if (!confirm('⚠️ حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟')) return;
+            merchantSales = merchantSales.filter(s => s.id != id);
+            saveData(); renderMerchantSales(); renderDashboard();
+            showToast('تم حذف بيع ' + (sale.deviceName || ''));
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
     function renderMerchantSales() {
         let container = document.getElementById('merchantSalesList');
         let term = getSearchTerm('MerchantSales');
@@ -2282,6 +2419,8 @@
             html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + id + ')">📋 PDF</button>';
             html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + id + ')">💵 دفعة</button>';
             html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + id + ')">📱 واتساب</button>';
+            html += '<button class="btn-sm" style="background:var(--primary-light);color:var(--primary);border:1px solid var(--border);padding:6px 8px;min-height:32px;font-size:0.85rem;" onclick="editMerchantSale(\'' + id + '\')">✏️</button>';
+            html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);padding:6px 8px;min-height:32px;font-size:0.85rem;" onclick="deleteMerchantSale(\'' + id + '\')">🗑️</button>';
             html += '</div></div>';
         });
         container.innerHTML = html;
