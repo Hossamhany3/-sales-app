@@ -2122,8 +2122,7 @@
                     '<span>' + (paidCount/inst.numInstallments*100).toFixed(0) + '%</span>' +
                 '</div>' +
                 '<div class="flex-between" style="margin-bottom:4px;">' +
-                    '<button class="btn-sm btn-outline" onclick="sendPlanAsPDF(' + inst.id + ')">📄 طباعة PDF</button>' +
-                    '<button class="btn-sm btn-success" onclick="downloadPlanAsPDF(' + inst.id + ')">💾 حفظ PDF</button>' +
+                    '<button class="btn-sm btn-success" onclick="sendPlanAsPDF(' + inst.id + ')">📋 PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
                     '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
                     '<button class="schedule-toggle btn-sm" onclick="toggleSchedule(' + inst.id + ')">📅 جدول الأقساط ▾</button>' +
@@ -2718,37 +2717,6 @@
             showToast('تم فتح نافذة الطباعة، اختر "حفظ كـ PDF"');
         } catch (err) {
             showError('حدث خطأ أثناء إنشاء PDF', err.message);
-        }
-    };
-
-    window.downloadPlanAsPDF = (id) => {
-        try {
-            let inst = installments.find(i => i.id == id);
-            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
-            let m = merchants.find(x => x.id == inst.merchantId);
-            let name = m?.name || 'عميل';
-            let htmlContent = generateFullInstallmentPDF(inst);
-
-            let wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:780px;background:#fff;padding:20px;font-family:Segoe UI,Tahoma,Arial,sans-serif;';
-            wrapper.innerHTML = htmlContent;
-            document.body.appendChild(wrapper);
-
-            html2pdf().set({
-                margin: [10, 10, 10, 10],
-                filename: 'خطة_تقسيط_' + name + '_' + Date.now() + '.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).from(wrapper).save().then(() => {
-                document.body.removeChild(wrapper);
-                showToast('✅ تم حفظ PDF بنجاح');
-            }).catch(() => {
-                document.body.removeChild(wrapper);
-                showToast('❌ فشل حفظ PDF', 'error');
-            });
-        } catch (err) {
-            showError('حدث خطأ أثناء حفظ PDF', err.message);
         }
     };
 
