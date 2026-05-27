@@ -1362,16 +1362,6 @@
 
 
     // ====== Installment contacts fetch ======
-    document.getElementById('transSaveContactBtn').addEventListener('click', () => {
-        let name = document.getElementById('transNewName').value.trim();
-        let phone = document.getElementById('transNewPhone').value.trim();
-        if (!name || !phone) { showToast('أدخل الاسم ورقم الهاتف', 'error'); return; }
-        let m = { id: Date.now(), name, phone, address: '' };
-        merchants.push(m);
-        refreshSelectors();
-        showToast('تم حفظ ' + name + ' في جهات الاتصال');
-    });
-
     document.getElementById('instContactsBtn').addEventListener('click', async () => {
         if ('contacts' in navigator && 'ContactsManager' in window) {
             try {
