@@ -968,7 +968,8 @@
         const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments };
         for (const name of STORE_NAMES) {
             const data = allData[name];
-            if (!data) continue;
+            if (data === undefined) continue;
+            await idbClear(name);
             if (!Array.isArray(data)) {
                 await idbPut(name, data);
             } else {
