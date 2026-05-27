@@ -584,26 +584,13 @@
                     <div class="form-group">
                         <label>التاجر</label>
                         <div style="display:flex; gap:8px;">
-                            <select id="msMerchantId" required style="flex:1;">
-                                <option value="">اختر تاجر...</option>
-                            </select>
-                            <button type="button" id="msNewMerchantBtn" class="btn-sm btn-outline">➕ جديد</button>
+                            <input type="text" id="msNewName" required placeholder="اسم التاجر" style="flex:1;">
+                            <button type="button" id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
                         </div>
                     </div>
-                    <div id="msNewMerchantFields" style="display:none;">
-                        <div class="grid-2">
-                            <div class="form-group">
-                                <label>اسم التاجر</label>
-                                <input type="text" id="msNewName">
-                            </div>
-                            <div class="form-group">
-                                <label>رقم الهاتف</label>
-                                <div style="display:flex; gap:8px;">
-                                    <input type="tel" id="msNewPhone" style="flex:1;">
-                                    <button type="button" id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جلب</button>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                        <label>رقم الهاتف</label>
+                        <input type="tel" id="msNewPhone" required placeholder="رقم الهاتف">
                     </div>
                     <div class="grid-2">
                         <div class="form-group">
@@ -2372,11 +2359,6 @@
     }
 
     // ====== Event handlers لمبيعات التجار ======
-    document.getElementById('msNewMerchantBtn').addEventListener('click', () => {
-        let f = document.getElementById('msNewMerchantFields');
-        f.style.display = f.style.display === 'none' ? 'block' : 'none';
-    });
-
     document.getElementById('msLoadContactsBtn').addEventListener('click', async () => {
         if ('contacts' in navigator && 'ContactsManager' in window) {
             try {
@@ -2396,16 +2378,18 @@
     document.getElementById('merchantSaleForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
-            let merchantId = parseInt(document.getElementById('msMerchantId').value);
-            let isNew = false;
-            if (!merchantId) {
-                let name = document.getElementById('msNewName').value.trim();
-                let phone = document.getElementById('msNewPhone').value.trim();
-                if (!name || !phone) { showToast('اختر تاجر أو أدخل اسم ورقم تاجر جديد', 'error'); return; }
+            let name = document.getElementById('msNewName').value.trim();
+            let phone = document.getElementById('msNewPhone').value.trim();
+            if (!name || !phone) { showToast('أدخل اسم التاجر ورقم الهاتف', 'error'); return; }
+
+            let existing = merchants.find(m => m.name === name && m.phone === phone);
+            let merchantId;
+            if (existing) {
+                merchantId = existing.id;
+            } else {
                 let newMerchant = { id: Date.now(), name, phone, address: '' };
                 merchants.push(newMerchant);
                 merchantId = newMerchant.id;
-                isNew = true;
                 refreshSelectors();
             }
 
@@ -2417,8 +2401,8 @@
             let sale = {
                 id: Date.now(),
                 merchantId,
-                merchantName: merchants.find(m => m.id == merchantId)?.name || '',
-                phone: merchants.find(m => m.id == merchantId)?.phone || '',
+                merchantName: name,
+                phone,
                 deviceName,
                 sellPrice,
                 date: new Date().toISOString(),
@@ -2426,14 +2410,9 @@
             };
             merchantSales.push(sale);
 
-            // تسجيل في الخزينة كبيع (اختياري — أو نتركه كمديونية فقط)
-            // يمكن إضافة custom type هنا أو الاكتفاء بـ merchantSales
-
             document.getElementById('merchantSaleForm').reset();
-            document.getElementById('msNewMerchantFields').style.display = 'none';
-            if (isNew) { document.getElementById('msMerchantId').value = merchantId; }
             saveData(); renderMerchantSales(); renderDashboard();
-            showToast('✅ تم تسجيل بيع ' + deviceName + ' لـ ' + sale.merchantName + ' بقيمة ' + sellPrice.toFixed(2) + ' ج');
+            showToast('✅ تم تسجيل بيع ' + deviceName + ' لـ ' + name + ' بقيمة ' + sellPrice.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
