@@ -612,9 +612,13 @@
                 </form>
             </div>
 
-            <h2>💰 تسديد دفعة من تاجر</h2>
-            <div class="card">
-                <form id="merchantPaymentForm">
+            <div class="card" id="paymentFormCard">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="togglePaymentForm()">
+                    <span style="font-size:1.3rem;">💰</span>
+                    <strong style="flex:1;">تسديد دفعة من تاجر</strong>
+                    <span id="paymentToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="merchantPaymentForm" style="display:none;">
                     <div class="grid-2">
                         <div class="form-group">
                             <label>التاجر</label>
@@ -1718,6 +1722,15 @@
             showError('حدث خطأ أثناء الحفظ', err.message);
         }
     });
+
+    window.togglePaymentForm = function() {
+        const form = document.getElementById('merchantPaymentForm');
+        const icon = document.getElementById('paymentToggleIcon');
+        if (!form) return;
+        const isHidden = form.style.display === 'none';
+        form.style.display = isHidden ? 'block' : 'none';
+        if (icon) icon.textContent = isHidden ? '▲' : '▼';
+    };
 
     window.toggleExpenseForm = function() {
         const form = document.getElementById('expenseForm');
