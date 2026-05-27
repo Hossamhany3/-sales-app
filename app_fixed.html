@@ -2669,54 +2669,20 @@
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
-            let htmlContent = generateFullInstallmentPDF(inst);
             let name = m?.name || 'عميل';
+            let content = generateFullInstallmentPDF(inst);
 
-            let printWindow = window.open('', '_blank', 'width=900,height=700');
-            if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+            let win = window.open('', '_blank', 'width=900,height=700');
+            if (!win) { showToast('يرجى السماح بفتح النوافذ المنبثقة', 'error'); return; }
 
-            printWindow.document.write('<!DOCTYPE html>\n' +
-'<html lang="ar" dir="rtl">\n' +
-'<head>\n' +
-'    <meta charset="UTF-8">\n' +
-'    <title>خطة تقسيط - ' + name + '</title>\n' +
-'    <style>\n' +
-'        * { box-sizing: border-box; margin: 0; padding: 0; }\n' +
-'        body { background: #f8fafc; font-family: \'Segoe UI\', Tahoma, Arial, sans-serif; }\n' +
-'        @media print {\n' +
-'            body { background: white; }\n' +
-'            .no-print { display: none !important; }\n' +
-'            @page { margin: 1cm; size: A4; }\n' +
-'        }\n' +
-'        .print-bar {\n' +
-'            position: fixed; top: 0; left: 0; right: 0;\n' +
-'            background: #4f46e5; color: white; padding: 10px 20px;\n' +
-'            display: flex; justify-content: space-between; align-items: center;\n' +
-'            z-index: 999;\n' +
-'        }\n' +
-'        .print-bar button {\n' +
-'            background: white; color: #4f46e5; border: none;\n' +
-'            padding: 8px 20px; border-radius: 8px; font-size: 0.95rem;\n' +
-'            font-weight: bold; cursor: pointer;\n' +
-'        }\n' +
-'        .content-wrap { padding-top: 56px; }\n' +
-'    </style>\n' +
-'</head>\n' +
-'<body>\n' +
-'    <div class="print-bar no-print">\n' +
-'        <span>📄 خطة تقسيط — ' + name + '</span>\n' +
-'        <button onclick="window.print()">🖨️ طباعة / حفظ PDF</button>\n' +
-'    </div>\n' +
-'    <div class="content-wrap">' + htmlContent + '</div>\n' +
-'    <script>\n' +
-'        window.onafterprint = () => window.close();\n' +
-'    <\/script>\n' +
-'</body>\n' +
-'</html>');
-            printWindow.document.close();
-            showToast('تم فتح نافذة الطباعة، اختر "حفظ كـ PDF"');
+            win.document.write('<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>خطة تقسيط - ' + name + '</title>\n<style>\n' +
+                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:Segoe UI,Tahoma,Arial,sans-serif;direction:rtl;padding:24px;}' +
+                '@media print{body{background:white}@page{margin:1cm;size:A4}}' +
+                '</style>\n</head>\n<body>' + content + '\n</body>\n</html>');
+            win.document.close();
+            showToast('✅ تم فتح المستند — استخدم قائمة المتصفح للحفظ أو المشاركة');
         } catch (err) {
-            showError('حدث خطأ أثناء إنشاء PDF', err.message);
+            showError('حدث خطأ', err.message);
         }
     };
 
