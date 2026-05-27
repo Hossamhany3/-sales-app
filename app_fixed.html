@@ -2669,56 +2669,30 @@
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
+            let htmlContent = generateFullInstallmentPDF(inst);
             let name = m?.name || 'عميل';
-            let content = generateFullInstallmentPDF(inst);
 
-            let fullHtml = '<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>خطة تقسيط - ' + name + '</title>\n<style>\n' +
-                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:DejaVu Sans,Segoe UI,Tahoma,Arial,sans-serif;direction:rtl;padding:24px;}' +
-                '@media print{body{background:white}@page{margin:1cm;size:A4}}' +
-                '</style>\n</head>\n<body>' + content + '\n</body>\n</html>';
+            let printWindow = window.open('', '_blank', 'width=900,height=700');
+            if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
 
-            // Try html2pdf first
-            if (typeof html2pdf !== 'undefined') {
-                let iframe = document.createElement('iframe');
-                iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;';
-                document.body.appendChild(iframe);
-                let doc = iframe.contentDocument || iframe.contentWindow.document;
-                doc.open(); doc.write(fullHtml); doc.close();
-
-                setTimeout(() => {
-                    html2pdf().set({
-                        margin: [10, 10, 10, 10],
-                        filename: 'خطة_تقسيط_' + name + '_' + Date.now() + '.pdf',
-                        html2canvas: { scale: 2, useCORS: true, allowTaint: false },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                    }).from(iframe.contentDocument.body).save().then(() => {
-                        document.body.removeChild(iframe);
-                        showToast('✅ تم حفظ ملف PDF');
-                    }).catch(() => {
-                        document.body.removeChild(iframe);
-                        fallbackDownload(fullHtml, name);
-                    });
-                }, 500);
-            } else {
-                fallbackDownload(fullHtml, name);
-            }
+            printWindow.document.write('<!DOCTYPE html>\n' +
+                '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>خطة تقسيط - ' + name + '</title>\n<style>' +
+                '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;}' +
+                '@media print{body{background:white}.no-print{display:none!important}@page{margin:1cm;size:A4}}' +
+                '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+                '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+                '.content-wrap{padding-top:56px;}' +
+                '</style></head><body>' +
+                '<div class="print-bar no-print"><span>📄 خطة تقسيط — ' + name + '</span><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
+                '<div class="content-wrap">' + htmlContent + '</div>' +
+                '<script>window.onafterprint = () => window.close();<\\/script>' +
+                '</body></html>');
+            printWindow.document.close();
+            showToast('تم فتح نافذة الطباعة، اختر حفظ كـ PDF');
         } catch (err) {
-            showError('حدث خطأ', err.message);
+            showError('حدث خطأ أثناء إنشاء PDF', err.message);
         }
     };
-
-    function fallbackDownload(html, name) {
-        let blob = new Blob([html], { type: 'text/html' });
-        let url = URL.createObjectURL(blob);
-        let link = document.createElement('a');
-        link.href = url;
-        link.download = 'خطة_تقسيط_' + name + '_' + Date.now() + '.html';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        showToast('✅ تم التحميل — افتح الملف ثم استخدم "مشاركة → حفظ كـ PDF"');
-    }
 
     function downloadCSV(filename, header, rows) {
         let csv = '\uFEFF' + header.join(',') + '\n';
