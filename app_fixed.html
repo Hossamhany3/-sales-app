@@ -121,6 +121,43 @@
             --sidebar-text: #fde68a;
         }
 
+        [data-color="crypto"] {
+            --primary: #f5a623;
+            --primary-hover: #d48f1a;
+            --primary-light: #fef7e8;
+            --accent: #4dabf7;
+            --success: #3dd68c;
+            --success-light: #eafaf3;
+            --danger: #ff5c5c;
+            --danger-light: #ffeaea;
+            --header-bg: linear-gradient(135deg, #f5a623, #d48f1a);
+            --header-text: #ffffff;
+            --sidebar-bg: linear-gradient(180deg, #080d14, #0f1623);
+            --sidebar-text: #e8edf5;
+        }
+        [data-theme="dark"][data-color="crypto"] {
+            --primary: #f5a623;
+            --primary-hover: #d48f1a;
+            --primary-light: rgba(245,166,35,0.12);
+            --secondary: #e8edf5;
+            --accent: #4dabf7;
+            --success: #3dd68c;
+            --success-light: rgba(61,214,140,0.10);
+            --danger: #ff5c5c;
+            --danger-light: rgba(255,92,92,0.10);
+            --background: #080d14;
+            --card-bg: #0f1623;
+            --text-main: #e8edf5;
+            --text-muted: #6b7fa3;
+            --border: #1e2d3d;
+            --header-bg: linear-gradient(135deg, #0f1623, #1e2d3d);
+            --header-text: #f5a623;
+            --sidebar-bg: linear-gradient(180deg, #080d14, #0f1623);
+            --sidebar-text: #6b7fa3;
+            --shadow-card: 0 1px 3px rgba(0,0,0,0.4);
+            --shadow-hover: 0 10px 15px -3px rgba(0,0,0,0.5);
+        }
+
         * { box-sizing: border-box; font-family: 'Cairo', sans-serif; margin: 0; padding: 0; }
         body { background: var(--background); color: var(--text-main); min-height: 100dvh; }
         
@@ -940,6 +977,9 @@
                         </button>
                         <button class="btn-sm theme-color-btn" data-color="warm" style="flex:1;min-width:70px;background:#d97706;color:#fff;border:2px solid transparent;" onclick="setColorTheme('warm')">
                             <span style="display:inline-block;width:14px;height:14px;background:#d97706;border-radius:50%;border:2px solid #fff;"></span> ذهبي
+                        </button>
+                        <button class="btn-sm theme-color-btn" data-color="crypto" style="flex:1;min-width:70px;background:#f5a623;color:#080d14;border:2px solid transparent;font-weight:800;" onclick="setColorTheme('crypto')">
+                            <span style="display:inline-block;width:14px;height:14px;background:#f5a623;border-radius:50%;border:2px solid #080d14;"></span> كريبتو
                         </button>
                     </div>
                 </div>
