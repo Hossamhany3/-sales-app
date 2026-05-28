@@ -64,6 +64,63 @@
             --shadow-hover: 0 10px 15px -3px rgba(0,0,0,0.4);
         }
 
+        [data-color="emerald"] {
+            --primary: #059669;
+            --primary-hover: #047857;
+            --primary-light: #d1fae5;
+            --header-bg: linear-gradient(135deg, #059669, #10b981);
+            --header-text: #ffffff;
+            --sidebar-bg: linear-gradient(180deg, #064e3b, #065f46);
+            --sidebar-text: #d1fae5;
+        }
+        [data-theme="dark"][data-color="emerald"] {
+            --primary: #34d399;
+            --primary-hover: #10b981;
+            --primary-light: #064e3b;
+            --header-bg: linear-gradient(135deg, #064e3b, #065f46);
+            --header-text: #d1fae5;
+            --sidebar-bg: linear-gradient(180deg, #022c22, #064e3b);
+            --sidebar-text: #a7f3d0;
+        }
+
+        [data-color="ocean"] {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #dbeafe;
+            --header-bg: linear-gradient(135deg, #2563eb, #3b82f6);
+            --header-text: #ffffff;
+            --sidebar-bg: linear-gradient(180deg, #1e3a5f, #1e40af);
+            --sidebar-text: #dbeafe;
+        }
+        [data-theme="dark"][data-color="ocean"] {
+            --primary: #60a5fa;
+            --primary-hover: #3b82f6;
+            --primary-light: #172554;
+            --header-bg: linear-gradient(135deg, #172554, #1e3a8a);
+            --header-text: #dbeafe;
+            --sidebar-bg: linear-gradient(180deg, #0f172a, #172554);
+            --sidebar-text: #bfdbfe;
+        }
+
+        [data-color="warm"] {
+            --primary: #d97706;
+            --primary-hover: #b45309;
+            --primary-light: #fef3c7;
+            --header-bg: linear-gradient(135deg, #d97706, #f59e0b);
+            --header-text: #ffffff;
+            --sidebar-bg: linear-gradient(180deg, #451a03, #78350f);
+            --sidebar-text: #fef3c7;
+        }
+        [data-theme="dark"][data-color="warm"] {
+            --primary: #fbbf24;
+            --primary-hover: #f59e0b;
+            --primary-light: #451a03;
+            --header-bg: linear-gradient(135deg, #451a03, #78350f);
+            --header-text: #fef3c7;
+            --sidebar-bg: linear-gradient(180deg, #271002, #451a03);
+            --sidebar-text: #fde68a;
+        }
+
         * { box-sizing: border-box; font-family: 'Cairo', sans-serif; margin: 0; padding: 0; }
         body { background: var(--background); color: var(--text-main); min-height: 100dvh; }
         
@@ -108,7 +165,7 @@
         
         .content { padding: 20px 16px; }
         h2 { font-size: 1.15rem; margin: 0 0 14px 0; color: var(--secondary); display: flex; align-items: center; gap: 8px; font-weight: 700; }
-        h2::before { content: ''; display: inline-block; width: 5px; height: 22px; background: linear-gradient(180deg, var(--primary), #818cf8); border-radius: 3px; }
+        h2::before { content: ''; display: inline-block; width: 5px; height: 22px; background: var(--primary); border-radius: 3px; }
         
         .card { background: var(--card-bg); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow-card); border: 1px solid var(--border); transition: all var(--transition); }
         .card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
@@ -398,6 +455,7 @@
         <button data-page="transactions">💰 الخزينة والمعاملات</button>
         <button data-page="installments">📅 إدارة عقود التقسيط</button>
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
+        <button data-page="partners">🤝 الشركاء والمستثمرون</button>
         <button data-page="reports">📈 التقارير المحاسبية</button>
         <button data-page="settings">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
@@ -412,20 +470,25 @@
 
             <h2>نظرة مالية شاملة</h2>
             <div class="flex-between" style="gap:10px; margin-bottom: 24px;">
-                <div class="stat-card revenue" style="background: linear-gradient(135deg, #eef2ff, #e0e7ff); border-color: #c7d2fe;">
+                <div class="stat-card" style="border-color: var(--primary);">
                     <div style="font-size:1.5rem; margin-bottom:2px;">💰</div>
-                    <div style="font-size:0.8rem; color:#4338ca;">الخزينة النقدية</div>
-                    <div class="value" id="dashCash" style="color:#4338ca;">0</div>
+                    <div style="font-size:0.8rem; color:var(--primary);">الخزينة النقدية</div>
+                    <div class="value" id="dashCash" style="color:var(--primary);">0</div>
                 </div>
-                <div class="stat-card debt" style="background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fcd34d;">
+                <div class="stat-card" style="border-color: var(--accent);">
                     <div style="font-size:1.5rem; margin-bottom:2px;">📋</div>
-                    <div style="font-size:0.8rem; color:#b45309;">للتحصيل</div>
-                    <div class="value" id="dashDebt" style="color:#b45309;">0</div>
+                    <div style="font-size:0.8rem; color:var(--accent);">للتحصيل</div>
+                    <div class="value" id="dashDebt" style="color:var(--accent);">0</div>
                 </div>
-                <div class="stat-card profit" style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: #6ee7b7;">
+                <div class="stat-card" style="border-color: var(--success);">
                     <div style="font-size:1.5rem; margin-bottom:2px;">📦</div>
-                    <div style="font-size:0.8rem; color:#065f46;">قيمة المخزون</div>
-                    <div class="value" id="dashStock" style="color:#065f46;">0</div>
+                    <div style="font-size:0.8rem; color:var(--success);">قيمة المخزون</div>
+                    <div class="value" id="dashStock" style="color:var(--success);">0</div>
+                </div>
+                <div class="stat-card" style="border-color: var(--danger);">
+                    <div style="font-size:1.5rem; margin-bottom:2px;">🤝</div>
+                    <div style="font-size:0.8rem; color:var(--danger);">استثمارات الشركاء</div>
+                    <div class="value" id="dashPartnerInvest" style="color:var(--danger);">0</div>
                 </div>
             </div>
 
@@ -435,6 +498,37 @@
                 <div class="chart-legend">
                     <span><span class="dot" style="background:var(--success)"></span> الإيرادات</span>
                     <span><span class="dot" style="background:var(--danger)"></span> المصروفات</span>
+                </div>
+            </div>
+
+            <!-- الأداء الشهري -->
+            <div style="margin:24px 0;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                    <span style="font-size:1.2rem;">📊</span>
+                    <strong style="flex:1;">مؤشرات الأداء الشهري</strong>
+                    <select id="monthSelector" onchange="renderDashboard()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);"></select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                    <div class="stat-card" style="border-color:var(--primary);padding:10px;">
+                        <div style="font-size:0.75rem;color:var(--primary);">💰 إيرادات الشهر</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:var(--primary);" id="monthRevenue">0</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthRevenueChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--danger);padding:10px;">
+                        <div style="font-size:0.75rem;color:var(--danger);">📉 مصروفات الشهر</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:var(--danger);" id="monthExpenses">0</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthExpensesChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--success);padding:10px;">
+                        <div style="font-size:0.75rem;color:var(--success);">✅ صافي الربح</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:var(--success);" id="monthProfit">0</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthProfitChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--accent);padding:10px;">
+                        <div style="font-size:0.75rem;color:var(--accent);">💰 التحصيلات</div>
+                        <div style="font-size:1.2rem;font-weight:800;color:var(--accent);" id="monthCollections">0</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthCollectionsChange">—</div>
+                    </div>
                 </div>
             </div>
 
@@ -482,6 +576,12 @@
             <div class="search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchProducts" placeholder="بحث في الأصناف..." oninput="renderProducts()">
+                <select id="prodSort" onchange="renderProducts()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="name">📦 الاسم</option>
+                    <option value="stock-desc">📊 المخزون (الأعلى)</option>
+                    <option value="stock-asc">📊 المخزون (الأقل)</option>
+                    <option value="profit-desc">💵 الربح (الأعلى)</option>
+                </select>
             </div>
             <div id="productsList"></div>
         </div>
@@ -491,20 +591,20 @@
             <h2>📋 سجل الحركات المالية</h2>
 
             <div class="flex-between" style="gap:10px; margin-bottom:16px;">
-                <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7); border-color:#86efac; flex:1;">
+                <div class="stat-card" style="border-color:var(--success); flex:1;">
                     <div style="font-size:1.3rem; margin-bottom:2px;">💰</div>
-                    <div style="font-size:0.78rem; color:#166534;">رأس المال</div>
-                    <div class="value" id="transCapital" style="color:#166534; font-size:1.1rem;">0</div>
+                    <div style="font-size:0.78rem; color:var(--success);">رأس المال</div>
+                    <div class="value" id="transCapital" style="color:var(--success); font-size:1.1rem;">0</div>
                 </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#f8fafc,#e2e8f0); border-color:#cbd5e1; flex:1;">
+                <div class="stat-card" style="border-color:var(--border); flex:1;">
                     <div style="font-size:1.3rem; margin-bottom:2px;">📊</div>
-                    <div style="font-size:0.78rem; color:#475569;">صافي الحركات</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">صافي الحركات</div>
                     <div class="value" id="transNet" style="color:var(--primary); font-size:1.1rem;">0</div>
                 </div>
-                <div class="stat-card" style="background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-color:#a5b4fc; flex:1;">
+                <div class="stat-card" style="border-color:var(--primary); flex:1;">
                     <div style="font-size:1.3rem; margin-bottom:2px;">💵</div>
-                    <div style="font-size:0.78rem; color:#4338ca;">الإجمالي الكلي</div>
-                    <div class="value" id="transTotal" style="color:#4338ca; font-size:1.1rem;">0</div>
+                    <div style="font-size:0.78rem; color:var(--primary);">الإجمالي الكلي</div>
+                    <div class="value" id="transTotal" style="color:var(--primary); font-size:1.1rem;">0</div>
                 </div>
             </div>
             <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
@@ -533,6 +633,17 @@
                     </div>
                     <button type="submit">➕ تسجيل المصروف</button>
                 </form>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('all')" id="tf-all">📋 الكل</button>
+                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('income')" id="tf-income">💰 الإيرادات</button>
+                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('expense')" id="tf-expense">📉 المصروفات</button>
+                <select id="transSort" onchange="renderTransactions()" style="flex:1;min-width:100px;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;">
+                    <option value="date-desc">📅 الأحدث أولاً</option>
+                    <option value="date-asc">📅 الأقدم أولاً</option>
+                    <option value="amount-desc">💵 الأعلى مبلغاً</option>
+                    <option value="amount-asc">💵 الأقل مبلغاً</option>
+                </select>
             </div>
             <div class="search-box">
                 <span class="search-icon">🔍</span>
@@ -603,6 +714,11 @@
             <div class="search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchInstallments" placeholder="بحث في العقود..." oninput="renderInstallments()">
+                <select id="instFilter" onchange="renderInstallments()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="all">📋 الكل</option>
+                    <option value="active">🟡 نشط</option>
+                    <option value="paid">✅ مسدد</option>
+                </select>
             </div>
             <div id="installmentsList"></div>
         </div>
@@ -669,9 +785,49 @@
             <div class="search-box">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchMerchantSales" placeholder="بحث باسم التاجر..." oninput="renderMerchantSales()">
+                <select id="msSort" onchange="renderMerchantSales()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="name">👤 الاسم</option>
+                    <option value="debt-desc">💳 المديونية (الأعلى)</option>
+                    <option value="debt-asc">💳 المديونية (الأقل)</option>
+                    <option value="count-desc">📦 عدد الأصناف (الأكثر)</option>
+                </select>
             </div>
             <div id="msSummary" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;"></div>
             <div id="merchantSalesList"></div>
+        </div>
+
+        <div id="partners" class="page">
+            <h2>🤝 الشركاء والمستثمرون</h2>
+            <div class="card">
+                <form id="partnerForm">
+                    <input type="hidden" id="partnerId">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>اسم الشريك</label>
+                            <input type="text" id="partnerName" required placeholder="مثال: أحمد محمد">
+                        </div>
+                        <div class="form-group">
+                            <label>رقم الهاتف</label>
+                            <input type="text" id="partnerPhone" placeholder="مثال: 01234567890">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>المبلغ المستثمر (ج.م)</label>
+                        <input type="number" id="partnerAmount" step="any" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات</label>
+                        <input type="text" id="partnerNotes" placeholder="اختياري: تفاصيل الاستثمار">
+                    </div>
+                    <button type="submit">💾 إضافة الشريك</button>
+                </form>
+            </div>
+            <h2>قائمة الشركاء</h2>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchPartners" placeholder="بحث في الشركاء..." oninput="renderPartners()">
+            </div>
+            <div id="partnersList"></div>
         </div>
 
         <div id="reports" class="page">
@@ -733,6 +889,34 @@
                     <button id="saveCapitalBtn" class="btn-sm btn-success" style="width:auto; white-space:nowrap;">💾 حفظ</button>
                 </div>
                 <div id="capitalStatus" style="font-size:0.85rem; color:var(--text-muted); margin-top:8px;"></div>
+            </div>
+
+            <h2>🎨 المظهر</h2>
+            <div class="card">
+                <div style="margin-bottom:14px;">
+                    <label>السمة اللونية</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn-sm theme-color-btn" data-color="indigo" style="flex:1;min-width:70px;background:#4f46e5;color:#fff;border:2px solid transparent;" onclick="setColorTheme('indigo')">
+                            <span style="display:inline-block;width:14px;height:14px;background:#4f46e5;border-radius:50%;border:2px solid #fff;"></span> إنديجو
+                        </button>
+                        <button class="btn-sm theme-color-btn" data-color="emerald" style="flex:1;min-width:70px;background:#059669;color:#fff;border:2px solid transparent;" onclick="setColorTheme('emerald')">
+                            <span style="display:inline-block;width:14px;height:14px;background:#059669;border-radius:50%;border:2px solid #fff;"></span> زمردي
+                        </button>
+                        <button class="btn-sm theme-color-btn" data-color="ocean" style="flex:1;min-width:70px;background:#2563eb;color:#fff;border:2px solid transparent;" onclick="setColorTheme('ocean')">
+                            <span style="display:inline-block;width:14px;height:14px;background:#2563eb;border-radius:50%;border:2px solid #fff;"></span> أزرق
+                        </button>
+                        <button class="btn-sm theme-color-btn" data-color="warm" style="flex:1;min-width:70px;background:#d97706;color:#fff;border:2px solid transparent;" onclick="setColorTheme('warm')">
+                            <span style="display:inline-block;width:14px;height:14px;background:#d97706;border-radius:50%;border:2px solid #fff;"></span> ذهبي
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-bottom:4px;">
+                    <label>الوضع</label>
+                    <div style="display:flex; gap:8px;">
+                        <button id="modeLightBtn" class="btn-sm" style="flex:1;" onclick="setThemeMode('light')">☀️ فاتح</button>
+                        <button id="modeDarkBtn" class="btn-sm" style="flex:1;" onclick="setThemeMode('dark')">🌙 داكن</button>
+                    </div>
+                </div>
             </div>
 
             <h2>💾 النسخ الاحتياطي</h2>
@@ -856,8 +1040,8 @@
     }
 
     const DB_NAME = 'SalesManagementDB';
-    const DB_VERSION = 2;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments'];
+    const DB_VERSION = 3;
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'partners'];
 
     let db = null;
     let dbReady = null;
@@ -961,11 +1145,12 @@
         else if (name === 'msgTemplates') msgTemplates = data;
         else if (name === 'merchantSales') merchantSales = data;
         else if (name === 'merchantPayments') merchantPayments = data;
+        else if (name === 'partners') partners = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, partners };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -1012,15 +1197,21 @@
     let openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
     let merchantSales = [];
     let merchantPayments = [];
+    let partners = [];
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
     const PAGE_SIZE = 20;
+    let transFilter = 'all'; // 'all', 'income', 'expense'
 
     async function initializeData() {
         const idbAvailable = await loadAllFromIDB();
         if (idbAvailable) {
             await migrateFromLocalStorage();
+            // إعادة تحميل الشركاء من localStorage لو IDB فاضي (بعد الترحيل)
+            if (partners.length === 0 && localStorage.getItem('partners')) {
+                partners = JSON.parse(localStorage.getItem('partners'));
+            }
         } else {
             products = JSON.parse(localStorage.getItem('products') || '[]');
             merchants = JSON.parse(localStorage.getItem('merchants') || '[]');
@@ -1032,6 +1223,7 @@
             };
             merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
             merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
+            partners = JSON.parse(localStorage.getItem('partners') || '[]');
         }
         // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
@@ -1212,8 +1404,8 @@
             transactions.forEach(t => {
                 const td = new Date(t.date);
                 if (td.getFullYear() === m.y && td.getMonth() === m.m) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell') inc += t.amount;
-                    if (t.type === 'expense' || t.type === 'purchase') exp += t.amount;
+                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') inc += t.amount;
+                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
                 }
             });
             income.push(inc); expense.push(exp);
@@ -1227,7 +1419,8 @@
         ctx.clearRect(0, 0, w, h);
 
         // grid
-        ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1;
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#e2e8f0';
+        ctx.lineWidth = 1;
         for (let i = 0; i <= 4; i++) {
             const y = top + (chartH / 4) * i;
             ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - 5, y); ctx.stroke();
@@ -1238,20 +1431,21 @@
 
             // income bar
             const ih = (income[i] / maxVal) * chartH;
-            ctx.fillStyle = '#10b981';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#10b981';
             ctx.beginPath();
             ctx.roundRect(x - barW - 2, top + chartH - ih, barW, ih, [4,4,0,0]);
             ctx.fill();
 
             // expense bar
             const eh = (expense[i] / maxVal) * chartH;
-            ctx.fillStyle = '#ef4444';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ef4444';
             ctx.beginPath();
             ctx.roundRect(x + 2, top + chartH - eh, barW, eh, [4,4,0,0]);
             ctx.fill();
 
             // label
-            ctx.fillStyle = '#94a3b8'; ctx.font = '11px Cairo, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+            ctx.font = '11px Cairo, sans-serif'; ctx.textAlign = 'center';
             ctx.fillText(m.label, x, h - 6);
         });
     }
@@ -1279,6 +1473,23 @@
         html += '</div>';
         if (container) container.insertAdjacentHTML('beforeend', html);
     }
+
+    window.setTransFilter = (filter) => {
+        transFilter = filter;
+        currentPage['trans'] = 0;
+        document.querySelectorAll('#tf-all, #tf-income, #tf-expense').forEach(b => {
+            b.style.background = 'var(--card-bg)';
+            b.style.color = 'var(--text-main)';
+            b.style.border = '1px solid var(--border)';
+        });
+        let active = document.getElementById('tf-' + filter);
+        if (active) {
+            active.style.background = 'var(--primary)';
+            active.style.color = '#fff';
+            active.style.border = '1px solid var(--primary)';
+        }
+        renderTransactions();
+    };
 
     function showToast(message, type) {
         if (!type) type = 'success';
@@ -1321,7 +1532,7 @@
         if (autoBackupTimer) clearInterval(autoBackupTimer);
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
-                const backup = { date: new Date().toISOString(), products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, openingCapital };
+                const backup = { date: new Date().toISOString(), products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, partners, openingCapital };
                 localStorage.setItem('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -1342,6 +1553,7 @@
         localStorage.setItem('msgTemplates', JSON.stringify(msgTemplates));
         localStorage.setItem('merchantSales', JSON.stringify(merchantSales));
         localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
+        localStorage.setItem('partners', JSON.stringify(partners));
         localStorage.setItem('openingCapital', String(openingCapital));
         await saveAllToIDB();
         updateStorageInfo();
@@ -1349,7 +1561,7 @@
     }
 
     function updateStorageInfo() {
-        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, openingCapital });
+        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, partners, openingCapital });
         const sizeKB = (new Blob([total]).size / 1024).toFixed(1);
         document.getElementById('storageSize').textContent = sizeKB + ' KB';
         const pct = Math.min((parseFloat(sizeKB) / 5000) * 100, 100);
@@ -1360,7 +1572,8 @@
             '<span>📦 أصناف: ' + products.length + '</span>' +
             '<span>👤 عملاء: ' + merchants.length + '</span>' +
             '<span>💰 حركات: ' + transactions.length + '</span>' +
-            '<span>📅 عقود: ' + installments.length + '</span>';
+            '<span>📅 عقود: ' + installments.length + '</span>' +
+            '<span>🤝 شركاء: ' + partners.length + '</span>';
     }
 
     function getSearchTerm(prefix) {
@@ -1445,8 +1658,8 @@
         const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
 
         filteredTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense') cash -= t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
         });
 
         filteredTrans.forEach(t => {
@@ -1479,6 +1692,9 @@
         document.getElementById('dashCash').innerText = fin.cash.toFixed(2) + ' ج';
         document.getElementById('dashDebt').innerText = fin.totalDebt.toFixed(2) + ' ج';
         document.getElementById('dashStock').innerText = fin.stockValue.toFixed(2) + ' ج';
+        const partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
+        const investEl = document.getElementById('dashPartnerInvest');
+        if (investEl) investEl.innerText = partnerInvest.toFixed(2) + ' ج';
 
         const repDiscounts = document.getElementById('repDiscounts');
         if (repDiscounts) repDiscounts.innerText = fin.totalDiscounts.toFixed(2) + ' ج';
@@ -1488,6 +1704,64 @@
         document.getElementById('repInterest').innerText = fin.interestProfit.toFixed(2) + ' ج';
         document.getElementById('repNetProfit').innerText = fin.netProfit.toFixed(2) + ' ج';
 
+        // حساب مؤشرات الشهر
+        const monthSelect = document.getElementById('monthSelector');
+        if (monthSelect) {
+            if (monthSelect.options.length === 0) {
+                let now = new Date();
+                for (let i = 0; i < 12; i++) {
+                    let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    let label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+                    let val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                    monthSelect.innerHTML += '<option value="' + val + '">' + label + '</option>';
+                }
+            }
+
+            function monthTransactions(year, month) {
+                return transactions.filter(t => {
+                    let d = new Date(t.date);
+                    return d.getFullYear() === year && d.getMonth() === month;
+                });
+            }
+
+            let parts = (monthSelect.value || '').split('-');
+            let selYear = parseInt(parts[0]);
+            let selMonth = parseInt(parts[1]) - 1;
+            let monthTrans = monthTransactions(selYear, selMonth);
+            // الشهر السابق
+            let prevMonth = selMonth === 0 ? 11 : selMonth - 1;
+            let prevYear = selMonth === 0 ? selYear - 1 : selYear;
+            let prevTrans = monthTransactions(prevYear, prevMonth);
+
+            function calcMonthTotals(list) {
+                let rev = 0, exp = 0, coll = 0;
+                list.forEach(t => {
+                    if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'partner_deposit') rev += t.amount;
+                    if (t.type === 'payment_in') { rev += t.amount; coll += t.amount; }
+                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
+                });
+                return { revenue: rev, expenses: exp, profit: rev - exp, collections: coll };
+            }
+
+            let curr = calcMonthTotals(monthTrans);
+            let prev = calcMonthTotals(prevTrans);
+
+            function fmtChange(currVal, prevVal) {
+                if (prevVal === 0) return currVal > 0 ? '⬆️ جديد' : '—';
+                let pct = ((currVal - prevVal) / prevVal * 100).toFixed(1);
+                return (currVal >= prevVal ? '⬆️ +' : '⬇️ ') + pct + '%';
+            }
+
+            document.getElementById('monthRevenue').innerText = curr.revenue.toFixed(2) + ' ج';
+            document.getElementById('monthRevenueChange').innerText = fmtChange(curr.revenue, prev.revenue);
+            document.getElementById('monthExpenses').innerText = curr.expenses.toFixed(2) + ' ج';
+            document.getElementById('monthExpensesChange').innerText = fmtChange(curr.expenses, prev.expenses);
+            document.getElementById('monthProfit').innerText = curr.profit.toFixed(2) + ' ج';
+            document.getElementById('monthProfitChange').innerText = fmtChange(curr.profit, prev.profit);
+            document.getElementById('monthCollections').innerText = curr.collections.toFixed(2) + ' ج';
+            document.getElementById('monthCollectionsChange').innerText = fmtChange(curr.collections, prev.collections);
+        }
+
         renderNotifications();
         setTimeout(() => drawChart(), 100);
 
@@ -1496,11 +1770,11 @@
             document.getElementById('recentTransactions').innerHTML = '<div class="card" style="text-align:center; padding:32px 20px;"><div style="font-size:2.5rem; margin-bottom:8px; opacity:0.4;">📭</div><div style="color:var(--text-muted);">لا توجد حركات مالية بعد</div></div>';
         } else {
             document.getElementById('recentTransactions').innerHTML = recent.map((t, idx) => {
-                let icon = '💰'; let color = 'var(--danger)'; let bgColor = '#fef2f2';
-                if(t.type === 'expense' || t.type === 'purchase') { icon = '📉'; color = 'var(--danger)'; bgColor = '#fef2f2'; }
-                else if(t.type === 'payment_in') { icon = '💰'; color = 'var(--success)'; bgColor = '#f0fdf4'; }
-                else if(t.type === 'sell_cash') { icon = '💵'; color = 'var(--success)'; bgColor = '#f0fdf4'; }
-                let sign = (t.type === 'expense' || t.type === 'purchase') ? '' : '+';
+                let icon = '💰'; let color = 'var(--danger)'; let bgColor = 'var(--danger-light)';
+                if(t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') { icon = '📉'; color = 'var(--danger)'; bgColor = 'var(--danger-light)'; }
+                else if(t.type === 'payment_in' || t.type === 'partner_deposit') { icon = '💰'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
+                else if(t.type === 'sell_cash') { icon = '💵'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
+                let sign = (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') ? '' : '+';
                 return '<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:6px; background:' + bgColor + '; border-radius:10px;">' +
                     '<span style="font-size:1.3rem;">' + icon + '</span>' +
                     '<div style="flex:1; min-width:0;">' +
@@ -1578,6 +1852,14 @@
         const container = document.getElementById('productsList');
         const term = getSearchTerm('Products');
         const filtered = filterList(products, term, ['name']);
+        // ترتيب الأصناف
+        const sortVal = (document.getElementById('prodSort')?.value) || 'name';
+        if (sortVal === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
+        else if (sortVal === 'stock-desc') filtered.sort((a, b) => b.stock - a.stock);
+        else if (sortVal === 'stock-asc') filtered.sort((a, b) => a.stock - b.stock);
+        else if (sortVal === 'profit-desc') {
+            filtered.sort((a, b) => (b.sellPrice - b.costPrice - (b.expenses||0)) - (a.sellPrice - a.costPrice - (a.expenses||0)));
+        }
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'المخزون فارغ') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول صنف من الفورم أعلاه') + '</div></div>';
             return;
@@ -1707,6 +1989,7 @@
         updateStorageInfo();
         document.getElementById('capitalInput').value = openingCapital;
         document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
+        applyTheme(); // تحديث أزرار المظهر
     }
 
     function updateMsgPreview() {
@@ -1792,6 +2075,27 @@
         }
     });
 
+    window.editTransaction = (id) => {
+        try {
+            let t = transactions.find(x => x.id == id);
+            if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
+
+            let newAmount = prompt('✏️ تعديل الحركة\n' + (t.notes || '') + '\nالمبلغ الحالي: ' + (t.amount || 0).toFixed(2) + ' ج', t.amount);
+            if (newAmount === null) return;
+            let amount = parseFloat(newAmount);
+            if (isNaN(amount) || amount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            t.amount = amount;
+
+            let newNotes = prompt('الملاحظات الجديدة:', t.notes || '');
+            if (newNotes !== null) t.notes = newNotes.trim();
+
+            saveData(); renderTransactions(); renderDashboard();
+            showToast('✅ تم تحديث الحركة');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
     window.deleteTransaction = (id) => {
         try {
             let t = transactions.find(x => x.id == id);
@@ -1811,13 +2115,13 @@
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
         const term = getSearchTerm('Transactions');
-        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)' };
-        const typeIcons = { 'sell_cash':'💵', 'purchase':'📉', 'expense':'📉', 'payment_in':'💰', 'sell':'💵' };
+        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'💵 استثمار شريك', 'partner_withdrawal':'💰 سحب شريك' };
+        const typeIcons = { 'sell_cash':'💵', 'purchase':'📉', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🤝' };
 
         // حساب الرصيد
         let netBalance = 0;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell') netBalance += t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') netBalance += t.amount;
             else netBalance -= t.amount;
         });
         document.getElementById('transCapital').innerText = openingCapital.toLocaleString() + ' ج';
@@ -1825,6 +2129,14 @@
         document.getElementById('transTotal').innerText = (openingCapital + netBalance).toLocaleString() + ' ج';
 
         let filtered = [...transactions];
+
+        // تصفية حسب النوع
+        if (transFilter === 'income') {
+            filtered = filtered.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit');
+        } else if (transFilter === 'expense') {
+            filtered = filtered.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal');
+        }
+
         if (term) {
             filtered = filtered.filter(t => {
                 const typeLabel = typeMap[t.type] || t.type;
@@ -1840,8 +2152,12 @@
             return;
         }
 
-        // ترتيب تنازلي
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // ترتيب حسب الاختيار
+        const sortVal = (document.getElementById('transSort')?.value) || 'date-desc';
+        if (sortVal === 'date-desc') filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+        else if (sortVal === 'date-asc') filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+        else if (sortVal === 'amount-desc') filtered.sort((a, b) => b.amount - a.amount);
+        else if (sortVal === 'amount-asc') filtered.sort((a, b) => a.amount - b.amount);
 
         // تجميع حسب اليوم
         const groups = {};
@@ -1857,7 +2173,7 @@
         let html = '';
         pag.items.forEach(day => {
             const dayTotal = groups[day].reduce((s, t) => {
-                return s + (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' ? t.amount : -t.amount);
+                return s + (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' ? t.amount : -t.amount);
             }, 0);
             const dayColor = dayTotal >= 0 ? 'var(--success)' : 'var(--danger)';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:var(--text-muted); font-weight:700; padding:8px 4px 4px 4px; margin-top:14px; border-bottom:2px solid var(--border);">' +
@@ -1868,8 +2184,8 @@
                 let p = products.find(x => x.id == t.productId);
                 let m = merchants.find(x => x.id == t.merchantId);
                 let icon = typeIcons[t.type] || '💰';
-                let isIncome = (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell');
-                let bgColor = isIncome ? '#f0fdf4' : '#fef2f2';
+                let isIncome = (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit');
+                let bgColor = isIncome ? 'var(--success-light)' : 'var(--danger-light)';
                 let textColor = isIncome ? 'var(--success)' : 'var(--danger)';
                 let sign = isIncome ? '+' : '';
                 html += '' +
@@ -1884,6 +2200,7 @@
                         '</div>' +
                     '</div>' +
                     '<strong style="color:' + textColor + '; font-size:1rem; white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
+                    '<button class="btn-sm" style="background:none;color:var(--primary);padding:4px 6px;min-height:30px;font-size:0.9rem;border:none;box-shadow:none;" onclick="editTransaction(' + t.id + ')" title="تعديل">✏️</button>' +
                     '<button class="btn-sm" style="background:none;color:var(--danger);padding:4px 6px;min-height:30px;font-size:0.9rem;border:none;box-shadow:none;" onclick="deleteTransaction(' + t.id + ')" title="حذف">🗑️</button>' +
                 '</div>';
             });
@@ -2040,9 +2357,20 @@
         const container = document.getElementById('installmentsList');
         const term = getSearchTerm('Installments');
 
-        let active = installments.filter(i => !i.isPaid);
+        const filterVal = (document.getElementById('instFilter')?.value) || 'all';
+
+        let filtered = [...installments];
+        if (filterVal === 'active') filtered = filtered.filter(i => !i.isPaid);
+        else if (filterVal === 'paid') filtered = filtered.filter(i => i.isPaid);
+
+        // ترتيب: النشط أولاً ثم حسب التاريخ
+        filtered.sort((a, b) => {
+            if (a.isPaid !== b.isPaid) return a.isPaid ? 1 : -1;
+            return new Date(b.date || 0) - new Date(a.date || 0);
+        });
+
         if (term) {
-            active = active.filter(i => {
+            filtered = filtered.filter(i => {
                 let m = merchants.find(x => x.id == i.merchantId);
                 let p = products.find(x => x.id == i.productId);
                 const searchStr = ((m?.name || '') + ' ' + (p?.name || i.deviceName || '')).toLowerCase();
@@ -2050,12 +2378,12 @@
             });
         }
 
-        if (active.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد عقود نشطة') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أنشئ عقد تقسيط جديد من الفورم أعلاه') + '</div></div>';
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد عقود') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أنشئ عقد تقسيط جديد من الفورم أعلاه') + '</div></div>';
             return;
         }
 
-        container.innerHTML = active.map(inst => {
+        container.innerHTML = filtered.map(inst => {
             let m = merchants.find(x => x.id == inst.merchantId);
             let p = products.find(x => x.id == inst.productId);
             let deviceName = p?.name || inst.deviceName || 'غير محدد';
@@ -2399,6 +2727,16 @@
         if (term) {
             list = list.filter(([id, s]) => s.name.toLowerCase().includes(term));
         }
+        // ترتيب التجار
+        const msSort = (document.getElementById('msSort')?.value) || 'name';
+        if (msSort === 'name') list.sort((a, b) => a[1].name.localeCompare(b[1].name));
+        else if (msSort === 'debt-desc') {
+            list.sort((a, b) => ((b[1].totalSales - b[1].totalPayments)) - ((a[1].totalSales - a[1].totalPayments)));
+        } else if (msSort === 'debt-asc') {
+            list.sort((a, b) => ((a[1].totalSales - a[1].totalPayments)) - ((b[1].totalSales - b[1].totalPayments)));
+        } else if (msSort === 'count-desc') {
+            list.sort((a, b) => merchantSales.filter(s => s.merchantId == b[0]).length - merchantSales.filter(s => s.merchantId == a[0]).length);
+        }
 
         if (list.length === 0) {
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد مبيعات للتجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع لتاجر من الأعلى') + '</div></div>';
@@ -2567,10 +2905,10 @@
                     '</div>' +
                     '<h3 style="color:#0f172a;margin:0 0 14px 0;">📋 تفاصيل الحركات</h3>' +
                     '<table style="width:100%;border-collapse:collapse;text-align:right;background:#fff;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;">' +
-                        '<thead><tr style="background:#4f46e5;color:white;">' +
+                        '<thead><tr style="background:var(--primary);color:white;">' +
                             '<th style="padding:10px 8px;">التاريخ</th><th style="padding:10px 8px;">البيان</th><th style="padding:10px 8px;">مدين (عليه)</th><th style="padding:10px 8px;">دائن (له)</th>' +
                         '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
-                    '<div style="margin-top:20px;padding:14px;background:' + (bal.balance > 0 ? '#fef2f2' : '#f0fdf4') + ';border-radius:10px;border:2px solid ' + balColor + ';text-align:center;">' +
+                    '<div style="margin-top:20px;padding:14px;background:' + (bal.balance > 0 ? 'var(--danger-light)' : 'var(--success-light)') + ';border-radius:10px;border:2px solid ' + balColor + ';text-align:center;">' +
                         '<span style="font-size:1.1rem;font-weight:bold;color:' + balColor + ';">' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج</span>' +
                     '</div>' +
                     '<div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">' +
@@ -2598,6 +2936,141 @@
             showError('حدث خطأ أثناء إنشاء PDF', err.message);
         }
     };
+
+    // ====== إدارة الشركاء ======
+    window.addPartnerTransaction = (id, type) => {
+        try {
+            let p = partners.find(x => x.id == id);
+            if (!p) { showToast('الشريك غير موجود', 'error'); return; }
+            let label = type === 'deposit' ? 'إيداع' : 'سحب';
+            let amount = prompt('💵 ' + label + ' — ' + p.name + '\nالرصيد الحالي: ' + p.balance.toFixed(2) + ' ج\nالمبلغ:', '');
+            if (!amount) return;
+            let val = parseFloat(amount);
+            if (isNaN(val) || val <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            if (type === 'withdrawal' && val > p.balance) {
+                if (!confirm('⚠️ الرصيد الحالي (' + p.balance.toFixed(2) + ' ج) أقل من مبلغ السحب (' + val.toFixed(2) + ' ج).\nهل تريد المتابعة؟')) return;
+            }
+            let sign = type === 'deposit' ? 1 : -1;
+            p.balance += sign * val;
+            // تسجيل في الحركات المالية
+            transactions.push({
+                id: Date.now(),
+                type: type === 'deposit' ? 'partner_deposit' : 'partner_withdrawal',
+                amount: val,
+                notes: (type === 'deposit' ? '💵 إيداع من ' : '💰 سحب من ') + p.name + (p.notes ? ' (' + p.notes + ')' : ''),
+                partnerId: p.id,
+                date: new Date().toISOString()
+            });
+            saveData(); renderPartners();
+            showToast('✅ تم تسجيل ' + label + ' بقيمة ' + val.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.deletePartner = (id) => {
+        try {
+            let p = partners.find(x => x.id == id);
+            if (!p) { showToast('الشريك غير موجود', 'error'); return; }
+            if (p.balance > 0 && !confirm('⚠️ للشريك رصيد مستحق (' + p.balance.toFixed(2) + ' ج).\nهل تريد حذف الشريك مع تسوية الرصيد؟')) return;
+            if (!confirm('🗑️ حذف الشريك "' + p.name + '"؟')) return;
+            partners = partners.filter(x => x.id != id);
+            saveData(); renderPartners();
+            showToast('تم حذف الشريك');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.renderPartners = function() {
+        const container = document.getElementById('partnersList');
+        if (!container) return;
+        const term = getSearchTerm('Partners');
+
+        let filtered = [...partners];
+        if (term) filtered = filtered.filter(p => p.name.toLowerCase().includes(term) || (p.phone || '').includes(term));
+        filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🤝</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا يوجد شركاء') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول شريك من الفورم أعلاه') + '</div></div>';
+            return;
+        }
+
+        // حساب إجمالي استثمارات الشركاء
+        let totalInvestment = partners.reduce((s, p) => s + p.balance, 0);
+        let totalHtml = '<div style="display:flex; gap:8px; margin-bottom:14px;">' +
+            '<div class="ms-summary-card primary" style="flex:1;"><div>👥 إجمالي الشركاء</div><div class="value">' + partners.length + '</div></div>' +
+            '<div class="ms-summary-card ' + (totalInvestment >= 0 ? 'success' : 'danger') + '" style="flex:1;"><div>💵 إجمالي الاستثمارات</div><div class="value">' + totalInvestment.toFixed(2) + ' ج</div></div>' +
+        '</div>';
+
+        container.innerHTML = totalHtml + filtered.map(p => {
+            let balClass = p.balance >= 0 ? '#059669' : '#dc2626';
+            return '' +
+            '<div class="card" style="padding:14px 16px;">' +
+                '<div class="flex-between" style="margin-bottom:8px;">' +
+                    '<strong style="font-size:1.05rem;">👤 ' + p.name + '</strong>' +
+                    '<strong style="color:' + balClass + '; font-size:1.1rem;">' + p.balance.toFixed(2) + ' ج</strong>' +
+                '</div>' +
+                (p.phone ? '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">📞 ' + p.phone + '</div>' : '') +
+                (p.notes ? '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">📝 ' + p.notes + '</div>' : '') +
+                '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG') + '</div>' +
+                '<div style="display:flex; gap:6px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--border);">' +
+                    '<button class="btn-sm btn-success" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')" style="flex:1; min-width:60px;">💵 إيداع</button>' +
+                    '<button class="btn-sm btn-outline" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 سحب</button>' +
+                    '<button class="btn-sm btn-danger" onclick="deletePartner(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    };
+
+    document.getElementById('partnerForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let name = document.getElementById('partnerName').value.trim();
+            if (!name) { showToast('أدخل اسم الشريك', 'error'); return; }
+            let phone = document.getElementById('partnerPhone').value.trim();
+            let amount = parseFloat(document.getElementById('partnerAmount').value);
+            if (isNaN(amount) || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+            let notes = document.getElementById('partnerNotes').value.trim();
+            let id = document.getElementById('partnerId').value;
+            if (id) {
+                // تعديل
+                let idx = partners.findIndex(x => x.id == parseInt(id));
+                if (idx >= 0) {
+                    partners[idx].name = name;
+                    partners[idx].phone = phone;
+                    partners[idx].notes = notes;
+                    showToast('تم تحديث بيانات الشريك');
+                }
+            } else {
+                // إضافة جديد
+                let partner = {
+                    id: Date.now(),
+                    name: name,
+                    phone: phone,
+                    notes: notes,
+                    date: new Date().toISOString(),
+                    balance: amount
+                };
+                partners.push(partner);
+                // تسجيل في الحركات المالية
+                transactions.push({
+                    id: Date.now() + 1,
+                    type: 'partner_deposit',
+                    amount: amount,
+                    notes: '💵 استثمار جديد من ' + name + (notes ? ' (' + notes + ')' : ''),
+                    partnerId: partner.id,
+                    date: new Date().toISOString()
+                });
+                showToast('✅ تم إضافة الشريك ' + name + ' بمبلغ ' + amount.toFixed(2) + ' ج');
+            }
+            document.getElementById('partnerForm').reset();
+            document.getElementById('partnerId').value = '';
+            saveData(); renderPartners();
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    });
 
     function generateFullInstallmentPDF(inst) {
         let merchant = merchants.find(m => m.id == inst.merchantId);
@@ -2788,12 +3261,13 @@
         if (!confirm('🔴 تأكيد نهائي: هل تريد فعلاً مسح كل البيانات؟')) return;
         products = []; merchants = []; transactions = []; installments = [];
         msgTemplates = { reminder: '', late: '' };
-        merchantSales = []; merchantPayments = [];
+        merchantSales = []; merchantPayments = []; partners = [];
         openingCapital = 0;
         localStorage.setItem('openingCapital', '0');
         saveData();
         refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard(); initSettingsPage();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
+        renderPartners();
         showToast('تم مسح جميع البيانات');
     });
 
@@ -2804,7 +3278,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, openingCapital
+                merchantSales, merchantPayments, partners, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -2842,6 +3316,7 @@
                     msgTemplates = data.msgTemplates || msgTemplates;
                     merchantSales = data.merchantSales || [];
                     merchantPayments = data.merchantPayments || [];
+                    partners = data.partners || [];
                     if (data.openingCapital !== undefined) {
                         openingCapital = data.openingCapital;
                         localStorage.setItem('openingCapital', String(openingCapital));
@@ -2849,7 +3324,7 @@
                     await saveData();
                     refreshSelectors();
                     renderProducts(); renderTransactions();
-                    renderInstallments(); renderMerchantSales(); renderDashboard(); initSettingsPage();
+                    renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
                     showToast('تم استيراد النسخة الاحتياطية بنجاح!');
                 } catch (parseErr) {
                     showToast('الملف غير صالح — خطأ في قراءة البيانات', 'error');
@@ -2888,7 +3363,7 @@
             switchPage(pageId);
             toggleMenu(true);
             renderDashboard(); renderProducts();
-            renderTransactions(); renderInstallments(); renderMerchantSales(); refreshSelectors();
+            renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
     });
@@ -2971,32 +3446,80 @@
     // تحديث تلقائي عند تغيير البيانات من تبويب آخر
     window.addEventListener('storage', () => {
         checkAppLock(); refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
     });
 
     // التحميل الأولي
     setTimeout(() => {
         checkAppLock();
         refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderDashboard();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
+        setTransFilter('all');
         initSettingsPage();
     }, 100);
 
-    // ====== Theme switcher ======
-    function applyTheme(theme) {
+    // ====== Theme switcher (multiple color schemes) ======
+    let currentMode = localStorage.getItem('themeMode') || 'light';
+    let currentColor = localStorage.getItem('themeColor') || 'indigo';
+
+    function applyTheme() {
+        const theme = currentMode === 'dark' ? 'dark' : '';
+        const color = currentColor !== 'indigo' ? currentColor : '';
         document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
+        if (color) document.documentElement.setAttribute('data-color', color);
+        else document.documentElement.removeAttribute('data-color');
+
         const btn = document.getElementById('themeToggleBtn');
-        if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-        document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0f172a' : '#4f46e5';
+        if (btn) btn.textContent = currentMode === 'dark' ? '☀️' : '🌙';
+        const colorMeta = {
+            indigo: { light: '#4f46e5', dark: '#0f172a' },
+            emerald: { light: '#059669', dark: '#064e3b' },
+            ocean: { light: '#2563eb', dark: '#1e3a5f' },
+            warm: { light: '#d97706', dark: '#451a03' }
+        };
+        document.querySelector('meta[name="theme-color"]').content = colorMeta[currentColor]?.[currentMode] || '#4f46e5';
+
+        // Highlight active buttons in settings
+        document.querySelectorAll('.theme-color-btn').forEach(b => {
+            b.style.borderColor = b.dataset.color === currentColor ? '#fff' : 'transparent';
+            b.style.boxShadow = b.dataset.color === currentColor ? '0 0 0 2px var(--primary)' : 'none';
+        });
+        const modeLight = document.getElementById('modeLightBtn');
+        const modeDark = document.getElementById('modeDarkBtn');
+        if (modeLight) {
+            modeLight.style.background = currentMode === 'light' ? 'var(--primary)' : 'var(--card-bg)';
+            modeLight.style.color = currentMode === 'light' ? '#fff' : 'var(--text-main)';
+            modeLight.style.border = currentMode === 'light' ? 'none' : '1px solid var(--border)';
+        }
+        if (modeDark) {
+            modeDark.style.background = currentMode === 'dark' ? 'var(--primary)' : 'var(--card-bg)';
+            modeDark.style.color = currentMode === 'dark' ? '#fff' : 'var(--text-main)';
+            modeDark.style.border = currentMode === 'dark' ? 'none' : '1px solid var(--border)';
+        }
     }
 
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') applyTheme('dark');
+    window.setColorTheme = (color) => {
+        currentColor = color;
+        localStorage.setItem('themeColor', color);
+        applyTheme();
+        setTimeout(() => drawChart(), 50);
+    };
+
+    window.setThemeMode = (mode) => {
+        currentMode = mode;
+        localStorage.setItem('themeMode', mode);
+        applyTheme();
+        setTimeout(() => drawChart(), 50);
+    };
+
+    // Load saved theme on startup
+    applyTheme();
 
     document.getElementById('themeToggleBtn').addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme');
-        applyTheme(current === 'dark' ? 'light' : 'dark');
+        currentMode = currentMode === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('themeMode', currentMode);
+        applyTheme();
+        setTimeout(() => drawChart(), 50);
     });
 </script>
 </body>
