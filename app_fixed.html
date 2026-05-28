@@ -411,6 +411,39 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+@keyframes modalFadeIn {
+    from { opacity:0; transform:scale(0.95) translateY(10px); }
+    to { opacity:1; transform:scale(1) translateY(0); }
+}
+.modal-overlay {
+    position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; opacity:0; pointer-events:none; transition:opacity 0.25s;
+}
+.modal-overlay.show { opacity:1; pointer-events:auto; }
+.modal-container {
+    background:var(--card-bg); color:var(--text-main);
+    border-radius:var(--radius); max-width:400px; width:100%;
+    padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.3);
+    animation:modalFadeIn 0.25s ease-out;
+    direction:rtl;
+}
+.modal-header {
+    display:flex; align-items:center; gap:10px;
+    font-size:1.15rem; font-weight:700; margin-bottom:16px;
+}
+.modal-icon { font-size:1.5rem; }
+.modal-body { font-size:0.95rem; line-height:1.7; margin-bottom:20px; }
+.modal-body input {
+    width:100%; padding:10px 14px; margin-top:10px;
+    border:2px solid var(--border); border-radius:10px;
+    font-size:1rem; background:var(--card-bg); color:var(--text-main);
+    outline:none; transition:border-color 0.2s; box-sizing:border-box;
+}
+.modal-body input:focus { border-color:var(--primary); }
+.modal-footer { display:flex; gap:10px; justify-content:flex-start; }
+.modal-footer button { flex:1; padding:12px; font-size:0.95rem; font-weight:700; border-radius:10px; min-height:48px; }
     </style>
 </head>
 <body>
@@ -919,6 +952,23 @@
                 </div>
             </div>
 
+            <h2>🔔 إشعارات المتصفح</h2>
+            <div class="card">
+                <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
+                    احصل على تنبيهات فورية عند استحقاق أو تأخر الأقساط حتى لو التطبيق مقفول.
+                </p>
+                <div class="flex-between" style="margin-bottom:12px;">
+                    <span style="font-size:0.9rem;">🔔 تفعيل الإشعارات</span>
+                    <label style="position:relative; display:inline-block; width:48px; height:26px;">
+                        <input type="checkbox" id="notifToggle" style="opacity:0; width:0; height:0;">
+                        <span style="position:absolute; cursor:pointer; inset:0; background:#cbd5e1; border-radius:26px; transition:0.3s;" id="notifSlider"></span>
+                    </label>
+                </div>
+                <div id="notifStatus" style="font-size:0.85rem; color:var(--text-muted); padding:8px 12px; background:var(--background); border-radius:8px;">
+                    ⏸ الإشعارات غير مفعلة
+                </div>
+            </div>
+
             <h2>💾 النسخ الاحتياطي</h2>
             <div class="card">
                 <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
@@ -928,6 +978,25 @@
                     <button id="backupExportBtn" class="btn-success" style="width:100%;">📤 تصدير نسخة احتياطية</button>
                     <button id="backupImportBtn" class="btn-outline" style="width:100%;">📥 استيراد نسخة</button>
                 </div>
+                <button id="shareBackupBtn" class="btn-outline" style="width:100%;margin-bottom:16px;">📲 مشاركة النسخة عبر... (واتساب، إيميل)</button>
+
+                <details style="margin-bottom:16px; border:1px solid var(--border); border-radius:10px; padding:12px;">
+                    <summary style="font-weight:700; cursor:pointer; color:var(--primary);">☁️ النسخ الاحتياطي السحابي (Google Drive)</summary>
+                    <div style="margin-top:12px;">
+                        <div id="driveStatus" style="font-size:0.85rem; color:var(--text-muted); padding:10px; background:var(--background); border-radius:8px; margin-bottom:10px;">
+                            ⏹ غير متصل بحساب Google
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <button id="driveLoginBtn" class="btn-sm btn-success" style="flex:1; min-width:100px;">🔗 ربط بحساب Google</button>
+                            <button id="driveLogoutBtn" class="btn-sm" style="flex:1; min-width:100px; background:var(--danger-light);color:var(--danger);border:1px solid var(--border);display:none;">🚪 قطع الاتصال</button>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:8px;">
+                            <button id="driveUploadBtn" class="btn-sm btn-outline" style="flex:1;" disabled>⬆️ رفع نسخة إلى Drive</button>
+                            <button id="driveDownloadBtn" class="btn-sm btn-outline" style="flex:1;" disabled>⬇️ استرجاع من Drive</button>
+                        </div>
+                    </div>
+                </details>
+
                 <input type="file" id="backupFileInput" accept=".json" style="display:none;">
                 <div class="flex-between" style="margin-bottom:12px;">
                     <span style="font-size:0.9rem; color:var(--text-muted);">🔄 نسخ احتياطي تلقائي كل 5 دقائق</span>
@@ -1020,6 +1089,24 @@
 
 <div id="toast-container"></div>
 
+<div id="modalOverlay" class="modal-overlay" onclick="window._closeModal?.(null)">
+    <div class="modal-container" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <span class="modal-icon" id="modalIcon">⚠️</span>
+            <span id="modalTitle">تأكيد</span>
+        </div>
+        <div class="modal-body">
+            <div id="modalMessage"></div>
+            <input type="text" id="modalInput" autocomplete="off" style="display:none;">
+            <input type="number" step="any" id="modalNumberInput" autocomplete="off" style="display:none;">
+        </div>
+        <div class="modal-footer">
+            <button id="modalCancelBtn" class="btn-sm" style="background:var(--border);color:var(--text-main);border:none;" onclick="window._closeModal?.(null)">إلغاء</button>
+            <button id="modalConfirmBtn" class="btn-sm btn-success" style="border:none;" onclick="window._confirmModal?.()">تأكيد</button>
+        </div>
+    </div>
+</div>
+
 <script>
     if (!CanvasRenderingContext2D.prototype.roundRect) {
         CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
@@ -1038,6 +1125,94 @@
             this.closePath();
         };
     }
+
+    // ====== نظام Modal الموحد ======
+    let _modalResolve = null;
+
+    function _closeModal(value) {
+        document.getElementById('modalOverlay').classList.remove('show');
+        if (_modalResolve) { _modalResolve(value); _modalResolve = null; }
+    }
+    window._closeModal = _closeModal;
+
+    function _confirmModal() {
+        const textInput = document.getElementById('modalInput');
+        const numInput = document.getElementById('modalNumberInput');
+        if (textInput.style.display !== 'none') _closeModal(textInput.value);
+        else if (numInput.style.display !== 'none') _closeModal(parseFloat(numInput.value));
+        else _closeModal(true);
+    }
+    window._confirmModal = _confirmModal;
+
+    // دعم مفتاح Enter
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') _closeModal(null);
+        if (e.key === 'Enter') {
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay && overlay.classList.contains('show')) _confirmModal();
+        }
+    });
+
+    window.showConfirmModal = function(message, title = 'تأكيد') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            document.getElementById('modalIcon').textContent = '⚠️';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+        });
+    };
+
+    window.showPromptModal = function(message, defaultValue = '', title = 'إدخال') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            document.getElementById('modalIcon').textContent = '✏️';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = '';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalInput').value = String(defaultValue);
+            document.getElementById('modalInput').type = 'text';
+            document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+            setTimeout(() => { document.getElementById('modalInput').focus(); document.getElementById('modalInput').select(); }, 100);
+        });
+    };
+
+    window.showNumberPromptModal = function(message, defaultValue = '', title = 'إدخال') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            document.getElementById('modalIcon').textContent = '🔢';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = '';
+            document.getElementById('modalNumberInput').value = defaultValue;
+            document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+            setTimeout(() => { document.getElementById('modalNumberInput').focus(); document.getElementById('modalNumberInput').select(); }, 100);
+        });
+    };
+
+    window.showAlertModal = function(message, title = 'تنبيه') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            document.getElementById('modalIcon').textContent = 'ℹ️';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalConfirmBtn').textContent = 'حسناً';
+            document.getElementById('modalCancelBtn').style.display = 'none';
+            document.getElementById('modalOverlay').classList.add('show');
+        });
+    };
 
     const DB_NAME = 'SalesManagementDB';
     const DB_VERSION = 3;
@@ -1316,14 +1491,105 @@
         if (lockInputAttempts >= 3) { setTimeout(() => location.reload(), 1500); }
     };
 
-    window.removePassword = function() {
+    window.removePassword = async function() {
         if (!appPassword) return;
-        if (confirm('إزالة رمز الدخول؟')) {
+        let ok = await showConfirmModal('إزالة رمز الدخول؟', 'تأكيد');
+        if (ok) {
             appPassword = '';
             localStorage.setItem('appPassword', '');
             checkAppLock();
         }
     };
+
+    // ====== إشعارات المتصفح (Browser Notifications) ======
+    let notifTimer = null;
+
+    function updateNotifStatus() {
+        const el = document.getElementById('notifStatus');
+        if (!el) return;
+        if (Notification.permission === 'granted' && localStorage.getItem('notifEnabled') === 'true') {
+            el.innerHTML = '✅ الإشعارات مفعلة — سيتم إعلامك بالأقساط المتأخرة والقريبة';
+            el.style.color = 'var(--success)';
+        } else if (Notification.permission === 'denied') {
+            el.innerHTML = '🚫 تم رفض الإشعارات من المتصفح. فعلها من إعدادات الموقع.';
+            el.style.color = 'var(--danger)';
+        } else {
+            el.innerHTML = '⏸ الإشعارات غير مفعلة';
+            el.style.color = 'var(--text-muted)';
+        }
+    }
+
+    async function requestNotificationPermission() {
+        if (!('Notification' in window)) { showToast('المتصفح لا يدعم الإشعارات', 'error'); return false; }
+        if (Notification.permission === 'denied') { showToast('الإشعارات مرفوضة من المتصفح', 'error'); return false; }
+        if (Notification.permission === 'granted') return true;
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            showToast('✅ تم تفعيل الإشعارات');
+            updateNotifStatus();
+            return true;
+        } else {
+            showToast('🚫 تم رفض الإشعارات', 'error');
+            updateNotifStatus();
+            return false;
+        }
+    }
+
+    function sendBrowserNotification(title, body, tag) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            // لا ترسل إشعار مكرر بنفس tag خلال 30 ثانية
+            if (tag) {
+                const key = '_notif_sent_' + tag;
+                const last = localStorage.getItem(key);
+                if (last && (Date.now() - parseInt(last)) < 30000) return;
+                localStorage.setItem(key, String(Date.now()));
+            }
+            new Notification(title, { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false });
+        } catch (e) { /* ignore */ }
+    }
+
+    function checkAndNotify() {
+        if (localStorage.getItem('notifEnabled') !== 'true' || Notification.permission !== 'granted') return;
+        const today = new Date(); today.setHours(0,0,0,0);
+        let lateCount = 0, dueSoonCount = 0;
+        installments.filter(i => !i.isPaid).forEach(inst => {
+            const schedule = getInstSchedule(inst);
+            const m = merchants.find(x => x.id == inst.merchantId);
+            schedule.filter(s => !s.isPaid).forEach(slot => {
+                const d = new Date(slot.dueDate);
+                const diff = Math.ceil((d - today) / 86400000);
+                if (diff < 0) {
+                    lateCount++;
+                    if (lateCount <= 3) sendBrowserNotification(
+                        '🚨 قسط متأخر',
+                        (m?.name || 'عميل') + ' — القسط ' + slot.index + ' متأخر ' + Math.abs(diff) + ' يوم',
+                        'late_' + inst.id + '_' + slot.index
+                    );
+                } else if (diff <= 3) {
+                    dueSoonCount++;
+                    if (dueSoonCount <= 3) sendBrowserNotification(
+                        '⏰ قسط يستحق قريباً',
+                        (m?.name || 'عميل') + ' — القسط ' + slot.index + ' يستحق بعد ' + (diff === 0 ? 'اليوم' : diff + ' أيام'),
+                        'due_' + inst.id + '_' + slot.index
+                    );
+                }
+            });
+        });
+        if (lateCount > 0) {
+            sendBrowserNotification('🚨 أقساط متأخرة', 'لديك ' + lateCount + ' قسط متأخر', 'late_summary');
+        }
+    }
+
+    function startNotifCheck() {
+        if (notifTimer) clearInterval(notifTimer);
+        if (localStorage.getItem('notifEnabled') === 'true' && Notification.permission === 'granted') {
+            // فحص فوري بعد 3 ثواني من التحميل
+            setTimeout(checkAndNotify, 3000);
+            // فحص دوري كل 30 دقيقة
+            notifTimer = setInterval(checkAndNotify, 30 * 60 * 1000);
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') window.unlockApp(); });
@@ -1544,6 +1810,26 @@
         slider.style.background = this.checked ? 'var(--success)' : '#cbd5e1';
         startAutoBackup();
     });
+
+    const notifToggle = document.getElementById('notifToggle');
+    if (notifToggle) {
+        notifToggle.addEventListener('change', async function() {
+            const slider = document.getElementById('notifSlider');
+            if (this.checked) {
+                const ok = await requestNotificationPermission();
+                if (!ok) { this.checked = false; if (slider) slider.style.background = '#cbd5e1'; return; }
+                localStorage.setItem('notifEnabled', 'true');
+                if (slider) slider.style.background = 'var(--success)';
+                checkAndNotify();
+                startNotifCheck();
+            } else {
+                localStorage.setItem('notifEnabled', 'false');
+                if (slider) slider.style.background = '#cbd5e1';
+                if (notifTimer) clearInterval(notifTimer);
+            }
+            updateNotifStatus();
+        });
+    }
 
     async function saveData() {
         localStorage.setItem('products', JSON.stringify(products));
@@ -1908,16 +2194,16 @@
         }
     };
 
-    window.deleteProduct = (id) => {
+    window.deleteProduct = async (id) => {
         try {
             if (transactions.some(t => t.productId == id) || installments.some(i => i.productId == id)) {
                 showToast('لا يمكن حذف الصنف لارتباطه بحركات مالية سابقة', 'error'); return;
             }
-            if (confirm('تأكيد حذف الصنف؟')) {
-                products = products.filter(x => x.id != id);
-                saveData(); renderProducts(); refreshSelectors(); renderDashboard();
-                showToast('تم الحذف');
-            }
+            let ok = await showConfirmModal('تأكيد حذف الصنف؟', '⚠️ حذف');
+            if (!ok) return;
+            products = products.filter(x => x.id != id);
+            saveData(); renderProducts(); refreshSelectors(); renderDashboard();
+            showToast('تم الحذف');
         } catch (err) {
             showError('حدث خطأ أثناء الحذف', err.message);
         }
@@ -2075,18 +2361,16 @@
         }
     });
 
-    window.editTransaction = (id) => {
+    window.editTransaction = async (id) => {
         try {
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
 
-            let newAmount = prompt('✏️ تعديل الحركة\n' + (t.notes || '') + '\nالمبلغ الحالي: ' + (t.amount || 0).toFixed(2) + ' ج', t.amount);
-            if (newAmount === null) return;
-            let amount = parseFloat(newAmount);
-            if (isNaN(amount) || amount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            let amount = await showNumberPromptModal('المبلغ الحالي: ' + (t.amount || 0).toFixed(2) + ' ج\n' + (t.notes || ''), t.amount, '✏️ تعديل الحركة');
+            if (amount === null || isNaN(amount) || amount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
             t.amount = amount;
 
-            let newNotes = prompt('الملاحظات الجديدة:', t.notes || '');
+            let newNotes = await showPromptModal('الملاحظات الجديدة:', t.notes || '', 'تعديل الملاحظات');
             if (newNotes !== null) t.notes = newNotes.trim();
 
             saveData(); renderTransactions(); renderDashboard();
@@ -2096,14 +2380,15 @@
         }
     };
 
-    window.deleteTransaction = (id) => {
+    window.deleteTransaction = async (id) => {
         try {
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
             let isLinked = installments.some(i => !i.isPaid && i.merchantId == t.merchantId &&
                 t.notes && (t.notes.includes('قسط') || t.notes.includes('مقدم')));
             if (isLinked) { showToast('لا يمكن حذف حركة مرتبطة بعقد تقسيط نشط', 'error'); return; }
-            if (!confirm('⚠️ حذف حركة "' + (t.notes || t.type || '') + '" بقيمة ' + (t.amount || 0).toFixed(2) + ' ج؟')) return;
+            let ok = await showConfirmModal('حذف حركة "' + (t.notes || t.type || '') + '" بقيمة ' + (t.amount || 0).toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
+            if (!ok) return;
             transactions = transactions.filter(x => x.id != id);
             saveData(); renderTransactions(); renderDashboard();
             showToast('تم حذف الحركة');
@@ -2336,12 +2621,134 @@
         });
     }
 
-    window.deleteInstallment = (id) => {
+    // ====== تعديل عقد التقسيط ======
+    window.editInstallment = async (id) => {
+        try {
+            let inst = installments.find(i => i.id == id);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            if (inst.isPaid) { showToast('لا يمكن تعديل عقد مسدد بالكامل', 'error'); return; }
+            let m = merchants.find(x => x.id == inst.merchantId);
+            const filteredProducts = filterList(products, '', ['name']);
+            const prodOpts = filteredProducts.map(p =>
+                '<option value="' + p.id + '" ' + (p.id == inst.productId ? 'selected' : '') + '>' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>'
+            ).join('');
+
+            let paidCount = (inst.schedule || getInstSchedule(inst)).filter(s => s.isPaid).length;
+            let isLocked = paidCount > 0;
+
+            let html = '';
+            if (isLocked) {
+                html += '<div style="background:var(--accent);color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:0.85rem;">⚠️ تم سداد ' + paidCount + ' أقساط — بعض الحقول مقفلة</div>';
+            }
+            html += '<div style="display:grid;gap:10px;">';
+            html += '<label style="font-size:0.85rem;font-weight:700;">👤 اسم العميل</label><input id="editInstName" value="' + (m?.name || '') + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);">';
+            html += '<label style="font-size:0.85rem;font-weight:700;">📞 رقم الهاتف</label><input id="editInstPhone" value="' + (m?.phone || '') + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);">';
+            html += '<label style="font-size:0.85rem;font-weight:700;">📱 الجهاز</label><select id="editInstProduct" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);"' + (isLocked ? ' disabled' : '') + '>' + prodOpts + '</select>';
+            html += '<label style="font-size:0.85rem;font-weight:700;">💰 سعر البيع</label><input type="number" id="editInstPrice" value="' + inst.purchasePrice + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);"' + (isLocked ? ' disabled' : '') + '>';
+            html += '<label style="font-size:0.85rem;font-weight:700;">💵 المقدم</label><input type="number" id="editInstUpfront" value="' + inst.paidUpfront + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);"' + (isLocked ? ' disabled' : '') + '>';
+            html += '<label style="font-size:0.85rem;font-weight:700;">📊 نسبة الفائدة (%)</label><input type="number" step="0.1" id="editInstRate" value="' + inst.interestRate + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);"' + (isLocked ? ' disabled' : '') + '>';
+            html += '<label style="font-size:0.85rem;font-weight:700;">📅 عدد الشهور</label><input type="number" id="editInstMonths" value="' + inst.numInstallments + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);"' + (isLocked ? ' disabled' : '') + '>';
+            html += '<label style="font-size:0.85rem;font-weight:700;">📆 تاريخ أول قسط</label><input type="date" id="editInstFirstDate" value="' + inst.firstDueDate + '" style="padding:10px;border:2px solid var(--border);border-radius:8px;font-size:0.95rem;background:var(--card-bg);color:var(--text-main);">';
+            html += '</div>';
+
+            // Show custom modal
+            document.getElementById('modalIcon').textContent = '✏️';
+            document.getElementById('modalTitle').textContent = 'تعديل العقد #' + inst.id;
+            document.getElementById('modalMessage').innerHTML = html;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalConfirmBtn').textContent = '💾 حفظ التعديلات';
+            document.getElementById('modalCancelBtn').textContent = 'إلغاء';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+
+            // Override confirm to save
+            let saved = false;
+            let oldResolve = _modalResolve;
+            let newResolve = null;
+            let p = new Promise((resolve) => { newResolve = resolve; });
+            _modalResolve = async (value) => {
+                if (value === null) { newResolve(false); oldResolve?.(null); return; }
+                try {
+                    let name = document.getElementById('editInstName').value.trim();
+                    let phone = document.getElementById('editInstPhone').value.trim();
+                    if (!name) { showToast('أدخل اسم العميل', 'error'); return; }
+                    let newProdId = isLocked ? inst.productId : parseInt(document.getElementById('editInstProduct').value);
+                    let price = isLocked ? inst.purchasePrice : parseFloat(document.getElementById('editInstPrice').value);
+                    let upfront = isLocked ? inst.paidUpfront : parseFloat(document.getElementById('editInstUpfront').value) || 0;
+                    let rate = isLocked ? inst.interestRate : parseFloat(document.getElementById('editInstRate').value) || 0;
+                    let months = isLocked ? inst.numInstallments : parseInt(document.getElementById('editInstMonths').value);
+                    let firstDate = document.getElementById('editInstFirstDate').value;
+
+                    if (!newProdId) { showToast('اختر جهازاً', 'error'); return; }
+                    if (!price || price <= 0) { showToast('سعر غير صالح', 'error'); return; }
+                    if (!months || months <= 0) { showToast('عدد شهور غير صالح', 'error'); return; }
+                    if (!firstDate) { showToast('أدخل تاريخ أول قسط', 'error'); return; }
+                    if (!isLocked && newProdId != inst.productId) {
+                        let oldP = products.find(x => x.id == inst.productId);
+                        let newP = products.find(x => x.id == newProdId);
+                        if (!newP || newP.stock <= 0) { showToast('الرصيد من الصنف الجديد صفر!', 'error'); return; }
+                        if (oldP) oldP.stock += 1;
+                        newP.stock -= 1;
+                    }
+
+                    // Update merchant
+                    if (m) { m.name = name; m.phone = phone; }
+
+                    let remainingBase = Math.max(price - upfront, 0);
+                    let totalFinanced = remainingBase * (1 + rate / 100);
+                    let monthly = totalFinanced / months;
+
+                    if (!isLocked) {
+                        inst.productId = newProdId;
+                        inst.purchasePrice = price;
+                        inst.paidUpfront = upfront;
+                        inst.interestRate = rate;
+                        inst.numInstallments = months;
+                        inst.totalAfterInterest = totalFinanced;
+                        inst.remainingBalance = totalFinanced;
+                        inst.monthlyAmount = monthly;
+                        let p2 = products.find(x => x.id == newProdId);
+                        inst.deviceName = p2?.name || inst.deviceName;
+                    }
+                    inst.firstDueDate = firstDate;
+
+                    // Rebuild schedule
+                    let first = new Date(firstDate);
+                    inst.schedule = Array.from({length: inst.numInstallments}, (_, i) => {
+                        let d = new Date(first);
+                        d.setMonth(first.getMonth() + i);
+                        return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
+                    });
+
+                    saveData(); renderInstallments(); renderDashboard(); refreshSelectors();
+                    document.getElementById('modalOverlay').classList.remove('show');
+                    saved = true;
+                    newResolve(true);
+                    oldResolve?.(true);
+                    showToast('✅ تم تعديل العقد #' + inst.id);
+                } catch (err) {
+                    showError('خطأ في الحفظ', err.message);
+                }
+            };
+
+            // Wait for modal to close, clean up if cancelled
+            let result = await p;
+            if (!saved) {
+                _modalResolve = oldResolve;
+            }
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.deleteInstallment = async (id) => {
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
-            if (!confirm('⚠️ حذف عقد تقسيط #' + id + '\nالعميل: ' + (m?.name || '') + '\nالجهاز: ' + (inst.deviceName || '') + '\nالمتبقي: ' + (inst.remainingBalance || 0).toFixed(2) + ' ج\n\nسيتم إعادة المخزون.')) return;
+            let ok = await showConfirmModal('حذف عقد تقسيط #' + id + '\nالعميل: ' + (m?.name || '') + '\nالجهاز: ' + (inst.deviceName || '') + '\nالمتبقي: ' + (inst.remainingBalance || 0).toFixed(2) + ' ج\n\nسيتم إعادة المخزون.', '⚠️ تأكيد الحذف');
+            if (!ok) return;
             let p = products.find(x => x.id == inst.productId);
             if (p) { p.stock = (p.stock || 0) + 1; }
             transactions = transactions.filter(t => !(t.notes || '').includes('#' + id));
@@ -2452,6 +2859,7 @@
                 '<div class="flex-between" style="margin-bottom:4px;">' +
                     '<button class="btn-sm btn-success" onclick="sendPlanAsPDF(' + inst.id + ')">📋 PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
+                    '<button class="btn-sm" style="background:var(--primary-light);color:var(--primary);border:1px solid var(--border);" onclick="editInstallment(' + inst.id + ')">✏️ تعديل</button>' +
                     '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
                     '<button class="schedule-toggle btn-sm" onclick="toggleSchedule(' + inst.id + ')">📅 جدول الأقساط ▾</button>' +
                 '</div>' +
@@ -2513,7 +2921,7 @@
         receiptData = null;
     };
 
-    window.recordSchedulePayment = (instId, slotIdx) => {
+    window.recordSchedulePayment = async (instId, slotIdx) => {
         try {
             let inst = installments.find(i => i.id == instId);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
@@ -2523,9 +2931,9 @@
             let slot = inst.schedule[slotIdx];
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let remaining = parseFloat((inst.monthlyAmount - slot.paidAmount).toFixed(2));
-            let amount = prompt('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م\n\nأدخل المبلغ المحصل:', remaining.toFixed(2));
-            if (amount === null || amount.trim() === '' || isNaN(amount)) return;
-            let val = Math.min(parseFloat(amount), remaining);
+            let amount = await showNumberPromptModal('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م', remaining.toFixed(2), '💵 تحصيل القسط');
+            if (amount === null || isNaN(amount)) return;
+            let val = Math.min(amount, remaining);
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
             slot.paidAmount = parseFloat((slot.paidAmount + val).toFixed(2));
             if (slot.paidAmount >= inst.monthlyAmount - 0.01) { slot.isPaid = true; slot.paidAmount = inst.monthlyAmount; }
@@ -2553,26 +2961,25 @@
         }
     };
 
-    window.recordPayment = (id) => {
+    window.recordPayment = async (id) => {
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) return;
-            let amount = prompt('أدخل المبلغ المحصل (المطلوب: ' + inst.monthlyAmount.toFixed(2) + '، الباقي الكلي: ' + inst.remainingBalance.toFixed(2) + ')', inst.monthlyAmount.toFixed(2));
-            if (amount && !isNaN(amount)) {
-                let val = parseFloat(amount);
-                if(val > inst.remainingBalance) val = inst.remainingBalance;
-                inst.remainingBalance -= val;
-                if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
-                
-                transactions.push({
-                    id: Date.now(), type: 'payment_in', amount: val,
-                    merchantId: inst.merchantId, productId: inst.productId,
-                    notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString()
-                });
-                
-                saveData(); renderInstallments(); renderTransactions(); renderDashboard();
-                showToast('تم تسجيل السداد وإضافته للخزينة');
-            }
+            let amount = await showNumberPromptModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل');
+            if (amount === null || isNaN(amount)) return;
+            let val = amount;
+            if(val > inst.remainingBalance) val = inst.remainingBalance;
+            inst.remainingBalance -= val;
+            if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
+            
+            transactions.push({
+                id: Date.now(), type: 'payment_in', amount: val,
+                merchantId: inst.merchantId, productId: inst.productId,
+                notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString()
+            });
+            
+            saveData(); renderInstallments(); renderTransactions(); renderDashboard();
+            showToast('تم تسجيل السداد وإضافته للخزينة');
         } catch (err) {
             showError('حدث خطأ أثناء تسجيل السداد', err.message);
         }
@@ -2602,24 +3009,21 @@
         return summary;
     }
 
-    window.recordMerchantPayment = (merchantId) => {
+    window.recordMerchantPayment = async (merchantId) => {
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
         let bal = calcMerchantBalance(merchantId);
-        let amount = prompt('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.min(bal.balance, 0).toString());
-        if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
-            let val = parseFloat(amount);
-            // سجل الدفعة
-            let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
-            merchantPayments.push(pay);
-            // سجل في الحركات المالية
-            transactions.push({
-                id: Date.now() + 1, type: 'payment_in', amount: val,
-                merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
-            });
-            saveData(); renderMerchantSales(); renderTransactions();
-            showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
-        }
+        let amount = await showNumberPromptModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل');
+        if (amount === null || isNaN(amount) || amount <= 0) return;
+        let val = amount;
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
+        merchantPayments.push(pay);
+        transactions.push({
+            id: Date.now() + 1, type: 'payment_in', amount: val,
+            merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
+        });
+        saveData(); renderMerchantSales(); renderTransactions();
+        showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
     };
 
     window.showMerchantStatement = (merchantId) => {
@@ -2668,21 +3072,19 @@
         setTimeout(() => generateMerchantStatementPDF(merchantId), 300);
     };
 
-    window.editMerchantSale = (id) => {
+    window.editMerchantSale = async (id) => {
         try {
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
 
-            let newPrice = prompt('✏️ تعديل بيع ' + (sale.deviceName || '') +
+            let newPrice = await showNumberPromptModal('✏️ تعديل بيع ' + (sale.deviceName || '') +
                 '\n' + 'السعر الحالي: ' + (sale.sellPrice || 0).toFixed(2) + ' ج' +
-                '\n' + 'الملاحظات الحالية: ' + (sale.notes || 'بدون') +
-                '\n\nأدخل السعر الجديد:', sale.sellPrice);
-            if (newPrice === null) return;
-            let price = parseFloat(newPrice);
-            if (isNaN(price) || price <= 0) { showToast('سعر غير صالح', 'error'); return; }
-            sale.sellPrice = price;
+                '\n' + 'الملاحظات الحالية: ' + (sale.notes || 'بدون'),
+                sale.sellPrice, 'تعديل السعر');
+            if (newPrice === null || isNaN(newPrice) || newPrice <= 0) { showToast('سعر غير صالح', 'error'); return; }
+            sale.sellPrice = newPrice;
 
-            let newNotes = prompt('أدخل الملاحظات الجديدة:', sale.notes || '');
+            let newNotes = await showPromptModal('أدخل الملاحظات الجديدة:', sale.notes || '', 'تعديل الملاحظات');
             if (newNotes !== null) sale.notes = newNotes.trim();
 
             saveData(); renderMerchantSales(); renderDashboard();
@@ -2692,11 +3094,12 @@
         }
     };
 
-    window.deleteMerchantSale = (id) => {
+    window.deleteMerchantSale = async (id) => {
         try {
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
-            if (!confirm('⚠️ حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)')) return;
+            let ok = await showConfirmModal('حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)', '⚠️ تأكيد الحذف');
+            if (!ok) return;
 
             let p = products.find(x => x.name === sale.deviceName);
             if (p) p.stock++;
@@ -2938,21 +3341,20 @@
     };
 
     // ====== إدارة الشركاء ======
-    window.addPartnerTransaction = (id, type) => {
+    window.addPartnerTransaction = async (id, type) => {
         try {
             let p = partners.find(x => x.id == id);
             if (!p) { showToast('الشريك غير موجود', 'error'); return; }
             let label = type === 'deposit' ? 'إيداع' : 'سحب';
-            let amount = prompt('💵 ' + label + ' — ' + p.name + '\nالرصيد الحالي: ' + p.balance.toFixed(2) + ' ج\nالمبلغ:', '');
-            if (!amount) return;
-            let val = parseFloat(amount);
-            if (isNaN(val) || val <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            let amount = await showNumberPromptModal(label + ' — ' + p.name + '\nالرصيد الحالي: ' + p.balance.toFixed(2) + ' ج', '', '💵 ' + label);
+            if (amount === null || isNaN(amount) || amount <= 0) return;
+            let val = amount;
             if (type === 'withdrawal' && val > p.balance) {
-                if (!confirm('⚠️ الرصيد الحالي (' + p.balance.toFixed(2) + ' ج) أقل من مبلغ السحب (' + val.toFixed(2) + ' ج).\nهل تريد المتابعة؟')) return;
+                let ok = await showConfirmModal('الرصيد الحالي (' + p.balance.toFixed(2) + ' ج) أقل من مبلغ السحب (' + val.toFixed(2) + ' ج).\nهل تريد المتابعة؟', '⚠️ تأكيد السحب');
+                if (!ok) return;
             }
             let sign = type === 'deposit' ? 1 : -1;
             p.balance += sign * val;
-            // تسجيل في الحركات المالية
             transactions.push({
                 id: Date.now(),
                 type: type === 'deposit' ? 'partner_deposit' : 'partner_withdrawal',
@@ -2968,12 +3370,16 @@
         }
     };
 
-    window.deletePartner = (id) => {
+    window.deletePartner = async (id) => {
         try {
             let p = partners.find(x => x.id == id);
             if (!p) { showToast('الشريك غير موجود', 'error'); return; }
-            if (p.balance > 0 && !confirm('⚠️ للشريك رصيد مستحق (' + p.balance.toFixed(2) + ' ج).\nهل تريد حذف الشريك مع تسوية الرصيد؟')) return;
-            if (!confirm('🗑️ حذف الشريك "' + p.name + '"؟')) return;
+            if (p.balance > 0) {
+                let ok = await showConfirmModal('للشريك رصيد مستحق (' + p.balance.toFixed(2) + ' ج).\nهل تريد حذف الشريك مع تسوية الرصيد؟', '⚠️ تنبيه');
+                if (!ok) return;
+            }
+            let ok2 = await showConfirmModal('حذف الشريك "' + p.name + '"؟', '🗑️ تأكيد الحذف');
+            if (!ok2) return;
             partners = partners.filter(x => x.id != id);
             saveData(); renderPartners();
             showToast('تم حذف الشريك');
@@ -3225,17 +3631,16 @@
     });
 
     // ====== إعادة جدولة الأقساط ======
-    window.rescheduleInstallment = (instId) => {
+    window.rescheduleInstallment = async (instId) => {
         let inst = installments.find(i => i.id == instId);
         if (!inst) { showToast('العقد غير موجود', 'error'); return; }
         let paidCount = (inst.schedule || getInstSchedule(inst)).filter(s => s.isPaid).length;
         let remaining = inst.numInstallments - paidCount;
         if (remaining <= 0) { showToast('العقد مسدد بالكامل', 'error'); return; }
-        let newMonths = prompt('عدد الأشهر المتبقية الحالي: ' + remaining + '\nالقسط الحالي: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالباقي: ' + inst.remainingBalance.toFixed(2) + ' ج.م\n\nأدخل عدد الأشهر الجديد (أو أتركه كما هو):', remaining);
-        if (newMonths === null) return;
-        let months = parseInt(newMonths);
-        if (isNaN(months) || months <= 0) { showToast('عدد غير صالح', 'error'); return; }
-        let firstDateStr = prompt('أدخل تاريخ أول قسط جديد (صيغة YYYY-MM-DD):', inst.firstDueDate);
+        let newMonths = await showNumberPromptModal('عدد الأشهر المتبقية الحالي: ' + remaining + '\nالقسط الحالي: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالباقي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', remaining, 'إعادة جدولة - عدد الأشهر');
+        if (newMonths === null || isNaN(newMonths) || newMonths <= 0) return;
+        let months = Math.floor(newMonths);
+        let firstDateStr = await showPromptModal('أدخل تاريخ أول قسط جديد (صيغة YYYY-MM-DD):', inst.firstDueDate, 'تاريخ أول قسط');
         if (!firstDateStr) return;
         let firstDate = new Date(firstDateStr);
         if (isNaN(firstDate.getTime())) { showToast('تاريخ غير صالح', 'error'); return; }
@@ -3256,9 +3661,11 @@
     };
 
     // ====== إعادة تعيين البيانات ======
-    document.getElementById('resetAllBtn').addEventListener('click', () => {
-        if (!confirm('⚠️ تحذير شديد! هذا سيحذف جميع البيانات (المخزون، العملاء، الحركات، العقود، القوالب).\n\nلا يمكن التراجع عن هذا الإجراء!\n\nهل أنت متأكد؟')) return;
-        if (!confirm('🔴 تأكيد نهائي: هل تريد فعلاً مسح كل البيانات؟')) return;
+    document.getElementById('resetAllBtn').addEventListener('click', async () => {
+        let ok1 = await showConfirmModal('هذا سيحذف جميع البيانات (المخزون، العملاء، الحركات، العقود، القوالب).\n\nلا يمكن التراجع عن هذا الإجراء!', '⚠️ تحذير شديد');
+        if (!ok1) return;
+        let ok2 = await showConfirmModal('هل تريد فعلاً مسح كل البيانات؟', '🔴 تأكيد نهائي');
+        if (!ok2) return;
         products = []; merchants = []; transactions = []; installments = [];
         msgTemplates = { reminder: '', late: '' };
         merchantSales = []; merchantPayments = []; partners = [];
@@ -3292,8 +3699,9 @@
         }
     });
 
-    document.getElementById('backupImportBtn').addEventListener('click', () => {
-        if (!confirm('⚠️ تنبيه: استيراد النسخة سيحل محل جميع البيانات الحالية (المخزون، العملاء، الحركات، العقود).\n\nهل تريد المتابعة؟')) return;
+    document.getElementById('backupImportBtn').addEventListener('click', async () => {
+        let ok = await showConfirmModal('استيراد النسخة سيحل محل جميع البيانات الحالية (المخزون، العملاء، الحركات، العقود).\n\nهل تريد المتابعة؟', '⚠️ تنبيه');
+        if (!ok) return;
         document.getElementById('backupFileInput').click();
     });
 
@@ -3336,6 +3744,235 @@
         }
         e.target.value = '';
     });
+
+    // ====== Web Share — مشاركة النسخة ======
+    document.getElementById('shareBackupBtn')?.addEventListener('click', async () => {
+        try {
+            const backup = {
+                version: 2,
+                date: new Date().toISOString(),
+                products, merchants, transactions, installments, msgTemplates,
+                merchantSales, merchantPayments, partners, openingCapital
+            };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            if (navigator.share && navigator.canShare) {
+                const file = new File([blob], 'نسخة_احتياطية_' + new Date().toISOString().split('T')[0] + '.json', { type: 'application/json' });
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'نسخة احتياطية', text: 'ملف النسخة الاحتياطية لنظام المبيعات' });
+                    showToast('✅ تمت المشاركة');
+                    return;
+                }
+            }
+            // Fallback: نسخ الرابط
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'نسخة_احتياطية_' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('✅ تم تنزيل الملف — شاركه عبر أي تطبيق');
+        } catch (err) {
+            if (err.name !== 'AbortError') showError('فشل المشاركة', err.message);
+        }
+    });
+
+    // ====== Google Drive — النسخ الاحتياطي السحابي ======
+    const DRIVE_CLIENT_ID = '1057692450024-4vh4qotdvrf9ndbnk6n5tavub5vt8l4f.apps.googleusercontent.com';
+    const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+    let driveToken = localStorage.getItem('driveToken') || null;
+    let driveFileId = localStorage.getItem('driveFileId') || null;
+
+    function updateDriveUI() {
+        const status = document.getElementById('driveStatus');
+        const loginBtn = document.getElementById('driveLoginBtn');
+        const logoutBtn = document.getElementById('driveLogoutBtn');
+        const uploadBtn = document.getElementById('driveUploadBtn');
+        const downloadBtn = document.getElementById('driveDownloadBtn');
+        if (!status) return;
+        if (driveToken) {
+            status.innerHTML = '✅ متصل بحساب Google — جاهز للنسخ الاحتياطي السحابي';
+            status.style.color = 'var(--success)';
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = '';
+            if (uploadBtn) uploadBtn.disabled = false;
+            if (downloadBtn) downloadBtn.disabled = false;
+        } else {
+            status.innerHTML = '⏹ غير متصل بحساب Google';
+            status.style.color = 'var(--text-muted)';
+            if (loginBtn) loginBtn.style.display = '';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (uploadBtn) uploadBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
+        }
+    }
+
+    function handleDriveCallback() {
+        // Check if we have a token in URL hash (implicit flow)
+        const hash = window.location.hash;
+        if (hash && hash.includes('access_token')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const token = params.get('access_token');
+            if (token) {
+                driveToken = token;
+                localStorage.setItem('driveToken', token);
+                window.location.hash = '';
+                updateDriveUI();
+                showToast('✅ تم ربط حساب Google بنجاح');
+            }
+        }
+    }
+
+    document.getElementById('driveLoginBtn')?.addEventListener('click', () => {
+        const redirectUri = window.location.origin + window.location.pathname;
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+            '?client_id=' + DRIVE_CLIENT_ID +
+            '&redirect_uri=' + encodeURIComponent(redirectUri) +
+            '&response_type=token' +
+            '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
+            '&prompt=consent';
+        window.location.href = authUrl;
+    });
+
+    document.getElementById('driveLogoutBtn')?.addEventListener('click', () => {
+        driveToken = null;
+        driveFileId = null;
+        localStorage.removeItem('driveToken');
+        localStorage.removeItem('driveFileId');
+        updateDriveUI();
+        showToast('تم قطع الاتصال بحساب Google');
+    });
+
+    async function driveApi(path, options = {}) {
+        if (!driveToken) throw new Error('غير متصل');
+        const res = await fetch('https://www.googleapis.com/drive/v3/' + path, {
+            ...options,
+            headers: {
+                'Authorization': 'Bearer ' + driveToken,
+                ...(options.headers || {})
+            }
+        });
+        if (res.status === 401) {
+            driveToken = null;
+            localStorage.removeItem('driveToken');
+            updateDriveUI();
+            throw new Error('انتهت صلاحية الاتصال — أعد الربط');
+        }
+        if (!res.ok) {
+            const err = await res.text();
+            throw new Error(err);
+        }
+        return res;
+    }
+
+    document.getElementById('driveUploadBtn')?.addEventListener('click', async () => {
+        try {
+            const btn = document.getElementById('driveUploadBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري الرفع...';
+
+            const backup = {
+                version: 2,
+                date: new Date().toISOString(),
+                products, merchants, transactions, installments, msgTemplates,
+                merchantSales, merchantPayments, partners, openingCapital
+            };
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const metadata = {
+                name: 'نسخة_احتياطية_مبيعات_' + new Date().toISOString().split('T')[0] + '.json',
+                mimeType: 'application/json'
+            };
+
+            if (driveFileId) {
+                // تحديث الملف الموجود
+                await driveApi('files/' + driveFileId + '?uploadType=media', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: blob
+                });
+                // تحديث الاسم
+                await driveApi('files/' + driveFileId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: metadata.name })
+                });
+            } else {
+                // رفع ملف جديد
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                form.append('file', blob);
+                const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + driveToken },
+                    body: form
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                driveFileId = data.id;
+                localStorage.setItem('driveFileId', data.id);
+            }
+
+            showToast('✅ تم رفع النسخة الاحتياطية إلى Google Drive');
+            btn.textContent = '⬆️ رفع نسخة إلى Drive';
+            btn.disabled = false;
+        } catch (err) {
+            const btn = document.getElementById('driveUploadBtn');
+            btn.textContent = '⬆️ رفع نسخة إلى Drive';
+            btn.disabled = false;
+            showError('فشل الرفع إلى Drive', err.message);
+        }
+    });
+
+    document.getElementById('driveDownloadBtn')?.addEventListener('click', async () => {
+        try {
+            if (!driveFileId) {
+                showToast('لا توجد نسخة سابقة في Drive — ارفع نسخة أولاً', 'error');
+                return;
+            }
+            const btn = document.getElementById('driveDownloadBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري التحميل...';
+
+            let ok = await showConfirmModal('استرجاع الملف من Drive سيحل محل جميع البيانات الحالية.\nهل تريد المتابعة؟', '⚠️ تنبيه');
+            if (!ok) { btn.disabled = false; btn.textContent = '⬇️ استرجاع من Drive'; return; }
+
+            const res = await driveApi('files/' + driveFileId + '?alt=media');
+            const data = await res.json();
+            if (!data.products || !data.merchants || !data.transactions || !data.installments) {
+                showToast('الملف في Drive غير صالح', 'error');
+                btn.disabled = false;
+                btn.textContent = '⬇️ استرجاع من Drive';
+                return;
+            }
+            products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1 }));
+            merchants = data.merchants || [];
+            transactions = data.transactions || [];
+            installments = data.installments || [];
+            msgTemplates = data.msgTemplates || msgTemplates;
+            merchantSales = data.merchantSales || [];
+            merchantPayments = data.merchantPayments || [];
+            partners = data.partners || [];
+            if (data.openingCapital !== undefined) {
+                openingCapital = data.openingCapital;
+                localStorage.setItem('openingCapital', String(openingCapital));
+            }
+            await saveData();
+            refreshSelectors();
+            renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
+            showToast('✅ تم استرجاع البيانات من Google Drive');
+
+            btn.disabled = false;
+            btn.textContent = '⬇️ استرجاع من Drive';
+        } catch (err) {
+            const btn = document.getElementById('driveDownloadBtn');
+            btn.disabled = false;
+            btn.textContent = '⬇️ استرجاع من Drive';
+            showError('فشل التحميل من Drive', err.message);
+        }
+    });
+
+    // فحص callback في كل تحميل
+    setTimeout(handleDriveCallback, 100);
+    setTimeout(updateDriveUI, 300);
 
     function switchPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
@@ -3434,6 +4071,15 @@
             const slider = document.getElementById('autoBackupSlider');
             if (slider) slider.style.background = autoToggle.checked ? 'var(--success)' : '#cbd5e1';
         }
+        // تهيئة إعدادات الإشعارات
+        const notifToggle = document.getElementById('notifToggle');
+        if (notifToggle) {
+            notifToggle.checked = localStorage.getItem('notifEnabled') === 'true' && Notification.permission === 'granted';
+            const notifSlider = document.getElementById('notifSlider');
+            if (notifSlider) notifSlider.style.background = notifToggle.checked ? 'var(--success)' : '#cbd5e1';
+        }
+        updateNotifStatus();
+        startNotifCheck();
     }, 200);
 
     // إعادة رسم الرسم البياني عند تغيير حجم النافذة
