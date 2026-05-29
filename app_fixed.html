@@ -652,6 +652,10 @@
                     <option value="stock-asc">📊 المخزون (الأقل)</option>
                     <option value="profit-desc">💵 الربح (الأعلى)</option>
                 </select>
+                <select id="showArchivedToggle" onchange="renderProducts()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="hide">📦 إخفاء المؤرشف</option>
+                    <option value="show">📂 إظهار المؤرشف</option>
+                </select>
             </div>
             <div id="productsList"></div>
         </div>
@@ -1474,7 +1478,7 @@
             };
         }
 
-        products = products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1 }));
+        products = products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
 
         migrateTransactionNotes();
     }
@@ -1960,7 +1964,8 @@
     });
 
     function refreshSelectors() {
-        const filteredProducts = filterList(products, '', ['name']);
+        const activeProducts = products.filter(p => !p.archived);
+        const filteredProducts = filterList(activeProducts, '', ['name']);
         const prodOptions = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
         const merchOptions = '<option value="">-- بدون عميل/نقدي --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         
@@ -2181,10 +2186,12 @@
                 expenses: expenses,
                 sellPrice: sell,
                 stock: parseInt(document.getElementById('stockQty').value) || 0,
-                discount: 0
+                discount: 0,
+                archived: false
             };
             if (id) {
                 let idx = products.findIndex(x => x.id == id);
+                p.archived = products[idx].archived || false;
                 products[idx] = p;
                 showToast('تم تحديث الصنف');
             } else {
@@ -2201,7 +2208,10 @@
     function renderProducts() {
         const container = document.getElementById('productsList');
         const term = getSearchTerm('Products');
-        const filtered = filterList(products, term, ['name']);
+        const showArchived = document.getElementById('showArchivedToggle')?.value === 'show';
+        let filtered = filterList(products, term, ['name']);
+        // إخفاء المؤرشف (إلا إذا فعّل المستخدم إظهارها)
+        if (!showArchived) filtered = filtered.filter(p => !p.archived);
         // ترتيب الأصناف
         const sortVal = (document.getElementById('prodSort')?.value) || 'name';
         if (sortVal === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -2222,10 +2232,11 @@
             const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
             const disabledAttr = p.stock <= 0 ? 'disabled' : '';
             const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+            const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
             return '' +
-            '<div class="card">' +
+            '<div class="card" style="' + (p.archived ? 'opacity:0.7;' : '') + '">' +
                 '<div class="flex-between" style="margin-bottom:8px;">' +
-                    '<strong style="font-size:1.05rem;">📱 ' + p.name + '</strong>' +
+                    '<strong style="font-size:1.05rem;">📱 ' + p.name + archiveBadge + '</strong>' +
                     '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
                 '</div>' +
                 '<div style="border-top:1px solid var(--border); padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.88rem;">' +
@@ -2235,14 +2246,23 @@
                     '<div><span style="color:var(--text-muted);">📈 ربح</span><br><strong style="color:' + profitColor + ';">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
                 '</div>' +
                 '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
-                    '<button class="btn-sm btn-success" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')" style="flex:1; min-width:60px;">💵 بيع</button>' +
-                    '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
-                    '<button class="btn-sm btn-outline" onclick="editProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
-                    '<button class="btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
+                    (p.archived
+                        ? '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                          '<button class="btn-sm btn-outline" onclick="unarchiveProduct(' + p.id + ')" style="flex:1; min-width:60px;">📦 إظهار</button>'
+                        : '<button class="btn-sm btn-success" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')" style="flex:1; min-width:60px;">💵 بيع</button>' +
+                          '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                          '<button class="btn-sm btn-outline" onclick="editProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
+                          '<button class="btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>'
+                    ) +
                 '</div>' +
             '</div>';
         }).join('');
     }
+
+    window.unarchiveProduct = (id) => {
+        let p = products.find(x => x.id == id);
+        if (p) { p.archived = false; saveData(); renderProducts(); refreshSelectors(); renderDashboard(); showToast('📦 تم إظهار ' + p.name); }
+    };
 
     window.editProduct = (id) => {
         let p = products.find(x => x.id == id);
@@ -2282,6 +2302,7 @@
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
             if (p.stock <= 0) { showToast('الرصيد صفر!', 'error'); return; }
             p.stock -= 1;
+            if (p.stock <= 0) p.archived = true;
             let mId = document.getElementById('transMerchantId') ? document.getElementById('transMerchantId').value : '';
             transactions.push({
                 id: Date.now(), type: 'sell_cash', amount: p.sellPrice,
@@ -2299,6 +2320,7 @@
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
             p.stock += 1;
+            if (p.archived) p.archived = false;
             transactions.push({
                 id: Date.now(), type: 'purchase', amount: p.costPrice,
                 productId: p.id, merchantId: null,
@@ -3814,7 +3836,7 @@
                         showToast('الملف غير صالح — تأكد من اختيار ملف النسخة الاحتياطية الصحيح', 'error');
                         return;
                     }
-                    products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1 }));
+                    products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
                     merchants = data.merchants || [];
                     transactions = data.transactions || [];
                     installments = data.installments || [];
