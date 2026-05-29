@@ -680,6 +680,30 @@
             <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px;">
                 يتم تسجيل الحركات تلقائياً من شاشات: <strong>المخزون</strong> (بيع، شراء)، <strong>التقسيط</strong> (مقدم، تحصيل).
             </p>
+            <div class="card" id="incomeFormCard">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleIncomeForm()">
+                    <span style="font-size:1.3rem;">💰</span>
+                    <strong style="flex:1;">تسجيل إيراد جديد</strong>
+                    <span id="incomeToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="incomeForm" style="display:none;">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>اسم الإيراد</label>
+                            <input type="text" id="incomeName" required placeholder="مثال: بيع نقدي - إيراد إضافي">
+                        </div>
+                        <div class="form-group">
+                            <label>المبلغ (ج.م)</label>
+                            <input type="number" id="incomeAmount" step="any" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات</label>
+                        <input type="text" id="incomeNotes" placeholder="اختياري">
+                    </div>
+                    <button type="submit" style="background:var(--success);color:#fff;">💰 تسجيل الإيراد</button>
+                </form>
+            </div>
             <div class="card" id="expenseFormCard">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleExpenseForm()">
                     <span style="font-size:1.3rem;">📉</span>
@@ -2367,6 +2391,39 @@
         form.style.display = isHidden ? 'block' : 'none';
         if (icon) icon.textContent = isHidden ? '▲' : '▼';
     };
+
+    window.toggleIncomeForm = function() {
+        const form = document.getElementById('incomeForm');
+        const icon = document.getElementById('incomeToggleIcon');
+        if (!form) return;
+        const isHidden = form.style.display === 'none';
+        form.style.display = isHidden ? 'block' : 'none';
+        if (icon) icon.textContent = isHidden ? '▲' : '▼';
+    };
+
+    document.getElementById('incomeForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let name = document.getElementById('incomeName').value.trim();
+            let amount = parseFloat(document.getElementById('incomeAmount').value);
+            let notes = document.getElementById('incomeNotes').value.trim();
+            if (!name) { showToast('أدخل اسم الإيراد', 'error'); return; }
+            if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+            transactions.push({
+                id: Date.now(), type: 'sell_cash', amount: amount,
+                notes: name + (notes ? ' - ' + notes : ''),
+                date: new Date().toISOString()
+            });
+            document.getElementById('incomeForm').reset();
+            document.getElementById('incomeForm').style.display = 'none';
+            let icon = document.getElementById('incomeToggleIcon');
+            if (icon) icon.textContent = '▼';
+            saveData(); renderTransactions(); renderDashboard();
+            showToast('💰 تم تسجيل إيراد: ' + name + ' — ' + amount.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    });
 
     window.toggleExpenseForm = function() {
         const form = document.getElementById('expenseForm');
