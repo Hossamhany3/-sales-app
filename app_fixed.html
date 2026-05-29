@@ -1479,6 +1479,8 @@
         }
 
         products = products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
+        // ترحيل: أرشفة الأصناف اللي رصيدها صفر
+        products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
 
         migrateTransactionNotes();
     }
@@ -3837,6 +3839,7 @@
                         return;
                     }
                     products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
+                    products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
                     merchants = data.merchants || [];
                     transactions = data.transactions || [];
                     installments = data.installments || [];
