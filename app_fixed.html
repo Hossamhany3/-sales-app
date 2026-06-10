@@ -2082,7 +2082,6 @@
     }
 
     async function saveData() {
-        showLoading();
         localStorage.setItem('products', JSON.stringify(products));
         localStorage.setItem('merchants', JSON.stringify(merchants));
         localStorage.setItem('transactions', JSON.stringify(transactions));
@@ -2096,7 +2095,6 @@
         await saveAllToIDB();
         updateStorageInfo();
         renderDashboard();
-        hideLoading();
     }
 
     function updateStorageInfo() {
