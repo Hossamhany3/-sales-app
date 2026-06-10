@@ -1758,14 +1758,21 @@
     function sendBrowserNotification(title, body, tag) {
         if (!('Notification' in window) || Notification.permission !== 'granted') return;
         try {
-            // لا ترسل إشعار مكرر بنفس tag خلال 30 ثانية
             if (tag) {
                 const key = '_notif_sent_' + tag;
                 const last = localStorage.getItem(key);
                 if (last && (Date.now() - parseInt(last)) < 30000) return;
                 localStorage.setItem(key, String(Date.now()));
             }
-            new Notification(title, { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false });
+            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'SHOW_NOTIFICATION',
+                    title: title,
+                    options: { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false }
+                });
+            } else {
+                new Notification(title, { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false });
+            }
         } catch (e) { /* ignore */ }
     }
 

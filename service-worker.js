@@ -64,6 +64,19 @@ self.addEventListener('fetch', (e) => {
     );
 });
 
+self.addEventListener('notificationclick', (e) => {
+    e.notification.close();
+    e.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+            if (clients.length > 0) {
+                clients[0].focus();
+            } else {
+                self.clients.openWindow('/');
+            }
+        })
+    );
+});
+
 self.addEventListener('message', (e) => {
     if (e.data === 'SKIP_WAITING') {
         self.skipWaiting();
@@ -74,5 +87,9 @@ self.addEventListener('message', (e) => {
                 clients.forEach(client => client.postMessage('CACHE_CLEARED'));
             });
         });
+    }
+    if (e.data && e.data.type === 'SHOW_NOTIFICATION') {
+        const { title, options } = e.data;
+        self.registration.showNotification(title, options);
     }
 });
