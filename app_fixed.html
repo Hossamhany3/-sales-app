@@ -789,16 +789,32 @@
                     <button type="submit">➕ تسجيل المصروف</button>
                 </form>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('all')" id="tf-all">📋 الكل</button>
-                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('income')" id="tf-income">💰 الإيرادات</button>
-                <button class="btn-sm" style="flex:1;min-width:60px;" onclick="setTransFilter('expense')" id="tf-expense">📉 المصروفات</button>
-                <select id="transSort" onchange="renderTransactions()" style="flex:1;min-width:100px;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;">
-                    <option value="date-desc">📅 الأحدث أولاً</option>
-                    <option value="date-asc">📅 الأقدم أولاً</option>
-                    <option value="amount-desc">💵 الأعلى مبلغاً</option>
-                    <option value="amount-asc">💵 الأقل مبلغاً</option>
-                </select>
+            <div class="card" style="padding:12px;margin-bottom:12px;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
+                    <span style="font-size:0.85rem;font-weight:700;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> تصفية
+                    </span>
+                    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                        <span style="font-size:0.78rem;">📅 من</span>
+                        <input type="date" id="transDateFrom" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
+                        <span style="font-size:0.78rem;">إلى</span>
+                        <input type="date" id="transDateTo" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
+                    </div>
+                    <select id="transEntityFilter" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);flex:1;min-width:120px;">
+                        <option value="">👥 الكل</option>
+                        <option value="customer">👤 عملاء</option>
+                        <option value="partner">🤝 شركاء</option>
+                    </select>
+                    <select id="transSort" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
+                        <option value="date-desc">📅 الأحدث</option>
+                        <option value="date-asc">📅 الأقدم</option>
+                        <option value="amount-desc">💵 الأعلى</option>
+                        <option value="amount-asc">💵 الأقل</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="transTypeFilters">
+                    <!-- تُملأ ديناميكياً من JavaScript -->
+                </div>
             </div>
             <div class="search-box">
                 <span class="search-icon">🔍</span>
@@ -1641,7 +1657,7 @@
     let receiptData = null;
     let currentPage = {};
     const PAGE_SIZE = 20;
-    let transFilter = 'all'; // 'all', 'income', 'expense'
+    let transTypeFilter = {}; // populated dynamically from checkboxes
 
     async function initializeData() {
         const idbAvailable = await loadAllFromIDB();
@@ -2040,20 +2056,33 @@
         if (container) container.insertAdjacentHTML('beforeend', html);
     }
 
-    window.setTransFilter = (filter) => {
-        transFilter = filter;
-        currentPage['trans'] = 0;
-        document.querySelectorAll('#tf-all, #tf-income, #tf-expense').forEach(b => {
-            b.style.background = 'var(--card-bg)';
-            b.style.color = 'var(--text-main)';
-            b.style.border = '1px solid var(--border)';
+    function initTransTypeFilters() {
+        const typeList = [
+            { key: 'sell_cash', label: 'بيع نقدي', icon: '💵' },
+            { key: 'payment_in', label: 'تحصيل', icon: '💰' },
+            { key: 'purchase', label: 'شراء مخزون', icon: '📦' },
+            { key: 'expense', label: 'مصروفات', icon: '📉' },
+            { key: 'partner_deposit', label: 'استثمار شريك', icon: '🤝' },
+            { key: 'partner_withdrawal', label: 'سحب شريك', icon: '🏦' }
+        ];
+        const container = document.getElementById('transTypeFilters');
+        if (!container) return;
+        let html = '<span style="font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">النوع:</span>';
+        typeList.forEach(t => {
+            transTypeFilter[t.key] = true;
+            html += '<label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);transition:all 0.2s;" data-type="' + t.key + '">' +
+                '<input type="checkbox" checked onchange="toggleTransType(\'' + t.key + '\')" style="accent-color:var(--primary);margin:0;cursor:pointer;"> ' +
+                t.icon + ' ' + t.label +
+            '</label>';
         });
-        let active = document.getElementById('tf-' + filter);
-        if (active) {
-            active.style.background = 'var(--primary)';
-            active.style.color = '#fff';
-            active.style.border = '1px solid var(--primary)';
-        }
+        html += '<button class="btn-sm" style="font-size:0.75rem;padding:3px 10px;" onclick="document.querySelectorAll(\'#transTypeFilters input[type=checkbox]\').forEach(cb => { cb.checked = true; }); Object.keys(transTypeFilter).forEach(k => transTypeFilter[k] = true); renderTransactions();">✅ تحديد الكل</button>';
+        html += '<button class="btn-sm" style="font-size:0.75rem;padding:3px 10px;" onclick="document.querySelectorAll(\'#transTypeFilters input[type=checkbox]\').forEach(cb => { cb.checked = false; }); Object.keys(transTypeFilter).forEach(k => transTypeFilter[k] = false); renderTransactions();">🗑️ إلغاء الكل</button>';
+        container.innerHTML = html;
+    }
+
+    window.toggleTransType = (key) => {
+        transTypeFilter[key] = !transTypeFilter[key];
+        currentPage['trans'] = 0;
         renderTransactions();
     };
 
@@ -3289,15 +3318,89 @@
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
 
-            let amount = await showNumberPromptModal('المبلغ الحالي: ' + (t.amount || 0).toFixed(2) + ' ج\n' + (t.notes || ''), t.amount, '✏️ تعديل الحركة');
-            if (amount === null || isNaN(amount) || amount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
-            t.amount = amount;
+            let isLinked = installments.some(i => !i.isPaid && i.merchantId == t.merchantId &&
+                t.notes && (t.notes.includes('قسط') || t.notes.includes('مقدم')));
+            if (isLinked) {
+                // للحركات المرتبطة بالتقسيط، تعديل محدود
+                let amount = await showNumberPromptModal('المبلغ الحالي: ' + (t.amount || 0).toFixed(2) + ' ج\n' + (t.notes || ''), t.amount, '✏️ تعديل الحركة');
+                if (amount === null || isNaN(amount) || amount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+                t.amount = amount;
+                let newNotes = await showPromptModal('الملاحظات الجديدة:', t.notes || '', 'تعديل الملاحظات');
+                if (newNotes !== null) t.notes = newNotes.trim();
+                saveData(); renderTransactions(); renderDashboard();
+                showToast('✅ تم تحديث الحركة');
+                return;
+            }
 
-            let newNotes = await showPromptModal('الملاحظات الجديدة:', t.notes || '', 'تعديل الملاحظات');
-            if (newNotes !== null) t.notes = newNotes.trim();
+            let typeOptions = [
+                { key: 'sell_cash', label: '💵 بيع نقدي / إيراد' },
+                { key: 'expense', label: '📉 مصروفات' },
+                { key: 'purchase', label: '📦 شراء مخزون' },
+                { key: 'payment_in', label: '💰 تحصيل' },
+                { key: 'partner_deposit', label: '🤝 استثمار شريك' },
+                { key: 'partner_withdrawal', label: '🏦 سحب شريك' }
+            ];
+            let typeHtml = typeOptions.map(o =>
+                '<label style="display:block;padding:6px 10px;margin:4px 0;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:' + (o.key === t.type ? 'var(--primary-light)' : 'var(--card-bg)') + ';">' +
+                    '<input type="radio" name="editTransType" value="' + o.key + '" ' + (o.key === t.type ? 'checked' : '') + ' style="margin-left:6px;accent-color:var(--primary);cursor:pointer;"> ' + o.label +
+                '</label>'
+            ).join('');
 
-            saveData(); renderTransactions(); renderDashboard();
-            showToast('✅ تم تحديث الحركة');
+            let modalHtml = '' +
+                '<div style="font-size:0.9rem;">' +
+                    '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">📋 نوع الحركة:</strong>' + typeHtml + '</div>' +
+                    '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">💰 المبلغ (ج.م):</strong><input type="number" id="editTransAmount" value="' + (t.amount || 0) + '" step="any" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
+                    '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">📅 التاريخ:</strong><input type="date" id="editTransDate" value="' + (t.date ? t.date.slice(0,10) : '') + '" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
+                    '<div style="margin-bottom:8px;"><strong style="display:block;margin-bottom:4px;">📝 الملاحظات:</strong><input type="text" id="editTransNotes" value="' + (t.notes || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
+                '</div>';
+
+            let modalOverlay = document.createElement('div');
+            modalOverlay.className = 'modal-overlay';
+            modalOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;';
+            modalOverlay.innerHTML = '' +
+            '<div style="background:var(--card-bg);border-radius:16px;padding:20px;max-width:450px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+                '<h3 style="margin:0 0 12px 0;font-size:1.05rem;">✏️ تعديل الحركة</h3>' +
+                modalHtml +
+                '<div style="display:flex;gap:8px;margin-top:16px;">' +
+                    '<button id="editTransCancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);cursor:pointer;font-size:0.9rem;">إلغاء</button>' +
+                    '<button id="editTransSave" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--primary);color:white;cursor:pointer;font-size:0.9rem;font-weight:700;">💾 حفظ</button>' +
+                '</div>' +
+            '</div>';
+            document.body.appendChild(modalOverlay);
+
+            let resolved = false;
+            return new Promise((resolve) => {
+                modalOverlay.querySelector('#editTransSave').onclick = () => {
+                    let newType = modalOverlay.querySelector('input[name="editTransType"]:checked')?.value;
+                    let newAmount = parseFloat(modalOverlay.querySelector('#editTransAmount').value);
+                    let newDate = modalOverlay.querySelector('#editTransDate').value;
+                    let newNotes = modalOverlay.querySelector('#editTransNotes').value.trim();
+                    if (!newType) { showToast('اختر نوع الحركة', 'error'); return; }
+                    if (!newAmount || newAmount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+                    if (!newDate) { showToast('أدخل التاريخ', 'error'); return; }
+                    t.type = newType;
+                    t.amount = newAmount;
+                    t.date = new Date(newDate).toISOString();
+                    t.notes = newNotes;
+                    saveData(); renderTransactions(); renderDashboard();
+                    showToast('✅ تم تحديث الحركة');
+                    modalOverlay.remove();
+                    resolved = true;
+                    resolve();
+                };
+                modalOverlay.querySelector('#editTransCancel').onclick = () => {
+                    modalOverlay.remove();
+                    resolved = true;
+                    resolve();
+                };
+                modalOverlay.addEventListener('click', (e) => {
+                    if (e.target === modalOverlay && !resolved) {
+                        modalOverlay.remove();
+                        resolved = true;
+                        resolve();
+                    }
+                });
+            });
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -3323,13 +3426,15 @@
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
         const term = getSearchTerm('Transactions');
-        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'💵 استثمار شريك', 'partner_withdrawal':'💰 سحب شريك' };
-        const typeIcons = { 'sell_cash':'💵', 'purchase':'📉', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🤝' };
+        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك' };
+        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦' };
+
+        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit'].includes(type);
 
         // حساب الرصيد
         let netBalance = 0;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') netBalance += t.amount;
+            if (isIncomeType(t.type)) netBalance += t.amount;
             else netBalance -= t.amount;
         });
         document.getElementById('transCapital').innerText = openingCapital.toLocaleString() + ' ج';
@@ -3338,21 +3443,60 @@
 
         let filtered = [...transactions];
 
-        // تصفية حسب النوع
-        if (transFilter === 'income') {
-            filtered = filtered.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit');
-        } else if (transFilter === 'expense') {
-            filtered = filtered.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal');
+        // تصفية حسب نوع الحركة (checkboxes)
+        const activeTypes = Object.keys(transTypeFilter).filter(k => transTypeFilter[k]);
+        if (activeTypes.length > 0 && activeTypes.length < Object.keys(transTypeFilter).length) {
+            filtered = filtered.filter(t => activeTypes.includes(t.type));
         }
 
+        // تصفية حسب التاريخ
+        const dateFrom = document.getElementById('transDateFrom')?.value;
+        const dateTo = document.getElementById('transDateTo')?.value;
+        if (dateFrom) {
+            const from = new Date(dateFrom); from.setHours(0,0,0,0);
+            filtered = filtered.filter(t => new Date(t.date) >= from);
+        }
+        if (dateTo) {
+            const to = new Date(dateTo); to.setHours(23,59,59,999);
+            filtered = filtered.filter(t => new Date(t.date) <= to);
+        }
+
+        // تصفية حسب الكيان (عميل/شريك)
+        const entityFilter = document.getElementById('transEntityFilter')?.value;
+        if (entityFilter === 'customer') {
+            filtered = filtered.filter(t => t.merchantId || (t.type === 'sell_cash' && !t.partnerId));
+        } else if (entityFilter === 'partner') {
+            filtered = filtered.filter(t => t.partnerId);
+        }
+
+        // تصفية حسب البحث
         if (term) {
             filtered = filtered.filter(t => {
                 const typeLabel = typeMap[t.type] || t.type;
                 let p = products.find(x => x.id == t.productId);
                 let m = merchants.find(x => x.id == t.merchantId);
-                const searchStr = (typeLabel + ' ' + (t.notes || '') + ' ' + (p?.name || '') + ' ' + (m?.name || '')).toLowerCase();
+                let pr = partners.find(x => x.id == t.partnerId);
+                const searchStr = (typeLabel + ' ' + (t.notes || '') + ' ' + (p?.name || '') + ' ' + (m?.name || '') + ' ' + (pr?.name || '')).toLowerCase();
                 return searchStr.includes(term);
             });
+        }
+
+        // إحصائيات لكل نوع
+        let typeStatsHtml = '';
+        if (filtered.length > 0) {
+            const typeKeys = ['sell_cash', 'payment_in', 'purchase', 'expense', 'partner_deposit', 'partner_withdrawal'];
+            typeStatsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;">';
+            typeKeys.forEach(k => {
+                let items = filtered.filter(t => t.type === k);
+                if (items.length === 0) return;
+                let total = items.reduce((s, t) => s + (t.amount || 0), 0);
+                let isInc = isIncomeType(k);
+                typeStatsHtml += '<div style="display:flex;align-items:center;gap:4px;font-size:0.78rem;padding:3px 10px;background:' + (isInc ? 'var(--success-light)' : 'var(--danger-light)') + ';border-radius:6px;">' +
+                    typeIcons[k] + ' ' + typeMap[k] + ': <strong style="color:' + (isInc ? 'var(--success)' : 'var(--danger)') + ';">' + total.toLocaleString() + ' ج</strong>' +
+                    ' <span style="color:var(--text-muted);font-size:0.72rem;">(' + items.length + ')</span>' +
+                '</div>';
+            });
+            typeStatsHtml += '</div>';
         }
 
         if (filtered.length === 0) {
@@ -3378,10 +3522,10 @@
         // Pagination للمجموعات
         const groupKeys = Object.keys(groups);
         const pag = paginate(groupKeys, 'trans');
-        let html = '';
+        let html = typeStatsHtml;
         pag.items.forEach(day => {
             const dayTotal = groups[day].reduce((s, t) => {
-                return s + (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' ? t.amount : -t.amount);
+                return s + (isIncomeType(t.type) ? t.amount : -t.amount);
             }, 0);
             const dayColor = dayTotal >= 0 ? 'var(--success)' : 'var(--danger)';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:var(--text-muted); font-weight:700; padding:8px 4px 4px 4px; margin-top:14px; border-bottom:2px solid var(--border);">' +
@@ -3391,20 +3535,21 @@
             groups[day].forEach(t => {
                 let p = products.find(x => x.id == t.productId);
                 let m = merchants.find(x => x.id == t.merchantId);
+                let pr = partners.find(x => x.id == t.partnerId);
                 let icon = typeIcons[t.type] || '💰';
-                let isIncome = (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit');
-                let bgColor = isIncome ? 'var(--success-light)' : 'var(--danger-light)';
-                let textColor = isIncome ? 'var(--success)' : 'var(--danger)';
-                let sign = isIncome ? '+' : '';
+                let isInc = isIncomeType(t.type);
+                let bgColor = isInc ? 'var(--success-light)' : 'var(--danger-light)';
+                let textColor = isInc ? 'var(--success)' : 'var(--danger)';
+                let sign = isInc ? '+' : '';
+                let entityName = pr?.name || m?.name || '';
                 html += '' +
                 '<div style="display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; background:' + bgColor + '; border-radius:10px; border-right:3px solid ' + textColor + ';">' +
                     '<span style="font-size:1.2rem;">' + icon + '</span>' +
                     '<div style="flex:1; min-width:0;">' +
-                        '<div style="font-size:0.85rem; font-weight:700; color:var(--text-main);">' + (typeMap[t.type] || t.type) + '</div>' +
+                        '<div style="font-size:0.85rem; font-weight:700; color:var(--text-main);display:flex;align-items:center;gap:4px;">' + (typeMap[t.type] || t.type) + (entityName ? ' <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">· ' + entityName + '</span>' : '') + '</div>' +
                         '<div style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
                             new Date(t.date).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) +
                             (p?.name ? ' · 📦 ' + p.name : '') +
-                            (m?.name ? ' · 👤 ' + m.name : '') +
                         '</div>' +
                     '</div>' +
                     '<strong style="color:' + textColor + '; font-size:1rem; white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
@@ -5052,7 +5197,7 @@
         localStorage.setItem('openingCapital', '0');
         saveData();
         refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
+        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
         renderPartners();
         showToast('تم مسح جميع البيانات');
     });
@@ -5111,7 +5256,7 @@
                     }
                     await saveData();
                     refreshSelectors();
-                    renderProducts(); renderTransactions();
+                    renderProducts(); renderTransactions(); initTransTypeFilters();
                     renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
                     showToast('تم استيراد النسخة الاحتياطية بنجاح!');
                 } catch (parseErr) {
@@ -5380,7 +5525,7 @@
             switchPage(pageId);
             toggleMenu(true);
             renderDashboard(); renderProducts();
-            renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); refreshSelectors();
+            renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
     });
@@ -5472,15 +5617,14 @@
     // تحديث تلقائي عند تغيير البيانات من تبويب آخر
     window.addEventListener('storage', () => {
         checkAppLock(); refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
+        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
     });
 
     // التحميل الأولي
     setTimeout(() => {
         checkAppLock();
         refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
-        setTransFilter('all');
+        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
         initSettingsPage();
     }, 100);
 
