@@ -4230,9 +4230,11 @@
             '<div class="ms-summary-card ' + (totalInvestment >= 0 ? 'success' : 'danger') + '" style="flex:1;"><div>💵 إجمالي الاستثمارات</div><div class="value">' + totalInvestment.toFixed(2) + ' ج</div></div>' +
         '</div>';
 
-        container.innerHTML = totalHtml + filtered.map(p => {
+        const pag = paginate(filtered, 'partners');
+        let listHtml = '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+        pag.items.forEach(p => {
             let balClass = p.balance >= 0 ? '#059669' : '#dc2626';
-            return '' +
+            listHtml += '' +
             '<div class="card" style="padding:14px 16px;">' +
                 '<div class="flex-between" style="margin-bottom:8px;">' +
                     '<strong style="font-size:1.05rem;">👤 ' + p.name + '</strong>' +
@@ -4247,7 +4249,18 @@
                     '<button class="btn-sm btn-danger" onclick="deletePartner(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
                 '</div>' +
             '</div>';
-        }).join('');
+        });
+        const page = getPage('partners');
+        listHtml += '<div class="pagination">';
+        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'partners\',0);renderPartners()">‹‹</button>';
+        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'partners\',' + (page - 1) + ');renderPartners()">‹</button>';
+        for (let i = Math.max(0, page - 2); i <= Math.min(pag.totalPages - 1, page + 2); i++) {
+            listHtml += '<button class="' + (i === page ? 'active' : '') + '" onclick="setPage(\'partners\',' + i + ');renderPartners()">' + (i + 1) + '</button>';
+        }
+        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'partners\',' + (page + 1) + ');renderPartners()">›</button>';
+        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'partners\',' + (pag.totalPages - 1) + ');renderPartners()">››</button>';
+        listHtml += '</div>';
+        container.innerHTML = totalHtml + listHtml;
     };
 
     document.getElementById('partnerForm').addEventListener('submit', (e) => {
