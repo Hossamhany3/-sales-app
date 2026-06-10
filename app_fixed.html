@@ -4350,6 +4350,7 @@
                 '<div style="display:flex; gap:6px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--border);">' +
                     '<button class="btn-sm btn-success" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')" style="flex:1; min-width:60px;">💵 إيداع</button>' +
                     '<button class="btn-sm btn-outline" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 سحب</button>' +
+                    '<button class="btn-sm" style="flex:0;background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
                     '<button class="btn-sm btn-danger" onclick="deletePartner(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
                 '</div>' +
             '</div>';
@@ -4365,6 +4366,140 @@
         listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'partners\',' + (pag.totalPages - 1) + ');renderPartners()">››</button>';
         listHtml += '</div>';
         container.innerHTML = totalHtml + listHtml;
+    };
+
+    window.showPartnerStatement = (partnerId) => {
+        let p = partners.find(x => x.id == partnerId);
+        if (!p) { showToast('الشريك غير موجود', 'error'); return; }
+
+        let partnerTxns = transactions.filter(t => t.partnerId == partnerId);
+        let totalDeposits = partnerTxns.filter(t => t.type === 'partner_deposit').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalWithdrawals = partnerTxns.filter(t => t.type === 'partner_withdrawal').reduce((s, t) => s + (t.amount || 0), 0);
+
+        const PI = {
+            doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+            print: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+            close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+            deposit: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+            withdraw: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+            phone: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+            user: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+        };
+
+        let rowsHtml = partnerTxns.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
+                '<thead><tr><th>التاريخ</th><th>البيان</th><th>الرصيد</th></tr></thead><tbody>' +
+                partnerTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+                    let d = new Date(t.date).toLocaleDateString('ar-EG');
+                    let isDeposit = t.type === 'partner_deposit';
+                    let icon = isDeposit ? PI.deposit : PI.withdraw;
+                    let color = isDeposit ? 'var(--success)' : 'var(--danger)';
+                    return '<tr><td>' + d + '</td><td style="display:flex;align-items:center;gap:4px;">' + icon + ' ' + (t.notes || t.type) + '</td><td style="color:' + color + ';font-weight:700;">' + (isDeposit ? '+' : '-') + (t.amount || 0).toLocaleString() + ' ج</td></tr>';
+                }).join('') +
+                '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات مالية لهذا الشريك</div>';
+
+        let overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'partnerStatementOverlay';
+        overlay.innerHTML = '' +
+        '<div class="customer-statement-modal">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">' + PI.doc + ' كشف حساب: ' + p.name + '</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">' +
+                    (p.phone ? PI.phone + ' ' + p.phone : '') +
+                    (p.notes ? ' | 📝 ' + p.notes : '') +
+                '</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printPartnerStatement(' + partnerId + ')">' + PI.print + ' طباعة</button>' +
+                    '<button onclick="document.getElementById(\'partnerStatementOverlay\').remove()">' + PI.close + ' إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div class="customer-statement-summary">' +
+                    '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (p.balance >= 0 ? 'success' : 'danger') + '">' + p.balance.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي الإيداعات</div><div class="stat-value success">' + totalDeposits.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي السحوبات</div><div class="stat-value danger">' + totalWithdrawals.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + partnerTxns.length + '</div></div>' +
+                '</div>' +
+                '<h4 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">' + PI.user + ' سجل الحركات (' + partnerTxns.length + ')</h4>' +
+                rowsHtml +
+            '</div>' +
+        '</div>';
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    };
+
+    window.printPartnerStatement = (partnerId) => {
+        let p = partners.find(x => x.id == partnerId);
+        if (!p) { showToast('الشريك غير موجود', 'error'); return; }
+
+        let partnerTxns = transactions.filter(t => t.partnerId == partnerId);
+
+        let totalDeposits = partnerTxns.filter(t => t.type === 'partner_deposit').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalWithdrawals = partnerTxns.filter(t => t.type === 'partner_withdrawal').reduce((s, t) => s + (t.amount || 0), 0);
+
+        const PPI = {
+            doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+            print: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+            deposit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+            withdraw: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+            user: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+        };
+
+        let rowsHtml = partnerTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+            let d = new Date(t.date).toLocaleDateString('ar-EG');
+            let isDeposit = t.type === 'partner_deposit';
+            let icon = isDeposit ? PPI.deposit : PPI.withdraw;
+            let color = isDeposit ? '#059669' : '#ef4444';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;display:flex;align-items:center;gap:4px;">' + icon + ' ' + (t.notes || t.type) + '</td><td style="padding:8px 6px;color:' + color + ';font-weight:700;">' + (isDeposit ? '+' : '-') + (t.amount || 0).toFixed(2) + ' ج</td></tr>';
+        }).join('');
+
+        let htmlContent = '' +
+        '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:850px;margin:auto;box-sizing:border-box;">' +
+            '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
+                '<h1 style="color:#4f46e5;font-size:1.6rem;margin:0 0 4px 0;display:flex;align-items:center;justify-content:center;gap:8px;">' + PPI.doc + ' كشف حساب شريك</h1>' +
+                '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات والتقسيط</p>' +
+            '</div>' +
+            '<div style="background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:20px;">' +
+                '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
+                    '<tr><td style="padding:6px 4px;"><strong>' + PPI.user + ' اسم الشريك:</strong> ' + p.name + '</td><td style="padding:6px 4px;"><strong>📞 الهاتف:</strong> ' + (p.phone || '—') + '</td></tr>' +
+                    (p.notes ? '<tr><td style="padding:6px 4px;" colspan="2"><strong>📝 ملاحظات:</strong> ' + p.notes + '</td></tr>' : '') +
+                '</table>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الحالي</div><div style="font-size:1.3rem;font-weight:800;color:' + (p.balance >= 0 ? '#059669' : '#ef4444') + ';">' + p.balance.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الإيداعات</div><div style="font-size:1.3rem;font-weight:800;color:#059669;">' + totalDeposits.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي السحوبات</div><div style="font-size:1.3rem;font-weight:800;color:#ef4444;">' + totalWithdrawals.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.3rem;font-weight:800;color:#4f46e5;">' + partnerTxns.length + '</div></div>' +
+            '</div>' +
+            '<h3 style="color:#0f172a;margin:0 0 12px 0;display:flex;align-items:center;gap:6px;">' + PPI.user + ' سجل الحركات</h3>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">المبلغ</th></tr></thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+            '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات والتقسيط</div>' +
+        '</div>';
+
+        let printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+
+        printWindow.document.write('<!DOCTYPE html>\n' +
+            '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>كشف حساب شريك - ' + p.name + '</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;}' +
+            '@media print{body{background:white}.no-print{display:none!important}@page{margin:0.8cm;size:A4}}' +
+            '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+            '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+            '.content-wrap{padding-top:56px;}' +
+            '</style></head><body>' +
+            '<div class="print-bar no-print"><span style="display:flex;align-items:center;gap:6px;">' + PPI.doc + ' كشف حساب — ' + p.name + '</span><button onclick="window.print()" style="display:flex;align-items:center;gap:6px;">' + PPI.print + ' طباعة / حفظ PDF</button></div>' +
+            '<div class="content-wrap">' + htmlContent + '</div>' +
+            '<script>window.onafterprint = () => window.close();<\\/script>' +
+            '</body></html>');
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
     };
 
     document.getElementById('partnerForm').addEventListener('submit', (e) => {
