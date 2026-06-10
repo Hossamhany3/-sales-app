@@ -415,6 +415,32 @@
         .ms-summary-card.danger .value { color: var(--danger); }
         .ms-summary-card.success .value { color: var(--success); }
         .ms-summary-card.primary .value { color: var(--primary); }
+
+        /* كشف حساب العميل (تقسيط) */
+        .customer-statement-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+        .customer-statement-modal { background: var(--card-bg); border-radius: 16px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); direction: rtl; }
+        .customer-statement-header { background: var(--primary); color: white; padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; position: sticky; top: 0; z-index: 1; }
+        .customer-statement-header h2 { margin: 0; font-size: 1.15rem; color: white; }
+        .customer-statement-header .header-actions { display: flex; gap: 8px; }
+        .customer-statement-header button { background: rgba(255,255,255,0.2); color: white; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+        .customer-statement-header button:hover { background: rgba(255,255,255,0.35); }
+        .customer-statement-body { padding: 20px; }
+        .customer-statement-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+        .customer-statement-summary .stat-card { flex: 1; min-width: 130px; background: var(--bg); border-radius: 12px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); }
+        .customer-statement-summary .stat-card .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+        .customer-statement-summary .stat-card .stat-value { font-size: 1.3rem; font-weight: 800; }
+        .customer-statement-summary .stat-card .stat-value.danger { color: var(--danger); }
+        .customer-statement-summary .stat-card .stat-value.success { color: var(--success); }
+        .customer-statement-summary .stat-card .stat-value.primary { color: var(--primary); }
+        .customer-contract-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; background: var(--card-bg); }
+        .customer-contract-card .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+        .customer-contract-card .contract-header .contract-title { font-weight: 700; font-size: 0.95rem; }
+        .customer-contract-card .contract-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; font-size: 0.88rem; margin-bottom: 8px; }
+        .customer-contract-card .contract-info .info-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+        .customer-contract-card .contract-info .info-row:last-child { border-bottom: none; }
+        .customer-contract-card .contract-progress { margin: 8px 0; }
+        .customer-statement-transactions { margin-top: 16px; }
+        .customer-statement-transactions h4 { margin: 0 0 10px 0; font-size: 0.95rem; }
         .sale-row { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
         .sale-row:last-child { border-bottom: none; }
         .sale-row .info { flex: 1; min-width: 200px; }
@@ -3752,6 +3778,7 @@
                 '</div>' +
                 '<div class="flex-between" style="margin-bottom:4px;">' +
                     '<button class="btn-sm btn-success" onclick="sendPlanAsPDF(' + inst.id + ')">📋 PDF</button>' +
+                    '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showCustomerInstallmentStatement(' + inst.merchantId + ')">📊 كشف حساب</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
                     '<button class="btn-sm" style="background:var(--primary-light);color:var(--primary);border:1px solid var(--border);" onclick="editInstallment(' + inst.id + ')">✏️ تعديل</button>' +
                     '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
@@ -4479,6 +4506,224 @@
         } catch (err) {
             showError('حدث خطأ أثناء إنشاء PDF', err.message);
         }
+    };
+
+    window.getCustomerInstallmentContracts = (merchantId) => {
+        return installments.filter(i => i.merchantId == merchantId);
+    };
+
+    window.showCustomerInstallmentStatement = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('العميل غير موجود', 'error'); return; }
+
+        let contracts = installments.filter(i => i.merchantId == merchantId);
+        if (contracts.length === 0) { showToast('لا توجد عقود تقسيط لهذا العميل', 'error'); return; }
+
+        let totalFinanced = 0, totalPaid = 0, totalRemaining = 0, totalContracts = contracts.length;
+        let allPayments = [];
+
+        contracts.forEach(inst => {
+            let schedule = getInstSchedule(inst);
+            let paid = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            totalFinanced += inst.totalAfterInterest || 0;
+            totalPaid += paid;
+            totalRemaining += inst.remainingBalance || 0;
+
+            schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
+                let dueDate = new Date(s.dueDate).toLocaleDateString('ar-EG');
+                let p = products.find(x => x.id == inst.productId);
+                let deviceName = p?.name || inst.deviceName || 'جهاز';
+                allPayments.push({
+                    date: s.dueDate,
+                    desc: 'قسط رقم ' + s.index + ' - ' + deviceName,
+                    amount: s.paidAmount,
+                    instId: inst.id
+                });
+            });
+        });
+
+        let upfrontTotal = contracts.reduce((sum, inst) => sum + (inst.paidUpfront || 0), 0);
+
+        allPayments.sort((a, b) => a.date.localeCompare(b.date));
+
+        let contractCardsHtml = contracts.map(inst => {
+            let p = products.find(x => x.id == inst.productId);
+            let deviceName = p?.name || inst.deviceName || 'غير محدد';
+            let schedule = getInstSchedule(inst);
+            let paidCount = schedule.filter(s => s.isPaid).length;
+            let paidAmount = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let progress = inst.numInstallments > 0 ? (paidCount / inst.numInstallments * 100) : 0;
+            let statusBadge = inst.isPaid
+                ? '<span class="badge badge-success">✅ مسدد</span>'
+                : '<span class="badge badge-warning">🟡 نشط</span>';
+            let today = new Date(); today.setHours(0,0,0,0);
+            let nextDue = schedule.find(s => !s.isPaid);
+            let isLate = nextDue && new Date(nextDue.dueDate) < today;
+            if (isLate) statusBadge = '<span class="badge badge-danger">⚠️ متأخر</span>';
+
+            return '' +
+            '<div class="customer-contract-card">' +
+                '<div class="contract-header">' +
+                    '<span class="contract-title">📱 ' + deviceName + '</span>' +
+                    '<span>' + statusBadge + '</span>' +
+                '</div>' +
+                '<div class="contract-info">' +
+                    '<div class="info-row"><span>عقد رقم</span><span>' + inst.id + '</span></div>' +
+                    '<div class="info-row"><span>سعر الكاش</span><span>' + (inst.purchasePrice || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>المقدم</span><span>' + (inst.paidUpfront || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>نسبة الفائدة</span><span>' + (inst.interestRate || 0) + '%</span></div>' +
+                    '<div class="info-row"><span>الإجمالي بعد الفائدة</span><span>' + (inst.totalAfterInterest || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>القسط الشهري</span><span>' + (inst.monthlyAmount || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>عدد الأقساط</span><span>' + (inst.numInstallments || 0) + ' شهر</span></div>' +
+                    '<div class="info-row"><span>المسدد</span><span style="color:var(--success);font-weight:700;">' + paidAmount.toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>المتبقي</span><span style="color:var(--danger);font-weight:700;">' + (inst.remainingBalance || 0).toLocaleString() + ' ج</span></div>' +
+                '</div>' +
+                '<div class="contract-progress">' +
+                    '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">' +
+                        '<span>' + paidCount + '/' + inst.numInstallments + ' أقساط</span>' +
+                        '<span>' + progress.toFixed(0) + '%</span>' +
+                    '</div>' +
+                    '<div style="background:#f1f5f9;border-radius:50px;height:6px;overflow:hidden;">' +
+                        '<div style="height:100%;width:' + progress + '%;background:var(--success);border-radius:50px;transition:width 0.3s;"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+
+        let paymentsHtml = allPayments.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
+                '<thead><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th></tr></thead><tbody>' +
+                allPayments.map(p => {
+                    let d = new Date(p.date).toLocaleDateString('ar-EG');
+                    return '<tr><td>' + d + '</td><td>' + p.desc + '</td><td style="color:var(--success);font-weight:700;">' + p.amount.toLocaleString() + ' ج</td></tr>';
+                }).join('') +
+                '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد دفعات مسجلة</div>';
+
+        let overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'customerStatementOverlay';
+        overlay.innerHTML = '' +
+        '<div class="customer-statement-modal">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2>📋 كشف حساب: ' + m.name + '</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;">' + (m.phone || '') + (m.phone && m.address ? ' | ' : '') + (m.address || '') + '</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printCustomerInstallmentStatement(' + merchantId + ')">🖨️ طباعة</button>' +
+                    '<button onclick="document.getElementById(\'customerStatementOverlay\').remove()">✖ إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div class="customer-statement-summary">' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي العقود</div><div class="stat-value primary">' + totalContracts + '</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المموّل</div><div class="stat-value primary">' + totalFinanced.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">المقدم الإجمالي</div><div class="stat-value primary">' + upfrontTotal.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المحصّل</div><div class="stat-value success">' + totalPaid.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المتبقي</div><div class="stat-value danger">' + totalRemaining.toLocaleString() + ' ج</div></div>' +
+                '</div>' +
+                '<h4 style="margin:0 0 12px 0;font-size:0.95rem;">📦 العقود (' + totalContracts + ')</h4>' +
+                contractCardsHtml +
+                '<div class="customer-statement-transactions">' +
+                    '<h4>💰 سجل الدفعات (' + allPayments.length + ')</h4>' +
+                    paymentsHtml +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    };
+
+    window.printCustomerInstallmentStatement = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('العميل غير موجود', 'error'); return; }
+
+        let contracts = installments.filter(i => i.merchantId == merchantId);
+        if (contracts.length === 0) { showToast('لا توجد عقود', 'error'); return; }
+
+        let totalFinanced = 0, totalPaid = 0, totalRemaining = 0, totalContracts = contracts.length;
+        let allPayments = [];
+
+        contracts.forEach(inst => {
+            let schedule = getInstSchedule(inst);
+            let paid = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            totalFinanced += inst.totalAfterInterest || 0;
+            totalPaid += paid;
+            totalRemaining += inst.remainingBalance || 0;
+            schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
+                let p = products.find(x => x.id == inst.productId);
+                let deviceName = p?.name || inst.deviceName || 'جهاز';
+                allPayments.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
+            });
+        });
+
+        let upfrontTotal = contracts.reduce((sum, inst) => sum + (inst.paidUpfront || 0), 0);
+        allPayments.sort((a, b) => a.date.localeCompare(b.date));
+
+        let contractRows = contracts.map(inst => {
+            let p = products.find(x => x.id == inst.productId);
+            let deviceName = p?.name || inst.deviceName || 'غير محدد';
+            let schedule = getInstSchedule(inst);
+            let paidCount = schedule.filter(s => s.isPaid).length;
+            let paidAmt = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let status = inst.isPaid ? 'مسدد' : (new Date(schedule.find(s => !s.isPaid)?.dueDate) < new Date() ? 'متأخر' : 'نشط');
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + deviceName + '</td><td style="padding:8px 6px;">' + (inst.totalAfterInterest || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.paidUpfront || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + inst.numInstallments + '</td><td style="padding:8px 6px;">' + (inst.monthlyAmount || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + paidAmt.toFixed(2) + '</td><td style="padding:8px 6px;color:' + (inst.isPaid ? '#059669' : '#ef4444') + ';font-weight:700;">' + (inst.remainingBalance || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + status + '</td></tr>';
+        }).join('');
+
+        let paymentRows = allPayments.map(p => {
+            let d = new Date(p.date).toLocaleDateString('ar-EG');
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + p.desc + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + p.amount.toFixed(2) + ' ج</td></tr>';
+        }).join('');
+
+        let htmlContent = '' +
+        '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:850px;margin:auto;box-sizing:border-box;">' +
+            '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
+                '<h1 style="color:#4f46e5;font-size:1.6rem;margin:0 0 4px 0;">📋 كشف حساب عميل</h1>' +
+                '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات والتقسيط</p>' +
+            '</div>' +
+            '<div style="background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:20px;">' +
+                '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
+                    '<tr><td style="padding:6px 4px;"><strong>اسم العميل:</strong> ' + m.name + '</td><td style="padding:6px 4px;"><strong>رقم الهاتف:</strong> ' + (m.phone || '—') + '</td></tr>' +
+                '</table>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">العقود</div><div style="font-size:1.3rem;font-weight:800;color:#4f46e5;">' + totalContracts + '</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">المموّل</div><div style="font-size:1.3rem;font-weight:800;color:#4f46e5;">' + totalFinanced.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">المقدم</div><div style="font-size:1.3rem;font-weight:800;color:#4f46e5;">' + upfrontTotal.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">المحصل</div><div style="font-size:1.3rem;font-weight:800;color:#059669;">' + totalPaid.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:120px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">المتبقي</div><div style="font-size:1.3rem;font-weight:800;color:#ef4444;">' + totalRemaining.toFixed(2) + ' ج</div></div>' +
+            '</div>' +
+            '<h3 style="color:#0f172a;margin:0 0 12px 0;">📦 العقود</h3>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">الجهاز</th><th style="padding:10px 8px;text-align:right;">الإجمالي</th><th style="padding:10px 8px;text-align:right;">المقدم</th><th style="padding:10px 8px;text-align:right;">الشهور</th><th style="padding:10px 8px;text-align:right;">القسط</th><th style="padding:10px 8px;text-align:right;">المسدد</th><th style="padding:10px 8px;text-align:right;">المتبقي</th><th style="padding:10px 8px;text-align:right;">الحالة</th></tr></thead>' +
+                '<tbody>' + contractRows + '</tbody>' +
+            '</table>' +
+            (allPayments.length > 0 ? '<h3 style="color:#0f172a;margin:0 0 12px 0;">💰 سجل الدفعات</h3>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#059669;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">المبلغ</th></tr></thead>' +
+                '<tbody>' + paymentRows + '</tbody>' +
+            '</table>' : '') +
+            '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات والتقسيط</div>' +
+        '</div>';
+
+        let printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+
+        printWindow.document.write('<!DOCTYPE html>\n' +
+            '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>كشف حساب - ' + m.name + '</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;}' +
+            '@media print{body{background:white}.no-print{display:none!important}@page{margin:0.8cm;size:A4}}' +
+            '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+            '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+            '.content-wrap{padding-top:56px;}' +
+            '</style></head><body>' +
+            '<div class="print-bar no-print"><span>📋 كشف حساب — ' + m.name + '</span><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
+            '<div class="content-wrap">' + htmlContent + '</div>' +
+            '<script>window.onafterprint = () => window.close();<\\/script>' +
+            '</body></html>');
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
     };
 
     function downloadCSV(filename, header, rows) {
