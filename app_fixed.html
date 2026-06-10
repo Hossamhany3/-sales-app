@@ -299,6 +299,11 @@
         .pagination button.active { background: var(--primary); color: white; border-color: var(--primary); }
         .pagination button:disabled { opacity: 0.35; cursor: default; background: transparent; }
 
+/* Loader */
+.spinner-overlay { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; }
+.spinner { width:40px; height:40px; border:4px solid #e2e8f0; border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
         /* حالة عدم وجود بيانات */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
         .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.6; }
@@ -1292,6 +1297,7 @@
 </div>
 
 <div id="toast-container"></div>
+<div id="loadingOverlay" class="spinner-overlay" style="display:none;"><div class="spinner"></div></div>
 
 <div id="modalOverlay" class="modal-overlay" onclick="window._closeModal?.(null)">
     <div class="modal-container" onclick="event.stopPropagation()">
@@ -2006,6 +2012,9 @@
         showToast(title + (detail ? ': ' + detail : ''), 'error');
     }
 
+    function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+    function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
     function validatePositive(value, fieldName) {
         if (value === null || value === undefined || isNaN(value)) {
             showError('قيمة غير صالحة', fieldName);
@@ -2066,6 +2075,7 @@
     }
 
     async function saveData() {
+        showLoading();
         localStorage.setItem('products', JSON.stringify(products));
         localStorage.setItem('merchants', JSON.stringify(merchants));
         localStorage.setItem('transactions', JSON.stringify(transactions));
@@ -2079,6 +2089,7 @@
         await saveAllToIDB();
         updateStorageInfo();
         renderDashboard();
+        hideLoading();
     }
 
     function updateStorageInfo() {
@@ -2896,44 +2907,57 @@
         else if (sortVal === 'profit-desc') {
             filtered.sort((a, b) => (b.sellPrice - b.costPrice - (b.expenses||0)) - (a.sellPrice - a.costPrice - (a.expenses||0)));
         }
-        if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'المخزون فارغ') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول صنف من الفورم أعلاه') + '</div></div>';
-            return;
-        }
-        container.innerHTML = filtered.map(p => {
-            const totalCost = p.costPrice + (p.expenses || 0);
-            const profit = p.sellPrice - totalCost;
-            const profitPct = totalCost ? (profit / totalCost * 100).toFixed(1) : 0;
-            const badgeClass = p.stock > 5 ? 'badge-primary' : p.stock > 0 ? 'badge-warning' : 'badge-danger';
-            const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
-            const disabledAttr = p.stock <= 0 ? 'disabled' : '';
-            const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
-            const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
-            return '' +
-            '<div class="card" style="' + (p.archived ? 'opacity:0.7;' : '') + '">' +
-                '<div class="flex-between" style="margin-bottom:8px;">' +
-                    '<strong style="font-size:1.05rem;">📱 ' + p.name + archiveBadge + '</strong>' +
-                    '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
-                '</div>' +
-                '<div style="border-top:1px solid var(--border); padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.88rem;">' +
-                    '<div><span style="color:var(--text-muted);">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
-                    '<div><span style="color:var(--text-muted);">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
-                    '<div><span style="color:var(--text-muted);">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
-                    '<div><span style="color:var(--text-muted);">📈 ربح</span><br><strong style="color:' + profitColor + ';">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
-                    (p.imei ? '<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
-                '</div>' +
-                '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
-                    (p.archived
-                        ? '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
-                          '<button class="btn-sm btn-outline" onclick="unarchiveProduct(' + p.id + ')" style="flex:1; min-width:60px;">📦 إظهار</button>'
-                        : '<button class="btn-sm btn-success" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')" style="flex:1; min-width:60px;">💵 بيع</button>' +
-                          '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
-                          '<button class="btn-sm btn-outline" onclick="editProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
-                          '<button class="btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>'
-                    ) +
-                '</div>' +
-            '</div>';
-        }).join('');
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'المخزون فارغ') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول صنف من الفورم أعلاه') + '</div></div>';
+        return;
+    }
+    const pag = paginate(filtered, 'products');
+    let html = '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+    pag.items.forEach(p => {
+        const totalCost = p.costPrice + (p.expenses || 0);
+        const profit = p.sellPrice - totalCost;
+        const profitPct = totalCost ? (profit / totalCost * 100).toFixed(1) : 0;
+        const badgeClass = p.stock > 5 ? 'badge-primary' : p.stock > 0 ? 'badge-warning' : 'badge-danger';
+        const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
+        const disabledAttr = p.stock <= 0 ? 'disabled' : '';
+        const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+        const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
+        html += '' +
+        '<div class="card" style="' + (p.archived ? 'opacity:0.7;' : '') + '">' +
+            '<div class="flex-between" style="margin-bottom:8px;">' +
+                '<strong style="font-size:1.05rem;">📱 ' + p.name + archiveBadge + '</strong>' +
+                '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
+            '</div>' +
+            '<div style="border-top:1px solid var(--border); padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.88rem;">' +
+                '<div><span style="color:var(--text-muted);">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
+                '<div><span style="color:var(--text-muted);">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
+                '<div><span style="color:var(--text-muted);">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
+                '<div><span style="color:var(--text-muted);">📈 ربح</span><br><strong style="color:' + profitColor + ';">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
+                (p.imei ? '<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
+            '</div>' +
+            '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
+                (p.archived
+                    ? '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                      '<button class="btn-sm btn-outline" onclick="unarchiveProduct(' + p.id + ')" style="flex:1; min-width:60px;">📦 إظهار</button>'
+                    : '<button class="btn-sm btn-success" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')" style="flex:1; min-width:60px;">💵 بيع</button>' +
+                      '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                      '<button class="btn-sm btn-outline" onclick="editProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
+                      '<button class="btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>'
+                ) +
+            '</div>' +
+        '</div>';
+    });
+    const page = getPage('products');
+    html += '<div class="pagination">';
+    html += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'products\',0);renderProducts()">‹‹</button>';
+    html += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'products\',' + (page - 1) + ');renderProducts()">‹</button>';
+    for (let i = Math.max(0, page - 2); i <= Math.min(pag.totalPages - 1, page + 2); i++) {
+        html += '<button class="' + (i === page ? 'active' : '') + '" onclick="setPage(\'products\',' + i + ');renderProducts()">' + (i + 1) + '</button>';
+    }
+    html += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'products\',' + (page + 1) + ');renderProducts()">›</button>';
+    html += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'products\',' + (pag.totalPages - 1) + ');renderProducts()">››</button>';
+    html += '</div>';
+    container.innerHTML = html;
     }
 
     window.unarchiveProduct = (id) => {
