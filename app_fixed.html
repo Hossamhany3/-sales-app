@@ -643,6 +643,10 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label>📱 الرقم التسلسلي / IMEI</label>
+                        <input type="text" id="prodImei" placeholder="اختياري — رقم IMEI أو سيريال">
+                    </div>
+                    <div class="form-group">
                         <label>الربح المتوقع (للقطعة)</label>
                         <input type="text" id="profitMargin" readonly>
                     </div>
@@ -933,6 +937,10 @@
                     <button class="tab-btn" data-tab="tabBalance" onclick="switchReportTab('tabBalance')">🏦 المركز المالي</button>
                     <button class="tab-btn" data-tab="tabDebt" onclick="switchReportTab('tabDebt')">📋 تحليل المديونية</button>
                     <button class="tab-btn" data-tab="tabChart" onclick="switchReportTab('tabChart')">📈 الرسوم البيانية</button>
+                    <button class="tab-btn" data-tab="tabDaily" onclick="switchReportTab('tabDaily')">📅 التقرير اليومي</button>
+                    <button class="tab-btn" data-tab="tabProdProfit" onclick="switchReportTab('tabProdProfit')">📦 أرباح الأصناف</button>
+                    <button class="tab-btn" data-tab="tabCompare" onclick="switchReportTab('tabCompare')">📊 مقارنة</button>
+                    <button class="tab-btn" data-tab="tabStockMov" onclick="switchReportTab('tabStockMov')">📋 حركة المخزون</button>
                 </div>
 
                 <!-- P&L -->
@@ -1042,6 +1050,45 @@
                             <canvas id="expensePieCanvas" height="160"></canvas>
                         </div>
                     </div>
+                </div>
+
+                <!-- 📅 التقرير اليومي -->
+                <div id="tabDaily" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📅 التقرير اليومي</h3>
+                    <div id="dailySummaryContent"></div>
+                    <button onclick="printDailySummary()" class="btn-outline" style="width:100%;margin-top:12px;">🖨️ طباعة التقرير اليومي</button>
+                </div>
+
+                <!-- 📦 أرباح الأصناف -->
+                <div id="tabProdProfit" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📦 أرباح الأصناف</h3>
+                    <div id="prodProfitContent"></div>
+                </div>
+
+                <!-- 📊 مقارنة -->
+                <div id="tabCompare" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📊 مقارنة شهرية</h3>
+                    <div class="grid-2" style="margin-bottom:12px;">
+                        <div class="form-group" style="margin:0;">
+                            <label>الشهر الأول</label>
+                            <select id="compareMonth1" style="width:100%;"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label>الشهر الثاني</label>
+                            <select id="compareMonth2" style="width:100%;"></select>
+                        </div>
+                    </div>
+                    <button onclick="renderComparison()" class="btn-sm btn-outline" style="width:100%;margin-bottom:12px;">🔄 مقارنة</button>
+                    <div id="compareContent"></div>
+                    <div class="chart-container" style="height:200px;margin-top:12px;">
+                        <canvas id="compareChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- 📋 حركة المخزون -->
+                <div id="tabStockMov" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📋 حركة المخزون</h3>
+                    <div id="stockMovContent"></div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -1530,6 +1577,7 @@
     let merchantSales = [];
     let merchantPayments = [];
     let partners = [];
+    let stockMovements = [];
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
@@ -1554,11 +1602,12 @@
                 late: ''
             };
             merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
-            merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
-            partners = JSON.parse(localStorage.getItem('partners') || '[]');
-        }
-        // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
-        openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+    merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
+    partners = JSON.parse(localStorage.getItem('partners') || '[]');
+    }
+    stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
+    // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
+    openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
 
         if (!msgTemplates || !msgTemplates.reminder) {
             msgTemplates = {
@@ -2023,9 +2072,10 @@
         localStorage.setItem('installments', JSON.stringify(installments));
         localStorage.setItem('msgTemplates', JSON.stringify(msgTemplates));
         localStorage.setItem('merchantSales', JSON.stringify(merchantSales));
-        localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
-        localStorage.setItem('partners', JSON.stringify(partners));
-        localStorage.setItem('openingCapital', String(openingCapital));
+    localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
+    localStorage.setItem('partners', JSON.stringify(partners));
+    localStorage.setItem('stockMovements', JSON.stringify(stockMovements));
+    localStorage.setItem('openingCapital', String(openingCapital));
         await saveAllToIDB();
         updateStorageInfo();
         renderDashboard();
@@ -2364,6 +2414,275 @@
         if (btn) btn.classList.add('active');
         if (tabId === 'tabChart') { setTimeout(() => { drawChart(); drawExpensePie(); }, 100); }
         if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
+        if (tabId === 'tabDaily') { setTimeout(() => renderDailySummary(), 50); }
+        if (tabId === 'tabProdProfit') { setTimeout(() => renderProductProfit(), 50); }
+        if (tabId === 'tabCompare') { setTimeout(() => { populateCompareMonths(); renderComparison(); }, 50); }
+        if (tabId === 'tabStockMov') { setTimeout(() => renderStockMovements(), 50); }
+    }
+
+    // ====== 📅 التقرير اليومي ======
+    function renderDailySummary() {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(startOfDay.getTime() + 86400000);
+        const todayTrans = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= startOfDay && d < endOfDay;
+        });
+        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
+        todayTrans.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            else if (t.type === 'payment_in') collections += t.amount;
+            else if (t.type === 'expense') expenses += t.amount;
+            else if (t.type === 'purchase') purchases += t.amount;
+        });
+        const netFlow = cashSales + collections - expenses - purchases;
+        let cash = openingCapital;
+        transactions.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
+        });
+        const container = document.getElementById('dailySummaryContent');
+        container.innerHTML = '' +
+            '<div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">' +
+                '<div style="text-align:center;margin-bottom:12px;">' +
+                    '<strong style="font-size:1.1rem;">📅 ' + today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + '</strong>' +
+                '</div>' +
+                '<div class="flex-between" style="padding:6px 0;"><span>💵 مبيعات نقدية</span><strong style="color:var(--success)">' + cashSales.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;"><span>💰 تحصيل أقساط</span><strong style="color:var(--primary)">' + collections.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;"><span>📉 مصروفات</span><strong style="color:var(--danger)">' + expenses.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;"><span>📦 مشتريات</span><strong style="color:var(--accent)">' + purchases.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:' + (netFlow >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+                    '<span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق النقدي</span><strong>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;font-weight:800;font-size:1.05rem;border-top:2px solid var(--primary);margin-top:4px;">' +
+                    '<span>🏦 رصيد الخزينة الحالي</span><strong style="color:var(--primary)">' + cash.toFixed(2) + ' ج</strong></div>' +
+            '</div>' +
+            '<div style="font-size:0.85rem;color:var(--text-muted);">عدد الحركات اليوم: ' + todayTrans.length + '</div>';
+    }
+
+    function printDailySummary() {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(startOfDay.getTime() + 86400000);
+        const todayTrans = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= startOfDay && d < endOfDay;
+        });
+        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
+        todayTrans.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            else if (t.type === 'payment_in') collections += t.amount;
+            else if (t.type === 'expense') expenses += t.amount;
+            else if (t.type === 'purchase') purchases += t.amount;
+        });
+        const netFlow = cashSales + collections - expenses - purchases;
+        let cash = openingCapital;
+        transactions.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
+        });
+        const dateLabel = today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+        const w = window.open('', '', 'width=400,height=600');
+        w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقرير يومي</title>' +
+            '<style>body{font-family:sans-serif;padding:30px;}h1{font-size:1.3rem;text-align:center;color:#4f46e5;}' +
+            '.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;}' +
+            '.total{border-top:2px solid #000;font-weight:700;font-size:1.1rem;}' +
+            '.footer{text-align:center;margin-top:20px;color:#94a3b8;font-size:0.8rem;}</style></head><body>' +
+            '<h1>📅 التقرير اليومي</h1>' +
+            '<p style="text-align:center;color:#666;margin-bottom:16px;">' + dateLabel + '</p>' +
+            '<div class="row"><span>💵 مبيعات نقدية</span><span>' + cashSales.toFixed(2) + ' ج</span></div>' +
+            '<div class="row"><span>💰 تحصيل أقساط</span><span>' + collections.toFixed(2) + ' ج</span></div>' +
+            '<div class="row"><span>📉 مصروفات</span><span>' + expenses.toFixed(2) + ' ج</span></div>' +
+            '<div class="row"><span>📦 مشتريات</span><span>' + purchases.toFixed(2) + ' ج</span></div>' +
+            '<div class="row total"><span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق</span><span>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</span></div>' +
+            '<div class="row" style="font-size:1.15rem;border-top:2px solid #4f46e5;margin-top:8px;color:#4f46e5;font-weight:800;"><span>🏦 الخزينة</span><span>' + cash.toFixed(2) + ' ج</span></div>' +
+            '<div class="footer">نظام إدارة المبيعات والتقسيط</div>' +
+            '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
+        w.document.close();
+        setTimeout(() => w.print(), 300);
+    }
+
+    // ====== 📦 أرباح الأصناف ======
+    function renderProductProfit() {
+        const range = getDateRange();
+        const filteredTrans = transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell'));
+        const prodMap = {};
+        filteredTrans.forEach(t => {
+            if (!t.productId) return;
+            if (!prodMap[t.productId]) {
+                const p = products.find(x => x.id == t.productId);
+                prodMap[t.productId] = { name: p ? p.name : 'حذف', cost: p ? p.costPrice + (p.expenses || 0) : 0, qty: 0, revenue: 0 };
+            }
+            prodMap[t.productId].qty += 1;
+            prodMap[t.productId].revenue += t.amount;
+        });
+        const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
+        const totalRev = sorted.reduce((s, e) => s + e[1].revenue, 0);
+        const totalCost = sorted.reduce((s, e) => s + (e[1].cost * e[1].qty), 0);
+        const totalProfit = totalRev - totalCost;
+        let html = '<div style="margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap;">' +
+            '<span class="badge badge-primary">إجمالي الإيرادات: ' + totalRev.toFixed(2) + ' ج</span>' +
+            '<span class="badge" style="background:var(--danger);color:#fff;">إجمالي التكلفة: ' + totalCost.toFixed(2) + ' ج</span>' +
+            '<span class="badge" style="background:' + (totalProfit >= 0 ? 'var(--success)' : 'var(--danger)') + ';color:#fff;">صافي الربح: ' + totalProfit.toFixed(2) + ' ج</span>' +
+        '</div>';
+        sorted.forEach(([id, d]) => {
+            const profit = d.revenue - (d.cost * d.qty);
+            const margin = d.revenue ? (profit / d.revenue * 100).toFixed(1) : 0;
+            html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
+                '<div class="flex-between"><strong>📱 ' + d.name + '</strong><span class="badge badge-primary">' + d.qty + ' قطعة</span></div>' +
+                '<div style="display:flex;gap:16px;font-size:0.85rem;margin-top:4px;color:var(--text-muted);">' +
+                    '<span>💰 إيرادات: ' + d.revenue.toFixed(2) + ' ج</span>' +
+                    '<span>📦 تكلفة: ' + (d.cost * d.qty).toFixed(2) + ' ج</span>' +
+                    '<span style="color:' + (profit >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">📈 ربح: ' + profit.toFixed(2) + ' ج (' + margin + '%)</span>' +
+                '</div></div>';
+        });
+        document.getElementById('prodProfitContent').innerHTML = html || '<div class="empty-state">لا توجد مبيعات في هذه الفترة</div>';
+    }
+
+    // ====== 📊 مقارنة شهرية ======
+    function populateCompareMonths() {
+        const s1 = document.getElementById('compareMonth1');
+        const s2 = document.getElementById('compareMonth2');
+        if (!s1 || !s2) return;
+        if (s1.options.length > 0) return;
+        const now = new Date();
+        for (let i = 0; i < 24; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+            const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            s1.innerHTML += '<option value="' + val + '"' + (i === 0 ? ' selected' : '') + '>' + label + '</option>';
+            s2.innerHTML += '<option value="' + val + '"' + (i === 1 ? ' selected' : '') + '>' + label + '</option>';
+        }
+    }
+
+    function getMonthData(yearMonth) {
+        const [y, m] = yearMonth.split('-').map(Number);
+        const from = new Date(y, m - 1, 1);
+        const to = new Date(y, m, 1);
+        const trans = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= from && d < to;
+        });
+        let revenue = 0, expenses = 0, collections = 0;
+        trans.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'sell') revenue += t.amount;
+            else if (t.type === 'expense') expenses += t.amount;
+            else if (t.type === 'payment_in') collections += t.amount;
+        });
+        const instRev = installments.filter(i => {
+            const d = new Date(i.firstDueDate || i.date);
+            return d >= from && d < to;
+        }).reduce((s, i) => s + i.purchasePrice, 0);
+        revenue += instRev;
+        return { revenue, expenses, collections, net: revenue - expenses };
+    }
+
+    function renderComparison() {
+        const v1 = document.getElementById('compareMonth1').value;
+        const v2 = document.getElementById('compareMonth2').value;
+        if (!v1 || !v2) return;
+        const d1 = getMonthData(v1);
+        const d2 = getMonthData(v2);
+        const label1 = document.getElementById('compareMonth1').selectedOptions[0].text;
+        const label2 = document.getElementById('compareMonth2').selectedOptions[0].text;
+        const pctRevenue = d1.revenue ? (((d2.revenue - d1.revenue) / d1.revenue) * 100).toFixed(1) : 0;
+        const pctExpenses = d1.expenses ? (((d2.expenses - d1.expenses) / d1.expenses) * 100).toFixed(1) : 0;
+        const pctNet = d1.net ? (((d2.net - d1.net) / d1.net) * 100).toFixed(1) : 0;
+        document.getElementById('compareContent').innerHTML = '' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">' +
+                '<tr><th style="text-align:right;padding:8px;border-bottom:2px solid var(--border);">البيان</th>' +
+                '<th style="text-align:center;padding:8px;border-bottom:2px solid var(--border);">' + label1 + '</th>' +
+                '<th style="text-align:center;padding:8px;border-bottom:2px solid var(--border);">' + label2 + '</th>' +
+                '<th style="text-align:center;padding:8px;border-bottom:2px solid var(--border);">التغير</th></tr>' +
+                '<tr><td style="padding:8px;border-bottom:1px solid var(--border);">💵 الإيرادات</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d1.revenue.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d2.revenue.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + (pctRevenue >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctRevenue >= 0 ? '+' : '') + pctRevenue + '%</td></tr>' +
+                '<tr><td style="padding:8px;border-bottom:1px solid var(--border);">📉 المصروفات</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d1.expenses.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d2.expenses.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + (pctExpenses <= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctExpenses >= 0 ? '+' : '') + pctExpenses + '%</td></tr>' +
+                '<tr><td style="padding:8px;font-weight:700;border-top:2px solid var(--primary);">🎯 صافي الربح</td>' +
+                '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d1.net.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d2.net.toFixed(2) + ' ج</td>' +
+                '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);color:' + (pctNet >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctNet >= 0 ? '+' : '') + pctNet + '%</td></tr>' +
+            '</table>';
+        drawCompareChart(d1, d2, label1, label2);
+    }
+
+    function drawCompareChart(d1, d2, l1, l2) {
+        const canvas = document.getElementById('compareChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = 200 * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = '200px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width, h = 200;
+        const data = [
+            { label: 'الإيرادات', v1: d1.revenue, v2: d2.revenue, color1: '#22c55e', color2: '#16a34a' },
+            { label: 'المصروفات', v1: d1.expenses, v2: d2.expenses, color1: '#ef4444', color2: '#dc2626' },
+            { label: 'صافي الربح', v1: d1.net, v2: d2.net, color1: '#3b82f6', color2: '#2563eb' }
+        ];
+        const maxVal = Math.max(...data.flatMap(d => [d.v1, d.v2, 1]));
+        const pad = { top: 20, bottom: 30, left: 10, right: 10 };
+        const chartW = w - pad.left - pad.right;
+        const chartH = h - pad.top - pad.bottom;
+        const barW = chartW / data.length / 3;
+        ctx.clearRect(0, 0, w, h);
+        data.forEach((item, i) => {
+            const cx = pad.left + (i + 0.5) * (chartW / data.length);
+            const h1 = (item.v1 / maxVal) * chartH;
+            const h2 = (item.v2 / maxVal) * chartH;
+            ctx.fillStyle = item.color1;
+            ctx.fillRect(cx - barW - 2, h - pad.bottom - h1, barW, h1);
+            ctx.fillStyle = item.color2;
+            ctx.fillRect(cx + 2, h - pad.bottom - h2, barW, h2);
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+            ctx.font = '10px Cairo, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(item.label, cx, h - 8);
+        });
+        // legend
+        ctx.font = '9px Cairo, sans-serif';
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(10, 6, 10, 10);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+        ctx.fillText(l1, 24, 15);
+        ctx.fillStyle = '#16a34a';
+        ctx.fillRect(80, 6, 10, 10);
+        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+        ctx.fillText(l2, 94, 15);
+    }
+
+    // ====== 📋 حركة المخزون ======
+    function renderStockMovements() {
+        const container = document.getElementById('stockMovContent');
+        if (stockMovements.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">لا توجد حركات مخزون</div><div class="empty-sub">سيتم تسجيل الحركات عند البيع أو الشراء</div></div>';
+            return;
+        }
+        const sorted = [...stockMovements].sort((a, b) => new Date(b.date) - new Date(a.date));
+        let html = '<div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">إجمالي الحركات: ' + sorted.length + '</div>';
+        sorted.forEach(m => {
+            const isIn = m.type === 'in';
+            const icon = isIn ? '📥' : '📤';
+            const color = isIn ? 'var(--success)' : 'var(--danger)';
+            const bgColor = isIn ? 'var(--success-light)' : 'var(--danger-light)';
+            const label = isIn ? 'شراء' : 'بيع';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin:4px 0;background:' + bgColor + ';border-radius:8px;border-right:3px solid ' + color + ';">' +
+                '<span style="font-size:1.2rem;">' + icon + '</span>' +
+                '<div style="flex:1;">' +
+                    '<div><strong>' + m.productName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span></div>' +
+                    '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + m.qty + ' | ' + new Date(m.date).toLocaleString('ar-EG') + '</div>' +
+                    (m.notes ? '<div style="font-size:0.8rem;color:var(--text-muted);direction:ltr;text-align:right;font-family:monospace;">' + m.notes + '</div>' : '') +
+                '</div>' +
+            '</div>';
+        });
+        container.innerHTML = html;
     }
 
     function drawCashTimeline() {
@@ -2542,6 +2861,7 @@
                 expenses: expenses,
                 sellPrice: sell,
                 stock: parseInt(document.getElementById('stockQty').value) || 0,
+                imei: document.getElementById('prodImei').value.trim() || '',
                 discount: 0,
                 archived: false
             };
@@ -2600,6 +2920,7 @@
                     '<div><span style="color:var(--text-muted);">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
                     '<div><span style="color:var(--text-muted);">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
                     '<div><span style="color:var(--text-muted);">📈 ربح</span><br><strong style="color:' + profitColor + ';">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
+                    (p.imei ? '<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
                 '</div>' +
                 '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
                     (p.archived
@@ -2629,6 +2950,7 @@
             document.getElementById('prodExpenses').value = p.expenses || 0;
             document.getElementById('sellPrice').value = p.sellPrice;
             document.getElementById('stockQty').value = p.stock;
+            document.getElementById('prodImei').value = p.imei || '';
             calcProfitMargin();
             switchPage('products');
         }
@@ -2666,6 +2988,10 @@
                 notes: 'بيع نقدي | ' + p.name, discount: p.discount || 0,
                 date: new Date().toISOString()
             });
+            stockMovements.push({
+                date: new Date().toISOString(), productId: p.id, productName: p.name,
+                type: 'out', qty: 1, ref: 'بيع نقدي', notes: p.imei ? 'IMEI: ' + p.imei : ''
+            });
             saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
             showToast('💵 تم بيع ' + p.name + ' — ' + p.sellPrice + ' ج');
         } catch (err) { showError('خطأ', err.message); }
@@ -2682,6 +3008,10 @@
                 productId: p.id, merchantId: null,
                 notes: 'شراء مخزون | ' + p.name,
                 date: new Date().toISOString()
+            });
+            stockMovements.push({
+                date: new Date().toISOString(), productId: p.id, productName: p.name,
+                type: 'in', qty: 1, ref: 'شراء مخزون', notes: p.imei ? 'IMEI: ' + p.imei : ''
             });
             saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
             showToast('💰 تم شراء ' + p.name + ' — ' + p.costPrice + ' ج');
