@@ -495,7 +495,10 @@
         <input type="password" id="lockInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         <div class="lock-error" id="lockError"></div>
         <button onclick="window.unlockApp()" style="padding:10px 0;width:100%;max-width:280px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:1rem;cursor:pointer;">فتح التطبيق</button>
-        <div class="lock-hint" id="lockHint" onclick="removePassword()">إزالة رمز الدخول</div>
+        <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">
+            <div class="lock-hint" onclick="removePassword()">إزالة رمز الدخول</div>
+            <div class="lock-hint" onclick="resetPassword()" style="color:var(--danger) !important;">نسيت الرمز؟</div>
+        </div>
     </div>
 
     <!-- إيصال السداد -->
@@ -1636,7 +1639,7 @@
     window.unlockApp = function() {
         const input = document.getElementById('lockInput');
         const err = document.getElementById('lockError');
-        if (input.value === appPassword) {
+        if (!appPassword || input.value === appPassword) {
             document.getElementById('lockScreen').classList.add('hidden');
             document.getElementById('appContainer').style.display = 'block';
             lockInputAttempts = 0;
@@ -1655,6 +1658,12 @@
             localStorage.setItem('appPassword', '');
             checkAppLock();
         }
+    };
+
+    window.resetPassword = function() {
+        appPassword = '';
+        localStorage.removeItem('appPassword');
+        location.reload();
     };
 
     // ====== إشعارات المتصفح (Browser Notifications) ======
@@ -2499,6 +2508,7 @@
             ctx.fillText(label, legX + 11, legY + 1);
             legX += tw + 6;
         });
+    }
 
     function calcProfitMargin() {
         let cost = parseFloat(document.getElementById('costPrice').value) || 0;
