@@ -13,6 +13,7 @@
     <title>نظام إدارة المبيعات والتقسيط المتقدم</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -303,6 +304,14 @@
 .spinner-overlay { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; }
 .spinner { width:40px; height:40px; border:4px solid #e2e8f0; border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* Scanner */
+.scanner-overlay { position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding:16px; }
+.scanner-box { background:var(--card-bg); border-radius:20px; max-width:420px; width:100%; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+.scanner-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); font-weight:700; font-size:1rem; }
+.scanner-view { padding:12px; min-height:240px; }
+.scanner-view video { width:100%; border-radius:12px; display:block; }
+.scanner-hint { text-align:center; padding:12px 20px 16px; font-size:0.85rem; color:var(--text-muted); }
 
         /* حالة عدم وجود بيانات */
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
@@ -649,7 +658,10 @@
                     </div>
                     <div class="form-group">
                         <label>📱 الرقم التسلسلي / IMEI</label>
-                        <input type="text" id="prodImei" placeholder="اختياري — رقم IMEI أو سيريال">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="prodImei" placeholder="اختياري — رقم IMEI أو سيريال" style="flex:1;">
+                            <button type="button" class="btn-sm btn-outline" onclick="startScanner()" title="مسح الباركود بالكاميرا" style="white-space:nowrap; padding:10px 14px;">📷</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>الربح المتوقع (للقطعة)</label>
@@ -1298,6 +1310,18 @@
 
 <div id="toast-container"></div>
 <div id="loadingOverlay" class="spinner-overlay" style="display:none;"><div class="spinner"></div></div>
+
+<!-- ماسح الباركود بالكاميرا -->
+<div id="scannerOverlay" class="scanner-overlay" style="display:none;">
+    <div class="scanner-box">
+        <div class="scanner-header">
+            <span>📷 مسح الباركود</span>
+            <button class="btn-sm" onclick="stopScanner()" style="background:transparent; border:none; color:var(--text-muted); font-size:1.3rem; padding:0 8px;">✖</button>
+        </div>
+        <div class="scanner-view" id="scannerView"></div>
+        <p class="scanner-hint">وجّه الكاميرا إلى الباركود أو QR الموجود على علبة الجهاز</p>
+    </div>
+</div>
 
 <div id="modalOverlay" class="modal-overlay" onclick="window._closeModal?.(null)">
     <div class="modal-container" onclick="event.stopPropagation()">
@@ -2844,6 +2868,51 @@
             legX += tw + 6;
         });
     }
+
+    // ====== 📷 ماسح الباركود ======
+    let html5Scanner = null;
+
+    window.startScanner = function() {
+        const overlay = document.getElementById('scannerOverlay');
+        overlay.style.display = 'flex';
+        const el = document.getElementById('scannerView');
+        el.innerHTML = '<div style="text-align:center;padding:60px 0;color:var(--text-muted);font-size:0.9rem;">⏳ جاري تشغيل الكاميرا...</div>';
+        if (html5Scanner) { html5Scanner.clear(); html5Scanner = null; }
+        try {
+            html5Scanner = new Html5Qrcode('scannerView');
+            html5Scanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 250, height: 100 }, aspectRatio: 1.0 },
+                onScanSuccess,
+                onScanFailure
+            ).catch(function(err) {
+                el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--danger);font-size:0.9rem;">❌ لا يمكن الوصول للكاميرا<br><span style="font-size:0.8rem;">تأكد من منح صلاحية الكاميرا</span></div>';
+                showToast('❌ فشل تشغيل الكاميرا: ' + (err.message || ''), 'error');
+            });
+        } catch (e) {
+            el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--danger);font-size:0.9rem;">❌ المكتبة غير متاحة</div>';
+            showToast('❌ مكتبة المسح غير متاحة', 'error');
+        }
+    };
+
+    function onScanSuccess(decodedText, decodedResult) {
+        document.getElementById('prodImei').value = decodedText;
+        stopScanner();
+        showToast('✅ تم مسح الباركود: ' + decodedText, 'success');
+    }
+
+    function onScanFailure(err) {
+        // ignore - continues scanning
+    }
+
+    window.stopScanner = function() {
+        if (html5Scanner) {
+            try { html5Scanner.stop().catch(function(){}); html5Scanner.clear().catch(function(){}); } catch(e){}
+            html5Scanner = null;
+        }
+        document.getElementById('scannerOverlay').style.display = 'none';
+        document.getElementById('scannerView').innerHTML = '';
+    };
 
     function calcProfitMargin() {
         let cost = parseFloat(document.getElementById('costPrice').value) || 0;
