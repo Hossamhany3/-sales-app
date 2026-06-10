@@ -494,6 +494,7 @@
         <p>أدخل رمز الدخول للمتابعة</p>
         <input type="password" id="lockInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         <div class="lock-error" id="lockError"></div>
+        <button onclick="window.unlockApp()" style="padding:10px 0;width:100%;max-width:280px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:1rem;cursor:pointer;">فتح التطبيق</button>
         <div class="lock-hint" id="lockHint" onclick="removePassword()">إزالة رمز الدخول</div>
     </div>
 
@@ -1746,19 +1747,18 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('lockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') window.unlockApp(); });
-        document.getElementById('setPasswordBtn').addEventListener('click', () => {
-            const val = document.getElementById('lockPasswordInput').value.trim();
-            if (val && (val.length < 4 || val.length > 6 || !/^\d+$/.test(val))) {
-                showToast('يجب أن يكون الرمز 4-6 أرقام فقط', 'error'); return;
-            }
-            appPassword = val;
-            localStorage.setItem('appPassword', val);
-            showToast(val ? 'تم تعيين رمز الدخول' : 'تم إزالة رمز الدخول');
-            document.getElementById('lockPasswordInput').value = '';
-            checkAppLock();
-        });
+    // ====== تسجيل أحداث الدخول (ت شتغل مباشرة مش DOMContentLoaded) ======
+    document.getElementById('lockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') window.unlockApp(); });
+    document.getElementById('setPasswordBtn').addEventListener('click', () => {
+        const val = document.getElementById('lockPasswordInput').value.trim();
+        if (val && (val.length < 4 || val.length > 6 || !/^\d+$/.test(val))) {
+            showToast('يجب أن يكون الرمز 4-6 أرقام فقط', 'error'); return;
+        }
+        appPassword = val;
+        localStorage.setItem('appPassword', val);
+        showToast(val ? 'تم تعيين رمز الدخول' : 'تم إزالة رمز الدخول');
+        document.getElementById('lockPasswordInput').value = '';
+        checkAppLock();
     });
 
     // ====== إشعارات الأقساط ======
