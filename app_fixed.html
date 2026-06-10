@@ -856,33 +856,6 @@
                 </form>
             </div>
 
-            <div class="card" id="paymentFormCard">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="togglePaymentForm()">
-                    <span style="font-size:1.3rem;">💰</span>
-                    <strong style="flex:1;">تسديد دفعة من تاجر</strong>
-                    <span id="paymentToggleIcon" style="color:var(--text-muted);">▼</span>
-                </div>
-                <form id="merchantPaymentForm" style="display:none;">
-                    <div class="grid-2">
-                        <div class="form-group">
-                            <label>التاجر</label>
-                            <select id="mpMerchantId" required>
-                                <option value="">اختر تاجر...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>المبلغ المدفوع</label>
-                            <input type="number" id="mpAmount" step="any" required placeholder="0.00">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>ملاحظات</label>
-                        <input type="text" id="mpNotes" placeholder="اختياري">
-                    </div>
-                    <button type="submit">💵 تسجيل الدفعة</button>
-                </form>
-            </div>
-
             <h2>📋 كشف حساب وكشل المديونيات</h2>
             <div class="search-box">
                 <span class="search-icon">🔍</span>
@@ -1980,7 +1953,6 @@
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
-        if (document.getElementById('mpMerchantId')) document.getElementById('mpMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
     }
 
@@ -2413,15 +2385,6 @@
             showError('حدث خطأ أثناء الحفظ', err.message);
         }
     });
-
-    window.togglePaymentForm = function() {
-        const form = document.getElementById('merchantPaymentForm');
-        const icon = document.getElementById('paymentToggleIcon');
-        if (!form) return;
-        const isHidden = form.style.display === 'none';
-        form.style.display = isHidden ? 'block' : 'none';
-        if (icon) icon.textContent = isHidden ? '▲' : '▼';
-    };
 
     window.toggleIncomeForm = function() {
         const form = document.getElementById('incomeForm');
@@ -3399,35 +3362,6 @@
             showError('حدث خطأ', err.message);
         }
     });
-
-    document.getElementById('merchantPaymentForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        try {
-            let mpEl = document.getElementById('mpMerchantId');
-            if (!mpEl) { showToast('عنصر التاجر غير موجود', 'error'); return; }
-            let merchantId = parseInt(mpEl.value);
-            let amount = parseFloat(document.getElementById('mpAmount').value);
-            let notes = document.getElementById('mpNotes').value.trim();
-            if (!merchantId) { showToast('اختر تاجر', 'error'); return; }
-            if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
-            let m = merchants.find(x => x.id == merchantId);
-            if (!m) { showToast('التاجر غير موجود', 'error'); return; }
-
-            let pay = { id: Date.now(), merchantId, amount, date: new Date().toISOString(), notes: notes || 'دفعة من ' + m.name };
-            merchantPayments.push(pay);
-            transactions.push({
-                id: Date.now() + 1, type: 'payment_in', amount,
-                merchantId, notes: 'دفعة من تاجر: ' + m.name + (notes ? ' - ' + notes : ''), date: new Date().toISOString()
-            });
-
-            document.getElementById('merchantPaymentForm').reset();
-            saveData(); renderMerchantSales(); renderTransactions(); renderDashboard();
-            showToast('✅ تم تسجيل دفعة ' + amount.toFixed(2) + ' ج من ' + m.name);
-        } catch (err) {
-            showError('حدث خطأ', err.message);
-        }
-    });
-
 
     window.generateMerchantStatementPDF = (merchantId) => {
         try {
