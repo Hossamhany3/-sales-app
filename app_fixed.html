@@ -2011,13 +2011,16 @@
         let interestProfit = 0;
         let totalDiscounts = 0;
 
-        const filteredTrans = transactions.filter(t => inRange(t.date, range));
-        const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
-
-        filteredTrans.forEach(t => {
+        // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ)
+        cash = openingCapital;
+        transactions.forEach(t => {
             if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
             if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
         });
+
+        // الإيرادات والمصروفات تحسب ضمن النطاق التاريخي فقط
+        const filteredTrans = transactions.filter(t => inRange(t.date, range));
+        const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
 
         filteredTrans.forEach(t => {
             if (t.type === 'sell_cash' || t.type === 'sell') {
