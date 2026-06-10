@@ -843,6 +843,10 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>العدد</label>
+                        <input type="number" id="msQuantity" value="1" min="1" required>
+                    </div>
+                    <div class="form-group">
                         <label>ملاحظات</label>
                         <input type="text" id="msNotes" placeholder="اختياري">
                     </div>
@@ -3111,7 +3115,7 @@
 
     // ====== مبيعات التجار ======
     function calcMerchantBalance(merchantId) {
-        let totalSales = merchantSales.filter(s => s.merchantId == merchantId).reduce((sum, s) => sum + (s.sellPrice || 0), 0);
+        let totalSales = merchantSales.filter(s => s.merchantId == merchantId).reduce((sum, s) => sum + (s.sellPrice || 0) * (s.quantity || 1), 0);
         let totalPayments = merchantPayments.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.amount || 0), 0);
         return { totalSales, totalPayments, balance: totalSales - totalPayments };
     }
@@ -3123,7 +3127,7 @@
                 let m = merchants.find(x => x.id == s.merchantId);
                 summary[s.merchantId] = { name: m?.name || s.merchantName, phone: m?.phone || s.phone, totalSales: 0, totalPayments: 0 };
             }
-            summary[s.merchantId].totalSales += s.sellPrice || 0;
+            summary[s.merchantId].totalSales += (s.sellPrice || 0) * (s.quantity || 1);
         });
         merchantPayments.forEach(p => {
             if (summary[p.merchantId]) {
@@ -3159,7 +3163,9 @@
 
         let rows = [];
         sales.forEach(s => {
-            rows.push({ date: s.date, desc: 'بيع: ' + s.deviceName, debit: s.sellPrice, credit: 0 });
+            let qty = s.quantity || 1;
+            let totalPrice = (s.sellPrice || 0) * qty;
+            rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : ''), debit: totalPrice, credit: 0 });
         });
         payments.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
@@ -3201,8 +3207,24 @@
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
 
-            let newPrice = await showNumberPromptModal('✏️ تعديل بيع ' + (sale.deviceName || '') +
-                '\n' + 'السعر الحالي: ' + (sale.sellPrice || 0).toFixed(2) + ' ج' +
+            let qty = sale.quantity || 1;
+            let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (sale.deviceName || '') +
+                '\n' + 'الكمية الحالية: ' + qty,
+                qty, 'تعديل الكمية');
+            if (newQty === null || isNaN(newQty) || newQty < 1) { showToast('كمية غير صالحة', 'error'); return; }
+
+            let diff = newQty - qty;
+            if (diff !== 0) {
+                let p = products.find(x => x.name === sale.deviceName);
+                if (p) {
+                    if (diff > 0 && p.stock < diff) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب زيادة: ' + diff, 'error'); return; }
+                    p.stock -= diff;
+                }
+                sale.quantity = newQty;
+            }
+
+            let newPrice = await showNumberPromptModal('✏️ تعديل سعر ' + (sale.deviceName || '') +
+                '\n' + 'السعر الحالي للقطعة: ' + (sale.sellPrice || 0).toFixed(2) + ' ج' +
                 '\n' + 'الملاحظات الحالية: ' + (sale.notes || 'بدون'),
                 sale.sellPrice, 'تعديل السعر');
             if (newPrice === null || isNaN(newPrice) || newPrice <= 0) { showToast('سعر غير صالح', 'error'); return; }
@@ -3212,7 +3234,7 @@
             if (newNotes !== null) sale.notes = newNotes.trim();
 
             saveData(); renderMerchantSales(); renderDashboard();
-            showToast('✅ تم تحديث بيانات البيع');
+            showToast('✅ تم تحديث بيانات البيع: ' + (sale.quantity || 1) + '× ' + sale.deviceName + ' @ ' + sale.sellPrice.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -3222,11 +3244,11 @@
         try {
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
-            let ok = await showConfirmModal('حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + (sale.sellPrice || 0).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)', '⚠️ تأكيد الحذف');
+            let ok = await showConfirmModal('حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + ((sale.sellPrice || 0) * (sale.quantity || 1)).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)', '⚠️ تأكيد الحذف');
             if (!ok) return;
 
             let p = products.find(x => x.name === sale.deviceName);
-            if (p) p.stock++;
+            if (p) p.stock += (sale.quantity || 1);
 
             merchantSales = merchantSales.filter(s => s.id != id);
             saveData(); renderMerchantSales(); renderDashboard();
@@ -3278,7 +3300,7 @@
 
             html += '<div class="card" style="padding:14px 16px;">';
             html += '<div class="sale-row" style="cursor:pointer;" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
-            html += '<div class="info"><div class="name">' + s.name + ' <span style="color:var(--text-muted);font-size:0.8rem;font-weight:400;">(' + sales.length + ' أصناف)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
+            html += '<div class="info"><div class="name">' + s.name + ' <span style="color:var(--text-muted);font-size:0.8rem;font-weight:400;">(' + sales.reduce((sum, sale) => sum + (sale.quantity || 1), 0) + ' قطعة)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
             html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
             html += '<div class="sale-actions">';
             html += '<button class="btn-sm btn-success" onclick="event.stopPropagation();generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
@@ -3291,9 +3313,11 @@
             html += '<div class="schedule-header"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
             sales.forEach(sale => {
                 let d = new Date(sale.date).toLocaleDateString('ar-EG');
+                let qty = sale.quantity || 1;
+                let totalPrice = (sale.sellPrice || 0) * qty;
                 html += '<div class="schedule-item" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">';
-                html += '<span class="schedule-inst-num" style="font-size:0.9rem;">' + (sale.deviceName || '') + '</span>';
-                html += '<span class="schedule-amount" style="font-size:0.9rem;">' + (sale.sellPrice || 0).toFixed(2) + ' ج</span>';
+                html += '<span class="schedule-inst-num" style="font-size:0.9rem;">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
+                html += '<span class="schedule-amount" style="font-size:0.9rem;">' + totalPrice.toFixed(2) + ' ج</span>';
                 html += '<span style="color:var(--text-muted);font-size:0.82rem;">' + d + '</span>';
                 html += '<div style="display:flex;gap:4px;">';
                 html += '<button class="btn-sm btn-outline" style="padding:4px 10px;min-height:30px;font-size:0.78rem;" onclick="editMerchantSale(' + sale.id + ')">✏️</button>';
@@ -3346,6 +3370,9 @@
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
             let deviceName = p.name;
             let sellPrice = p.sellPrice;
+            let quantity = parseInt(document.getElementById('msQuantity').value) || 1;
+            if (quantity < 1) quantity = 1;
+            if (p.stock < quantity) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب: ' + quantity, 'error'); return; }
             let notes = document.getElementById('msNotes').value.trim();
             if (!deviceName || !sellPrice || sellPrice <= 0) { showToast('أدخل اسم الجهاز وسعر البيع', 'error'); return; }
 
@@ -3356,15 +3383,18 @@
                 phone,
                 deviceName,
                 sellPrice,
+                quantity,
                 date: new Date().toISOString(),
                 notes
             };
+            let totalVal = sellPrice * quantity;
             merchantSales.push(sale);
-            p.stock--;
+            p.stock -= quantity;
 
             document.getElementById('merchantSaleForm').reset();
+            document.getElementById('msQuantity').value = 1;
             saveData(); renderMerchantSales(); renderDashboard();
-            showToast('✅ تم تسجيل بيع ' + deviceName + ' لـ ' + name + ' بقيمة ' + sellPrice.toFixed(2) + ' ج');
+            showToast('✅ تم تسجيل بيع ' + quantity + '× ' + deviceName + ' لـ ' + name + ' بقيمة ' + totalVal.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -3407,7 +3437,11 @@
             let payments = merchantPayments.filter(p => p.merchantId == merchantId);
             let bal = calcMerchantBalance(merchantId);
             let rows = [];
-            sales.forEach(s => rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || ''), debit: s.sellPrice, credit: 0 }));
+            sales.forEach(s => {
+                let qty = s.quantity || 1;
+                let totalPrice = (s.sellPrice || 0) * qty;
+                rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : ''), debit: totalPrice, credit: 0 });
+            });
             payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
             rows.sort((a, b) => a.date.localeCompare(b.date));
             let rowsHtml = rows.map(r => {
