@@ -247,6 +247,9 @@
         .stat-card.revenue .value { color: var(--primary); }
         .stat-card.profit .value { color: var(--success); }
         .stat-card.debt .value { color: var(--accent); }
+        .tab-btn { padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);font-size:0.85rem;cursor:pointer;transition:all .2s;font-family:inherit; }
+        .tab-btn.active { background:var(--primary);color:#fff;border-color:var(--primary); }
+        .grid-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px; }
 
         #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
         .toast { background: var(--text-main); color: white; padding: 12px 20px; border-radius: 50px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15); animation: slideUp 0.3s forwards; display: flex; align-items: center; gap: 8px; }
@@ -339,7 +342,7 @@
 
         /* رسم بياني */
         .chart-container { background: var(--card-bg); border-radius: var(--radius); padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
-        .chart-container canvas { width: 100% !important; height: 200px !important; }
+        .chart-container canvas { width: 100% !important; }
         .chart-legend { display: flex; gap: 20px; justify-content: center; margin-top: 8px; font-size: 0.85rem; }
         .chart-legend span { display: flex; align-items: center; gap: 6px; }
         .chart-legend .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
@@ -906,8 +909,9 @@
         </div>
 
         <div id="reports" class="page">
-            <h2>📈 المركز المالي والأرباح</h2>
+            <h2>📈 التقارير المحاسبية</h2>
             <div class="card">
+                <!-- فلتر التاريخ -->
                 <div class="grid-2" style="margin-bottom:16px;">
                     <div class="form-group" style="margin:0;">
                         <label>📅 من تاريخ</label>
@@ -918,26 +922,130 @@
                         <input type="date" id="reportDateTo" onchange="renderDashboard()">
                     </div>
                 </div>
-                <div style="border-bottom:2px solid var(--border); padding-bottom:10px; margin-bottom:10px;">
-                    <div class="flex-between" style="padding:6px 0;"><span>💵 إجمالي المبيعات (كاش + قسط)</span> <strong id="repRevenue" style="font-size:1.05rem;">0</strong></div>
-                    <div class="flex-between" style="padding:6px 0;"><span>🔻 خصومات البيوع</span> <strong id="repDiscounts" style="color:var(--accent)">0</strong></div>
-                    <div class="flex-between" style="padding:6px 0;"><span>🏭 تكلفة البضاعة المباعة (COGS)</span> <strong id="repCOGS" style="color:var(--danger)">0</strong></div>
+
+                <!-- قائمة تبويب -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+                    <button class="tab-btn active" data-tab="tabPnl" onclick="switchReportTab('tabPnl')">📊 قائمة الدخل</button>
+                    <button class="tab-btn" data-tab="tabBalance" onclick="switchReportTab('tabBalance')">🏦 المركز المالي</button>
+                    <button class="tab-btn" data-tab="tabDebt" onclick="switchReportTab('tabDebt')">📋 تحليل المديونية</button>
+                    <button class="tab-btn" data-tab="tabChart" onclick="switchReportTab('tabChart')">📈 الرسوم البيانية</button>
                 </div>
-                <div style="border-bottom:2px solid var(--border); padding-bottom:10px; margin-bottom:10px;">
-                    <div class="flex-between" style="padding:6px 0;"><span>📉 إجمالي المصروفات التشغيلية</span> <strong id="repExpenses" style="color:var(--danger)">0</strong></div>
-                    <div class="flex-between" style="padding:6px 0;"><span>💰 أرباح الفوائد (عقود التقسيط)</span> <strong id="repInterest" style="color:var(--success)">0</strong></div>
+
+                <!-- P&L -->
+                <div id="tabPnl" class="report-tab">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📊 قائمة الدخل</h3>
+                    <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
+                        <div class="flex-between" style="padding:6px 0;"><span>💵 إجمالي المبيعات</span> <strong id="repRevenue">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>🔻 خصومات البيوع</span> <strong id="repDiscounts" style="color:var(--accent)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>🏭 تكلفة البضاعة المباعة (COGS)</span> <strong id="repCOGS" style="color:var(--danger)">0</strong></div>
+                        <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--primary);">
+                            <span>📈 إجمالي الربح</span> <strong id="repGrossProfit">0</strong>
+                        </div>
+                        <div class="flex-between" style="padding:2px 0 6px 0;font-size:0.85rem;color:var(--text-muted);">
+                            <span>هامش إجمالي الربح</span> <strong id="repGrossMargin">0%</strong>
+                        </div>
+                    </div>
+                    <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
+                        <div class="flex-between" style="padding:6px 0;"><span>📉 إجمالي المصروفات التشغيلية</span> <strong id="repExpenses" style="color:var(--danger)">0</strong></div>
+                        <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--primary);">
+                            <span>⚙️ صافي الربح التشغيلي</span> <strong id="repOperatingProfit">0</strong>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:10px;">
+                        <div class="flex-between" style="padding:6px 0;"><span>💰 أرباح فوائد التقسيط</span> <strong id="repInterest" style="color:var(--success)">0</strong></div>
+                        <div class="flex-between" style="padding:10px 0 6px;font-size:1.15rem;font-weight:800;border-top:2px solid var(--primary);color:var(--primary);">
+                            <span>🎯 صافي الربح الفعلي</span> <strong id="repNetProfit">0</strong>
+                        </div>
+                        <div class="flex-between" style="padding:2px 0 6px 0;font-size:0.85rem;color:var(--text-muted);">
+                            <span>هامش صافي الربح</span> <strong id="repNetMargin">0%</strong>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex-between" style="font-size:1.1rem; padding:10px 0 6px;">
-                    <span>🎯 صافي الربح الفعلي</span>
-                    <strong id="repNetProfit" class="badge badge-success" style="font-size:1.1rem; padding:6px 16px;">0</strong>
+
+                <!-- المركز المالي -->
+                <div id="tabBalance" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">🏦 المركز المالي</h3>
+                    <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
+                        <div class="flex-between" style="padding:6px 0;"><span>💰 الخزينة النقدية</span> <strong id="balCash" style="color:var(--success)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>📦 قيمة المخزون</span> <strong id="balStock" style="color:var(--primary)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>📋 مديونية العملاء (أقساط)</span> <strong id="balDebt" style="color:var(--accent)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>🏪 مديونية التجار</span> <strong id="balMerchantDebt" style="color:var(--accent)">0</strong></div>
+                        <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--success);">
+                            <span>🏆 إجمالي الأصول</span> <strong id="balTotalAssets">0</strong>
+                        </div>
+                    </div>
+                    <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
+                        <div class="flex-between" style="padding:6px 0;"><span>🤝 استثمارات الشركاء</span> <strong id="balPartnerInvest" style="color:var(--danger)">0</strong></div>
+                        <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--danger);">
+                            <span>📉 إجمالي الخصوم</span> <strong id="balTotalLiabilities">0</strong>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex-between" style="padding:10px 0 6px;font-size:1.15rem;font-weight:800;border-top:2px solid var(--primary);color:var(--primary);">
+                            <span>💎 حقوق الملكية (صافي الثروة)</span> <strong id="balEquity">0</strong>
+                        </div>
+                    </div>
+                    <!-- خط زمني للخزينة -->
+                    <div style="margin-top:20px;">
+                        <h4 style="font-size:0.95rem;margin-bottom:8px;">📈 تطور الخزينة (آخر 6 أشهر)</h4>
+                        <div class="chart-container" style="height:160px;">
+                            <canvas id="cashTimelineCanvas" height="160"></canvas>
+                        </div>
+                    </div>
                 </div>
-                
-                <hr style="border:0; border-top:1px solid var(--border); margin:16px 0;">
-                <h3 style="font-size:1rem; margin-bottom:12px;">📋 تفصيل المديونيات</h3>
-                <div id="merchantBalances"></div>
-                <div class="grid-2" style="margin-top:16px;">
+
+                <!-- تحليل المديونية -->
+                <div id="tabDebt" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📋 تحليل المديونية</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+                        <div class="stat-card" style="border-color:var(--success);padding:10px;">
+                            <div style="font-size:0.75rem;color:var(--success);">✅ تم تحصيله</div>
+                            <div style="font-size:1.1rem;font-weight:800;color:var(--success);" id="debtCollected">0</div>
+                        </div>
+                        <div class="stat-card" style="border-color:var(--danger);padding:10px;">
+                            <div style="font-size:0.75rem;color:var(--danger);">📋 المتبقي</div>
+                            <div style="font-size:1.1rem;font-weight:800;color:var(--danger);" id="debtRemaining">0</div>
+                        </div>
+                    </div>
+                    <div class="flex-between" style="padding:8px 0;">
+                        <span>نسبة التحصيل</span>
+                        <strong id="debtCollectionRate" style="color:var(--success);">0%</strong>
+                    </div>
+                    <div style="margin-top:16px;">
+                        <h4 style="font-size:0.9rem;margin-bottom:8px;">⏳ تصنيف الديون حسب العمر</h4>
+                        <div id="debtAging"></div>
+                    </div>
+                    <div style="margin-top:16px;">
+                        <h4 style="font-size:0.9rem;margin-bottom:8px;">🏪 مديونيات التجار</h4>
+                        <div id="merchantBalances"></div>
+                    </div>
+                </div>
+
+                <!-- الرسوم البيانية -->
+                <div id="tabChart" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📈 الإيرادات vs المصروفات (آخر 6 أشهر)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartCanvas" height="200"></canvas>
+                        <div class="chart-legend">
+                            <span><span class="dot" style="background:var(--success)"></span> الإيرادات</span>
+                            <span><span class="dot" style="background:var(--danger)"></span> المصروفات</span>
+                            <span><span class="dot" style="background:var(--primary)"></span> صافي الربح</span>
+                        </div>
+                    </div>
+                    <div style="margin-top:20px;">
+                        <h4 style="font-size:0.9rem;margin-bottom:8px;">🥧 توزيع المصروفات</h4>
+                        <div class="chart-container" style="height:160px;">
+                            <canvas id="expensePieCanvas" height="160"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- أزرار التصدير -->
+                <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">
+                <div class="grid-3" style="margin-top:12px;">
                     <button id="exportReportBtn" class="btn-outline" style="width:100%;">📎 CSV الحركات</button>
                     <button id="exportFullReportBtn" class="btn-outline" style="width:100%;">📊 CSV تقرير شامل</button>
+                    <button id="printReportBtn" class="btn-outline" style="width:100%;">🖨️ طباعة التقرير</button>
                 </div>
             </div>
         </div>
@@ -1710,7 +1818,7 @@
             months.push({ label: d.toLocaleDateString('ar-EG', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
         }
 
-        const income = []; const expense = [];
+        const income = []; const expense = []; const netProfit = [];
         let maxVal = 0;
         months.forEach(m => {
             let inc = 0; let exp = 0;
@@ -1722,7 +1830,8 @@
                 }
             });
             income.push(inc); expense.push(exp);
-            maxVal = Math.max(maxVal, inc, exp);
+            netProfit.push(inc - exp);
+            maxVal = Math.max(maxVal, inc, exp, Math.abs(inc - exp));
         });
         if (maxVal === 0) maxVal = 1;
         const pad = 40; const bottom = 30; const top = 20;
@@ -1760,6 +1869,26 @@
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
             ctx.font = '11px Cairo, sans-serif'; ctx.textAlign = 'center';
             ctx.fillText(m.label, x, h - 6);
+        });
+
+        // خط صافي الربح
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#4f46e5';
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        months.forEach((m, i) => {
+            const x = pad + (chartW / months.length) * i + (chartW / months.length) / 2;
+            const y = top + chartH - (netProfit[i] / maxVal) * chartH;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+        months.forEach((m, i) => {
+            const x = pad + (chartW / months.length) * i + (chartW / months.length) / 2;
+            const y = top + chartH - (netProfit[i] / maxVal) * chartH;
+            ctx.fillStyle = primaryColor;
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
         });
     }
 
@@ -2018,9 +2147,48 @@
 
         let stockValue = products.reduce((sum, p) => sum + ((p.costPrice + (p.expenses || 0)) * p.stock), 0);
         let totalDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0);
+        let grossProfit = revenue - cogs;
+        let operatingProfit = grossProfit - expenses;
         let netProfit = revenue - cogs - expenses + interestProfit;
+        let grossMargin = revenue > 0 ? (grossProfit / revenue * 100) : 0;
+        let netMargin = revenue > 0 ? (netProfit / revenue * 100) : 0;
+        let partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
+        let merchantDebtTotal = merchants.reduce((sum, m) => {
+            let ms = merchantSales.filter(s => s.merchantId == m.id).reduce((s, sale) => s + (sale.sellPrice || 0) * (sale.quantity || 1), 0);
+            let mp = merchantPayments.filter(p => p.merchantId == m.id).reduce((s, pay) => s + (pay.amount || 0), 0);
+            return sum + Math.max(ms - mp, 0);
+        }, 0);
+        let totalAssets = cash + stockValue + totalDebt + merchantDebtTotal;
+        let totalLiabilities = partnerInvest;
+        let equity = totalAssets - totalLiabilities;
 
-        return { cash, stockValue, totalDebt, revenue, cogs, expenses, interestProfit, netProfit, totalDiscounts };
+        // تحليل المديونية
+        let totalInstallmentValue = installments.reduce((sum, i) => sum + i.purchasePrice + (i.totalAfterInterest - i.purchasePrice + i.paidUpfront), 0);
+        let collectedAmount = installments.reduce((sum, i) => {
+            let paid = (i.schedule || getInstSchedule(i)).filter(s => s.isPaid).reduce((s, slot) => s + slot.paidAmount, 0);
+            return sum + paid + (i.paidUpfront || 0);
+        }, 0);
+        let remainingDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0);
+
+        // تصنيف الديون حسب العمر
+        let now = new Date();
+        let aging = { under30: 0, between30and90: 0, over90: 0 };
+        installments.filter(i => !i.isPaid).forEach(i => {
+            let schedule = i.schedule || getInstSchedule(i);
+            schedule.filter(s => !s.isPaid).forEach(s => {
+                let due = new Date(s.dueDate);
+                let days = Math.floor((now - due) / (1000 * 60 * 60 * 24));
+                if (days < 0) days = 0;
+                if (days <= 30) aging.under30 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                else if (days <= 90) aging.between30and90 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                else aging.over90 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
+            });
+        });
+
+        return { cash, stockValue, totalDebt, revenue, cogs, expenses, interestProfit, netProfit, totalDiscounts,
+            grossProfit, operatingProfit, grossMargin, netMargin, partnerInvest, merchantDebtTotal,
+            totalAssets, totalLiabilities, equity, collectedAmount, remainingDebt, aging,
+            collectionRate: (totalInstallmentValue > 0 ? (collectedAmount / totalInstallmentValue * 100) : 0) };
     }
 
     function renderDashboard() {
@@ -2032,13 +2200,54 @@
         const investEl = document.getElementById('dashPartnerInvest');
         if (investEl) investEl.innerText = partnerInvest.toFixed(2) + ' ج';
 
-        const repDiscounts = document.getElementById('repDiscounts');
-        if (repDiscounts) repDiscounts.innerText = fin.totalDiscounts.toFixed(2) + ' ج';
-        document.getElementById('repRevenue').innerText = fin.revenue.toFixed(2) + ' ج';
-        document.getElementById('repCOGS').innerText = fin.cogs.toFixed(2) + ' ج';
-        document.getElementById('repExpenses').innerText = fin.expenses.toFixed(2) + ' ج';
-        document.getElementById('repInterest').innerText = fin.interestProfit.toFixed(2) + ' ج';
-        document.getElementById('repNetProfit').innerText = fin.netProfit.toFixed(2) + ' ج';
+        // P&L
+        document.getElementById('repRevenue').innerHTML = fin.revenue.toFixed(2) + ' ج';
+        document.getElementById('repDiscounts').innerHTML = fin.totalDiscounts.toFixed(2) + ' ج';
+        document.getElementById('repCOGS').innerHTML = fin.cogs.toFixed(2) + ' ج';
+        const grossProfitEl = document.getElementById('repGrossProfit');
+        if (grossProfitEl) grossProfitEl.innerHTML = fin.grossProfit.toFixed(2) + ' ج';
+        const grossMarginEl = document.getElementById('repGrossMargin');
+        if (grossMarginEl) grossMarginEl.innerHTML = fin.grossMargin.toFixed(1) + '%';
+        document.getElementById('repExpenses').innerHTML = fin.expenses.toFixed(2) + ' ج';
+        const operatingProfitEl = document.getElementById('repOperatingProfit');
+        if (operatingProfitEl) operatingProfitEl.innerHTML = fin.operatingProfit.toFixed(2) + ' ج';
+        document.getElementById('repInterest').innerHTML = fin.interestProfit.toFixed(2) + ' ج';
+        document.getElementById('repNetProfit').innerHTML = fin.netProfit.toFixed(2) + ' ج';
+        const netMarginEl = document.getElementById('repNetMargin');
+        if (netMarginEl) netMarginEl.innerHTML = fin.netMargin.toFixed(1) + '%';
+
+        // المركز المالي
+        const balCash = document.getElementById('balCash');
+        if (balCash) balCash.innerHTML = fin.cash.toFixed(2) + ' ج';
+        const balStock = document.getElementById('balStock');
+        if (balStock) balStock.innerHTML = fin.stockValue.toFixed(2) + ' ج';
+        const balDebt = document.getElementById('balDebt');
+        if (balDebt) balDebt.innerHTML = fin.totalDebt.toFixed(2) + ' ج';
+        const balMerchantDebt = document.getElementById('balMerchantDebt');
+        if (balMerchantDebt) balMerchantDebt.innerHTML = fin.merchantDebtTotal.toFixed(2) + ' ج';
+        const balTotalAssets = document.getElementById('balTotalAssets');
+        if (balTotalAssets) balTotalAssets.innerHTML = fin.totalAssets.toFixed(2) + ' ج';
+        const balPartner = document.getElementById('balPartnerInvest');
+        if (balPartner) balPartner.innerHTML = fin.partnerInvest.toFixed(2) + ' ج';
+        const balLiab = document.getElementById('balTotalLiabilities');
+        if (balLiab) balLiab.innerHTML = fin.totalLiabilities.toFixed(2) + ' ج';
+        const balEquity = document.getElementById('balEquity');
+        if (balEquity) balEquity.innerHTML = fin.equity.toFixed(2) + ' ج';
+
+        // تحليل المديونية
+        const debtCol = document.getElementById('debtCollected');
+        if (debtCol) debtCol.innerHTML = fin.collectedAmount.toFixed(2) + ' ج';
+        const debtRem = document.getElementById('debtRemaining');
+        if (debtRem) debtRem.innerHTML = fin.remainingDebt.toFixed(2) + ' ج';
+        const debtRate = document.getElementById('debtCollectionRate');
+        if (debtRate) debtRate.innerHTML = fin.collectionRate.toFixed(1) + '%';
+        const agingEl = document.getElementById('debtAging');
+        if (agingEl) {
+            agingEl.innerHTML =
+                '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border);"><span>🟢 أقل من 30 يوم</span><strong style="color:var(--success);">' + fin.aging.under30.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border);"><span>🟡 30 - 90 يوم</span><strong style="color:var(--accent);">' + fin.aging.between30and90.toFixed(2) + ' ج</strong></div>' +
+                '<div class="flex-between" style="padding:6px 0;"><span>🔴 أكثر من 90 يوم</span><strong style="color:var(--danger);">' + fin.aging.over90.toFixed(2) + ' ج</strong></div>';
+        }
 
         // حساب مؤشرات الشهر
         const monthSelect = document.getElementById('monthSelector');
@@ -2133,7 +2342,163 @@
         }).join('');
         document.getElementById('merchantBalances').innerHTML = balances || '<div style="color:var(--text-muted); text-align:center; padding:16px;">✅ لا توجد مديونيات مستحقة</div>';
         updateStorageInfo();
+        // رسم الشارتات الإضافية
+        setTimeout(() => { drawCashTimeline(); drawExpensePie(); }, 200);
     }
+
+    function switchReportTab(tabId) {
+        document.querySelectorAll('.report-tab').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        const tab = document.getElementById(tabId);
+        if (tab) { tab.style.display = 'block'; }
+        const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        if (btn) btn.classList.add('active');
+        if (tabId === 'tabChart') { setTimeout(() => { drawChart(); drawExpensePie(); }, 100); }
+        if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
+    }
+
+    function drawCashTimeline() {
+        const canvas = document.getElementById('cashTimelineCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = 160 * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = '160px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width;
+        const h = 160;
+
+        const months = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(); d.setMonth(d.getMonth() - i);
+            months.push({ label: d.toLocaleDateString('ar-EG', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
+        }
+
+        const data = [];
+        let maxVal = 0;
+        months.forEach(m => {
+            let bal = openingCapital;
+            const cutoff = new Date(m.y, m.m + 1, 1);
+            transactions.forEach(t => {
+                const td = new Date(t.date);
+                if (td < cutoff) {
+                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') bal += t.amount;
+                    if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') bal -= t.amount;
+                }
+            });
+            data.push(bal);
+            maxVal = Math.max(maxVal, bal);
+        });
+        if (maxVal === 0) maxVal = 1;
+        const pad = 40, bottom = 25, top = 15;
+        const chartW = w - pad - 10, chartH = h - bottom - top;
+
+        ctx.clearRect(0, 0, w, h);
+        // grid
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#e2e8f0';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 4; i++) {
+            const y = top + (chartH / 4) * i;
+            ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - 5, y); ctx.stroke();
+        }
+        // line
+        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#4f46e5';
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        months.forEach((m, i) => {
+            const x = pad + (chartW / (months.length - 1)) * i;
+            const y = top + chartH - (data[i] / maxVal) * chartH;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        // dots + labels
+        months.forEach((m, i) => {
+            const x = pad + (chartW / (months.length - 1)) * i;
+            const y = top + chartH - (data[i] / maxVal) * chartH;
+            ctx.fillStyle = primaryColor;
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+            ctx.font = '10px Cairo, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(m.label, x, h - 4);
+            ctx.font = '9px Cairo, sans-serif'; ctx.fillStyle = primaryColor;
+            ctx.fillText(data[i].toFixed(0), x, y - 8);
+        });
+    }
+
+    function drawExpensePie() {
+        const canvas = document.getElementById('expensePieCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = 160 * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = '160px';
+        ctx.scale(dpr, dpr);
+        const w = rect.width;
+        const h = 160;
+        const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 10;
+
+        const range = getDateRange();
+        const filteredTrans = transactions.filter(t => inRange(t.date, range));
+        let expenseByType = {};
+        filteredTrans.forEach(t => {
+            if (t.type === 'expense') {
+                let key = t.notes ? t.notes.substring(0, 15) : 'مصروفات';
+                expenseByType[key] = (expenseByType[key] || 0) + t.amount;
+            }
+        });
+        // also add purchases
+        let purchaseTotal = filteredTrans.filter(t => t.type === 'purchase').reduce((s, t) => s + t.amount, 0);
+        if (purchaseTotal > 0) expenseByType['شراء مخزون'] = purchaseTotal;
+
+        const entries = Object.entries(expenseByType).sort((a, b) => b[1] - a[1]);
+        const total = entries.reduce((s, e) => s + e[1], 0);
+        if (total === 0) {
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+            ctx.font = '13px Cairo, sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('لا توجد مصروفات', cx, cy);
+            return;
+        }
+        const colors = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1'];
+        let startAngle = -Math.PI / 2;
+        entries.forEach((e, i) => {
+            const slice = (e[1] / total) * Math.PI * 2;
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, r, startAngle, startAngle + slice);
+            ctx.closePath();
+            ctx.fill();
+            // label for large slices
+            if (slice > 0.3) {
+                const mid = startAngle + slice / 2;
+                const lx = cx + Math.cos(mid) * r * 0.7;
+                const ly = cy + Math.sin(mid) * r * 0.7;
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 9px Cairo, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText((e[1] / total * 100).toFixed(0) + '%', lx, ly + 3);
+            }
+            startAngle += slice;
+        });
+        // legend
+        let legX = 10, legY = h - 10;
+        ctx.font = '9px Cairo, sans-serif';
+        entries.slice(0, 4).forEach((e, i) => {
+            const label = e[0].length > 10 ? e[0].substring(0, 10) + '..' : e[0];
+            const tw = ctx.measureText(label).width + 20;
+            if (legX + tw > w) { legX = 10; legY -= 14; }
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fillRect(legX, legY - 7, 8, 8);
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
+            ctx.fillText(label, legX + 11, legY + 1);
+            legX += tw + 6;
+        });
 
     function calcProfitMargin() {
         let cost = parseFloat(document.getElementById('costPrice').value) || 0;
@@ -3719,6 +4084,73 @@
             showToast('تم تصدير 3 تقارير');
         } catch (err) {
             showError('حدث خطأ أثناء التصدير', err.message);
+        }
+    });
+
+    document.getElementById('printReportBtn').addEventListener('click', () => {
+        try {
+            const fin = getFinancials();
+            const range = getDateRange();
+            const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG') : '---');
+            const now = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+            const partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
+
+            let html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير مالي</title>' +
+                '<style>' +
+                '*{box-sizing:border-box;margin:0;padding:0;}' +
+                'body{font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;background:#fff;color:#0f172a;padding:30px;}' +
+                '.header{text-align:center;margin-bottom:24px;}' +
+                '.header h1{color:#4f46e5;font-size:1.5rem;margin-bottom:4px;}' +
+                '.header p{color:#64748b;font-size:0.9rem;}' +
+                'table{width:100%;border-collapse:collapse;margin-bottom:20px;}' +
+                'th,td{padding:8px 10px;text-align:right;border-bottom:1px solid #e2e8f0;}' +
+                'th{background:#f1f5f9;font-size:0.85rem;}' +
+                'td{font-size:0.9rem;}' +
+                '.section-title{font-size:1rem;font-weight:700;margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid #4f46e5;}' +
+                '.total-row td{font-weight:700;border-top:2px solid #0f172a;}' +
+                '.profit{color:#059669;}.loss{color:#dc2626;}' +
+                '.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:0.82rem;}' +
+                '@media print{body{padding:15px;}}' +
+                '</style></head><body>' +
+                '<div class="header"><h1>📈 التقرير المالي</h1><p>الفترة: ' + dateLabel + ' | تاريخ التقرير: ' + now + '</p></div>' +
+
+                '<div class="section-title">📊 قائمة الدخل</div>' +
+                '<table><tr><td>💵 إجمالي المبيعات</td><td style="font-weight:700;">' + fin.revenue.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🔻 خصومات البيوع</td><td>' + fin.totalDiscounts.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🏭 تكلفة البضاعة المباعة</td><td>' + fin.cogs.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>📈 إجمالي الربح</td><td class="profit">' + fin.grossProfit.toFixed(2) + ' ج (' + fin.grossMargin.toFixed(1) + '%)</td></tr>' +
+                '<tr><td>📉 المصروفات التشغيلية</td><td>' + fin.expenses.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>⚙️ صافي الربح التشغيلي</td><td class="' + (fin.operatingProfit >= 0 ? 'profit' : 'loss') + '">' + fin.operatingProfit.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>💰 أرباح فوائد التقسيط</td><td class="profit">' + fin.interestProfit.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>🎯 صافي الربح الفعلي</td><td class="' + (fin.netProfit >= 0 ? 'profit' : 'loss') + '" style="font-size:1.1rem;">' + fin.netProfit.toFixed(2) + ' ج (' + fin.netMargin.toFixed(1) + '%)</td></tr></table>' +
+
+                '<div class="section-title">🏦 المركز المالي</div>' +
+                '<table><tr><td>💰 الخزينة النقدية</td><td>' + fin.cash.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>📦 قيمة المخزون</td><td>' + fin.stockValue.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>📋 مديونية العملاء</td><td>' + fin.totalDebt.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🏪 مديونية التجار</td><td>' + fin.merchantDebtTotal.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>🏆 إجمالي الأصول</td><td>' + fin.totalAssets.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🤝 استثمارات الشركاء</td><td>' + fin.partnerInvest.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>💎 حقوق الملكية</td><td style="font-weight:700;color:#4f46e5;">' + fin.equity.toFixed(2) + ' ج</td></tr></table>' +
+
+                '<div class="section-title">📋 تحليل المديونية</div>' +
+                '<table><tr><td>✅ تم تحصيله</td><td class="profit">' + fin.collectedAmount.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>📋 المتبقي</td><td>' + fin.remainingDebt.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>نسبة التحصيل</td><td class="profit">' + fin.collectionRate.toFixed(1) + '%</td></tr>' +
+                '<tr><td>🟢 أقل من 30 يوم</td><td class="profit">' + fin.aging.under30.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🟡 30 - 90 يوم</td><td>' + fin.aging.between30and90.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🔴 أكثر من 90 يوم</td><td class="loss">' + fin.aging.over90.toFixed(2) + ' ج</td></tr></table>' +
+
+                '<div class="footer">تم إنشاء هذا التقرير آلياً — نظام إدارة المبيعات</div>' +
+                '</body></html>';
+
+            let printWindow = window.open('', '_blank', 'width=900,height=700');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            setTimeout(() => { printWindow.print(); }, 300);
+            showToast('🖨️ تم فتح نافذة الطباعة');
+        } catch (err) {
+            showError('حدث خطأ أثناء الطباعة', err.message);
         }
     });
 
