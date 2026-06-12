@@ -1717,6 +1717,12 @@
     const PAGE_SIZE = 20;
     let transTypeFilter = {}; // populated dynamically from checkboxes
 
+    let initDiags = [];
+
+    function recordInitDiag(phase, key, val) {
+        try { initDiags.push(phase + ':' + key + '=' + val); } catch(e) {}
+    }
+
     async function initializeData() {
         // دايمًا نحمل من localStorage أولاً (مصدر أساسي، متزامن، مضمون)
         products = JSON.parse(localStorage.getItem('products') || '[]');
@@ -1730,11 +1736,14 @@
         accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
         stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+        recordInitDiag('afterLS', 'accounts', accounts.length);
 
         // بعدها نحاول نحدّث من IndexedDB (لو متاح وفيه بيانات أحدث)
         try {
             const loaded = await loadAllFromIDB();
+            recordInitDiag('afterIDB', 'accounts', accounts.length);
             if (loaded) await migrateFromLocalStorage();
+            recordInitDiag('afterMigrate', 'accounts', accounts.length);
         } catch (e) {
             console.warn('IndexedDB غير متاح، البيانات من localStorage', e);
         }
@@ -4780,6 +4789,19 @@
         if (!container) return;
         const term = getSearchTerm('Accounts');
 
+        // Fallback: if accounts is empty but localStorage has data, reload
+        if (accounts.length === 0) {
+            try {
+                const ls = localStorage.getItem('accounts');
+                if (ls && ls !== '[]') {
+                    const parsed = JSON.parse(ls);
+                    if (parsed && parsed.length > 0) {
+                        accounts = parsed;
+                    }
+                }
+            } catch(e) {}
+        }
+
         let filtered = [...accounts];
         if (term) filtered = filtered.filter(a => a.name.toLowerCase().includes(term) || (a.accountNumber || '').includes(term));
         filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -4788,7 +4810,8 @@
             let debugInfo = '';
             try {
                 const lsCount = (JSON.parse(localStorage.getItem('accounts') || '[]')).length;
-                debugInfo = ' <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;direction:ltr;text-align:center;">🔍 accounts[]=' + accounts.length + ' | localStorage=' + lsCount + '</div>';
+                const diagStr = initDiags.length ? ' [' + initDiags.join(' | ') + ']' : '';
+                debugInfo = ' <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;direction:ltr;text-align:center;">🔍 accounts[]=' + accounts.length + ' | localStorage=' + lsCount + diagStr + '</div>';
             } catch(e) {}
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد حسابات') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول حساب من الفورم أعلاه') + '</div>' + debugInfo + '</div>';
             return;
