@@ -4785,7 +4785,12 @@
         filtered.sort((a, b) => a.name.localeCompare(b.name));
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد حسابات') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول حساب من الفورم أعلاه') + '</div></div>';
+            let debugInfo = '';
+            try {
+                const lsCount = (JSON.parse(localStorage.getItem('accounts') || '[]')).length;
+                debugInfo = ' <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;direction:ltr;text-align:center;">🔍 accounts[]=' + accounts.length + ' | localStorage=' + lsCount + '</div>';
+            } catch(e) {}
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد حسابات') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول حساب من الفورم أعلاه') + '</div>' + debugInfo + '</div>';
             return;
         }
 
