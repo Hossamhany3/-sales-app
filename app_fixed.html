@@ -2408,9 +2408,9 @@
                 let due = new Date(s.dueDate);
                 let days = Math.floor((now - due) / (1000 * 60 * 60 * 24));
                 if (days < 0) days = 0;
-                if (days <= 30) aging.under30 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
-                else if (days <= 90) aging.between30and90 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
-                else aging.over90 += inst.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                if (days <= 30) aging.under30 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                else if (days <= 90) aging.between30and90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                else aging.over90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
             });
         });
 
