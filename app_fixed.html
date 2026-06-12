@@ -1721,10 +1721,16 @@
         const idbAvailable = await loadAllFromIDB();
         if (idbAvailable) {
             await migrateFromLocalStorage();
-            // إعادة تحميل الشركاء من localStorage لو IDB فاضي (بعد الترحيل)
-            if (partners.length === 0 && localStorage.getItem('partners')) {
-                partners = JSON.parse(localStorage.getItem('partners'));
-            }
+            // بعد الترحيل، نضمن تحميل أي مصفوفة لسه فاضية من localStorage
+            // (لأن loadAllFromIDB بتجيب البيانات الفعلية بس، ولو IDB فاضي المصفوفات تفضل [] )
+            if (products.length === 0 && localStorage.getItem('products')) products = JSON.parse(localStorage.getItem('products'));
+            if (merchants.length === 0 && localStorage.getItem('merchants')) merchants = JSON.parse(localStorage.getItem('merchants'));
+            if (transactions.length === 0 && localStorage.getItem('transactions')) transactions = JSON.parse(localStorage.getItem('transactions'));
+            if (installments.length === 0 && localStorage.getItem('installments')) installments = JSON.parse(localStorage.getItem('installments'));
+            if (merchantSales.length === 0 && localStorage.getItem('merchantSales')) merchantSales = JSON.parse(localStorage.getItem('merchantSales'));
+            if (merchantPayments.length === 0 && localStorage.getItem('merchantPayments')) merchantPayments = JSON.parse(localStorage.getItem('merchantPayments'));
+            if (partners.length === 0 && localStorage.getItem('partners')) partners = JSON.parse(localStorage.getItem('partners'));
+            if (accounts.length === 0 && localStorage.getItem('accounts')) accounts = JSON.parse(localStorage.getItem('accounts'));
         } else {
             products = JSON.parse(localStorage.getItem('products') || '[]');
             merchants = JSON.parse(localStorage.getItem('merchants') || '[]');
