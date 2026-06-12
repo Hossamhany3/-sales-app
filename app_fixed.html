@@ -1718,36 +1718,26 @@
     let transTypeFilter = {}; // populated dynamically from checkboxes
 
     async function initializeData() {
-        const idbAvailable = await loadAllFromIDB();
-        if (idbAvailable) {
-            await migrateFromLocalStorage();
-            // بعد الترحيل، نضمن تحميل أي مصفوفة لسه فاضية من localStorage
-            // (لأن loadAllFromIDB بتجيب البيانات الفعلية بس، ولو IDB فاضي المصفوفات تفضل [] )
-            if (products.length === 0 && localStorage.getItem('products')) products = JSON.parse(localStorage.getItem('products'));
-            if (merchants.length === 0 && localStorage.getItem('merchants')) merchants = JSON.parse(localStorage.getItem('merchants'));
-            if (transactions.length === 0 && localStorage.getItem('transactions')) transactions = JSON.parse(localStorage.getItem('transactions'));
-            if (installments.length === 0 && localStorage.getItem('installments')) installments = JSON.parse(localStorage.getItem('installments'));
-            if (merchantSales.length === 0 && localStorage.getItem('merchantSales')) merchantSales = JSON.parse(localStorage.getItem('merchantSales'));
-            if (merchantPayments.length === 0 && localStorage.getItem('merchantPayments')) merchantPayments = JSON.parse(localStorage.getItem('merchantPayments'));
-            if (partners.length === 0 && localStorage.getItem('partners')) partners = JSON.parse(localStorage.getItem('partners'));
-            if (accounts.length === 0 && localStorage.getItem('accounts')) accounts = JSON.parse(localStorage.getItem('accounts'));
-        } else {
-            products = JSON.parse(localStorage.getItem('products') || '[]');
-            merchants = JSON.parse(localStorage.getItem('merchants') || '[]');
-            transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-            installments = JSON.parse(localStorage.getItem('installments') || '[]');
-            msgTemplates = JSON.parse(localStorage.getItem('msgTemplates')) || {
-                reminder: '',
-                late: ''
-            };
-            merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
-    merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
-    partners = JSON.parse(localStorage.getItem('partners') || '[]');
-    accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
-    }
-    stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
-    // إعادة تحميل رأس المال من localStorage (حل مؤقت لحين إضافته لـ IDB)
-    openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+        // دايمًا نحمل من localStorage أولاً (مصدر أساسي، متزامن، مضمون)
+        products = JSON.parse(localStorage.getItem('products') || '[]');
+        merchants = JSON.parse(localStorage.getItem('merchants') || '[]');
+        transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+        installments = JSON.parse(localStorage.getItem('installments') || '[]');
+        msgTemplates = JSON.parse(localStorage.getItem('msgTemplates')) || { reminder: '', late: '' };
+        merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
+        merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
+        partners = JSON.parse(localStorage.getItem('partners') || '[]');
+        accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
+        stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
+        openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+
+        // بعدها نحاول نحدّث من IndexedDB (لو متاح وفيه بيانات أحدث)
+        try {
+            const loaded = await loadAllFromIDB();
+            if (loaded) await migrateFromLocalStorage();
+        } catch (e) {
+            console.warn('IndexedDB غير متاح، البيانات من localStorage', e);
+        }
 
         if (!msgTemplates || !msgTemplates.reminder) {
             msgTemplates = {
