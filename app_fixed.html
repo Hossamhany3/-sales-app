@@ -694,6 +694,10 @@
                         </div>
                     </div>
                     <div class="form-group">
+                        <label>🏦 حساب البنك (لعملية الشراء)</label>
+                        <select id="prodAccountId"><option value="">بدون حساب</option></select>
+                    </div>
+                    <div class="form-group">
                         <label>الربح المتوقع (للقطعة)</label>
                         <input type="text" id="profitMargin" readonly>
                     </div>
@@ -2325,6 +2329,7 @@
         const prodOptions = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
         const merchOptions = '<option value="">-- بدون عميل/نقدي --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         const accountOptions = '<option value="">اختر الحساب...</option>' + accounts.map(a => '<option value="' + a.id + '">' + a.name + ' (' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ')</option>').join('');
+        const accountOptionsNoEmpty = accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
         
         if (document.getElementById('incomeAccountId')) document.getElementById('incomeAccountId').innerHTML = accountOptions;
         if (document.getElementById('expenseAccountId')) document.getElementById('expenseAccountId').innerHTML = accountOptions;
@@ -2334,6 +2339,7 @@
         if (document.getElementById('transProductId')) document.getElementById('transProductId').innerHTML = prodOptions;
         if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
+        if (document.getElementById('prodAccountId')) document.getElementById('prodAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
@@ -3102,6 +3108,7 @@
                 sellPrice: sell,
                 stock: parseInt(document.getElementById('stockQty').value) || 0,
                 imei: document.getElementById('prodImei').value.trim() || '',
+                accountId: document.getElementById('prodAccountId').value ? parseInt(document.getElementById('prodAccountId').value) : undefined,
                 discount: 0,
                 archived: false
             };
@@ -3204,6 +3211,8 @@
             document.getElementById('sellPrice').value = p.sellPrice;
             document.getElementById('stockQty').value = p.stock;
             document.getElementById('prodImei').value = p.imei || '';
+            const accSel = document.getElementById('prodAccountId');
+            if (accSel) accSel.value = p.accountId || '';
             calcProfitMargin();
             switchPage('products');
         }
@@ -3250,25 +3259,16 @@
         } catch (err) { showError('خطأ', err.message); }
     };
 
-    window.purchaseProduct = async (id) => {
+    window.purchaseProduct = (id) => {
         try {
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
-
-            let accountId = null;
-            if (accounts.length > 0) {
-                accountId = await showSelectModal('اختر الحساب الذي تم الشراء منه (اختياري — يمكن الضغط على تأكيد بدون اختيار)',
-                    accounts.map(a => ({ value: a.id, label: (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name })),
-                    '💰 شراء ' + p.name);
-                if (accountId === '' || accountId === null) accountId = null;
-                else accountId = parseInt(accountId);
-            }
 
             p.stock += 1;
             if (p.archived) p.archived = false;
             transactions.push({
                 id: Date.now(), type: 'purchase', amount: p.costPrice,
-                productId: p.id, merchantId: null, accountId: accountId || undefined,
+                productId: p.id, merchantId: null, accountId: p.accountId || undefined,
                 notes: 'شراء مخزون | ' + p.name,
                 date: new Date().toISOString()
             });
