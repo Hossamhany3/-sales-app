@@ -1434,6 +1434,7 @@
             <div id="modalMessage"></div>
             <input type="text" id="modalInput" autocomplete="off" style="display:none;">
             <input type="number" step="any" id="modalNumberInput" autocomplete="off" style="display:none;">
+            <select id="modalSelectInput" style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);margin-top:6px;"></select>
         </div>
         <div class="modal-footer">
             <button id="modalCancelBtn" class="btn-sm" style="background:var(--border);color:var(--text-main);border:none;" onclick="window._closeModal?.(null)">إلغاء</button>
@@ -1473,8 +1474,10 @@
     function _confirmModal() {
         const textInput = document.getElementById('modalInput');
         const numInput = document.getElementById('modalNumberInput');
+        const selectInput = document.getElementById('modalSelectInput');
         if (textInput.style.display !== 'none') _closeModal(textInput.value);
         else if (numInput.style.display !== 'none') _closeModal(parseFloat(numInput.value));
+        else if (selectInput.style.display !== 'none') _closeModal(selectInput.value);
         else _closeModal(true);
     }
     window._confirmModal = _confirmModal;
@@ -1496,6 +1499,7 @@
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
@@ -1510,6 +1514,7 @@
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('modalInput').style.display = '';
             document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalInput').value = String(defaultValue);
             document.getElementById('modalInput').type = 'text';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
@@ -1527,6 +1532,7 @@
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = '';
+            document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalNumberInput').value = defaultValue;
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
             document.getElementById('modalCancelBtn').style.display = '';
@@ -1543,9 +1549,28 @@
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'حسناً';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
+        });
+    };
+
+    window.showSelectModal = function(message, options, title = 'اختيار') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            document.getElementById('modalIcon').textContent = '🏦';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            const sel = document.getElementById('modalSelectInput');
+            sel.style.display = '';
+            sel.innerHTML = '<option value="">-- اختر --</option>' + options.map(o => '<option value="' + o.value + '">' + o.label + '</option>').join('');
+            document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+            setTimeout(() => sel.focus(), 100);
         });
     };
 
@@ -3225,15 +3250,25 @@
         } catch (err) { showError('خطأ', err.message); }
     };
 
-    window.purchaseProduct = (id) => {
+    window.purchaseProduct = async (id) => {
         try {
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
+
+            let accountId = null;
+            if (accounts.length > 0) {
+                accountId = await showSelectModal('اختر الحساب الذي تم الشراء منه (اختياري — يمكن الضغط على تأكيد بدون اختيار)',
+                    accounts.map(a => ({ value: a.id, label: (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name })),
+                    '💰 شراء ' + p.name);
+                if (accountId === '' || accountId === null) accountId = null;
+                else accountId = parseInt(accountId);
+            }
+
             p.stock += 1;
             if (p.archived) p.archived = false;
             transactions.push({
                 id: Date.now(), type: 'purchase', amount: p.costPrice,
-                productId: p.id, merchantId: null,
+                productId: p.id, merchantId: null, accountId: accountId || undefined,
                 notes: 'شراء مخزون | ' + p.name,
                 date: new Date().toISOString()
             });
