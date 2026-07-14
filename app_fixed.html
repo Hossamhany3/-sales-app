@@ -5093,12 +5093,6 @@
         // Build per-merchant list
         let list = Object.entries(summary);
 
-        // استبعاد عملاء التقسيط (اللي ليهم عقود تقسيط وماعندهمش مبيعات/مشتريات/مدفوعات تجار)
-        list = list.filter(([id, s]) => {
-            if (s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0) return true;
-            return !installments.some(i => i.merchantId == id);
-        });
-
         if (term) {
             list = list.filter(([id, s]) => s.name.toLowerCase().includes(term));
         }
