@@ -4522,12 +4522,13 @@
 
     function getMerchantDebtSummary() {
         let summary = {};
+        merchants.forEach(m => {
+            summary[m.id] = { name: m.name, phone: m.phone, totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: 0 };
+        });
         merchantSales.forEach(s => {
-            if (!summary[s.merchantId]) {
-                let m = merchants.find(x => x.id == s.merchantId);
-                summary[s.merchantId] = { name: m?.name || s.merchantName, phone: m?.phone || s.phone, totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: 0 };
+            if (summary[s.merchantId]) {
+                summary[s.merchantId].totalSales += (s.sellPrice || 0) * (s.quantity || 1);
             }
-            summary[s.merchantId].totalSales += (s.sellPrice || 0) * (s.quantity || 1);
         });
         merchantPayments.forEach(p => {
             if (summary[p.merchantId]) {
@@ -4535,18 +4536,13 @@
             }
         });
         merchantPurchases.forEach(p => {
-            if (!summary[p.merchantId]) {
-                let m = merchants.find(x => x.id == p.merchantId);
-                summary[p.merchantId] = { name: m?.name || p.merchantName, phone: m?.phone || '', totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: 0 };
+            if (summary[p.merchantId]) {
+                summary[p.merchantId].totalPurchases += (p.costPrice || 0) * (p.quantity || 1);
             }
-            summary[p.merchantId].totalPurchases += (p.costPrice || 0) * (p.quantity || 1);
         });
         merchantPaymentsOut.forEach(p => {
             if (summary[p.merchantId]) {
                 summary[p.merchantId].totalPaymentsOut += p.amount || 0;
-            } else {
-                let m = merchants.find(x => x.id == p.merchantId);
-                summary[p.merchantId] = { name: m?.name || '', phone: m?.phone || '', totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: p.amount || 0 };
             }
         });
         return summary;
