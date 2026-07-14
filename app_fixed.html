@@ -4754,6 +4754,7 @@
         html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء من تاجر</button>';
         html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + merchantId + ')">💰 دفعة منه</button>';
         html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 دفعة له</button>';
+        html += '<button class="btn-sm" style="background:#dc2626;color:#fff;border:none;" onclick="deleteMerchant(' + merchantId + ')">🗑️ حذف التاجر</button>';
         html += '</div></div>';
 
         // Summary cards
@@ -5063,16 +5064,37 @@
         }
     };
 
+    window.deleteMerchant = async (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let hasTransactions = merchantSales.some(s => s.merchantId == merchantId) ||
+            merchantPurchases.some(p => p.merchantId == merchantId) ||
+            merchantPayments.some(p => p.merchantId == merchantId) ||
+            merchantPaymentsOut.some(p => p.merchantId == merchantId);
+        let msg = '🗑️ حذف التاجر "' + m.name + '"؟\n';
+        if (hasTransactions) msg += '⚠️ يوجد معاملات مرتبطة بهذا التاجر سيتم حذفها أيضًا!';
+        let ok = await showConfirmModal(msg, 'تأكيد الحذف');
+        if (!ok) return;
+        merchantSales = merchantSales.filter(s => s.merchantId != merchantId);
+        merchantPurchases = merchantPurchases.filter(p => p.merchantId != merchantId);
+        merchantPayments = merchantPayments.filter(p => p.merchantId != merchantId);
+        merchantPaymentsOut = merchantPaymentsOut.filter(p => p.merchantId != merchantId);
+        merchants = merchants.filter(x => x.id != merchantId);
+        saveData(); renderMerchantSales(); renderDashboard();
+        switchPage('merchantSales');
+        showToast('✅ تم حذف التاجر ' + m.name);
+    };
+
     function renderMerchantSales() {
         let container = document.getElementById('merchantSalesList');
         let term = getSearchTerm('MerchantSales');
         let summary = getMerchantDebtSummary();
 
         // Summary cards
-        let totalDebt = 0; let merchantCount = Object.keys(summary).length;
+        let totalDebt = 0;
         Object.values(summary).forEach(s => { let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases); if (b > 0) totalDebt += b; });
         document.getElementById('msSummary').innerHTML =
-            '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + merchantCount + '</div></div>' +
+            '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + Object.keys(summary).length + '</div></div>' +
             '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
             '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>' +
             '<div class="ms-summary-card info"><div>📥 مشتريات من تجار</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPurchases, 0)).toFixed(2) + ' ج</div></div>';
@@ -5092,6 +5114,12 @@
         } else if (msSort === 'count-desc') {
             list.sort((a, b) => merchantSales.filter(s => s.merchantId == b[0]).length - merchantSales.filter(s => s.merchantId == a[0]).length);
         }
+
+        // استبعاد عملاء التقسيط (اللي ليهم عقود تقسيط وماعندهمش مبيعات/مشتريات/مدفوعات تجار)
+        list = list.filter(([id, s]) => {
+            if (s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0) return true;
+            return !installments.some(i => i.merchantId == id);
+        });
 
         if (list.length === 0) {
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد تجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع أو شراء لتاجر من الأعلى') + '</div></div>';
