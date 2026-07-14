@@ -1697,6 +1697,15 @@
                 <button id="resetAllBtn" class="btn-danger" style="width:100%;">🗑️ إعادة تعيين جميع البيانات</button>
             </div>
 
+            <div class="card">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <span style="font-size:1.5rem;">🧹</span>
+                    <h3 style="margin:0; font-size:1.05rem;">مسح التخزين المؤقت</h3>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:14px;">إذا كانت التحديثات لا تظهر، اضغط على هذا الزر لمسح الكاش وإعادة تحميل التطبيق.</p>
+                <button id="clearCacheBtn" class="btn-outline" style="width:100%;">🧹 مسح الكاش وإعادة التحميل</button>
+            </div>
+
             <h2>⚙️ إعدادات قوالب الرسائل</h2>
             <div class="card">
                 <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:16px; line-height:1.7;">
@@ -6352,6 +6361,23 @@
         renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
         renderPartners();
         showToast('تم مسح جميع البيانات');
+    });
+
+    document.getElementById('clearCacheBtn').addEventListener('click', async () => {
+        let ok = await showConfirmModal('مسح الكاش سيؤدي إلى إعادة تحميل التطبيق بالكامل.\nلن يتم فقد أي بيانات.\nهل تريد المتابعة؟', '🧹 مسح الكاش');
+        if (!ok) return;
+        // Clear all browser caches
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        // Unregister service worker
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(r => r.unregister()));
+        }
+        showToast('✅ تم مسح الكاش، سيتم إعادة التحميل...');
+        setTimeout(() => window.location.reload(), 1000);
     });
 
     // ====== النسخ الاحتياطي والاستيراد ======
