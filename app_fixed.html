@@ -429,7 +429,7 @@
         .ms-sale-actions { display: flex; gap: 6px; }
         .ms-sale-actions button { padding: 4px 8px; font-size: 0.75rem; min-height: 30px; border-radius: 6px; }
         #merchantSalesList .schedule-item { display: flex; flex-direction: column; padding: 10px 14px; }
-        .mp-sticky { position: sticky; top: 0; z-index: 10; background: var(--bg); padding-bottom: 4px; }
+        .mp-sticky { position: sticky; top: 0; z-index: 10; background: var(--card-bg); padding-bottom: 4px; }
         .merchant-statement { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
         .merchant-statement-header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
         .merchant-statement-header h3 { margin: 0; font-size: 1rem; color: white; }
@@ -458,7 +458,7 @@
         .customer-statement-header button:hover { background: rgba(255,255,255,0.35); }
         .customer-statement-body { padding: 20px; }
         .customer-statement-summary { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-        .customer-statement-summary .stat-card { flex: 1; min-width: 130px; background: var(--bg); border-radius: 12px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); }
+        .customer-statement-summary .stat-card { flex: 1; min-width: 130px; background: var(--card-bg); border-radius: 12px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); }
         .customer-statement-summary .stat-card .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
         .customer-statement-summary .stat-card .stat-value { font-size: 1.3rem; font-weight: 800; }
         .customer-statement-summary .stat-card .stat-value.danger { color: var(--danger); }
@@ -913,15 +913,20 @@
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
     .stat-card-modern { min-width: calc(50% - 8px); }
     .card { padding: 12px 14px; }
-    #mpContent .customer-statement-summary { gap: 8px; }
-    #mpContent .customer-statement-summary .stat-card { min-width: calc(50% - 8px); padding: 8px 10px; }
-    #mpContent .customer-statement-summary .stat-card .stat-value { font-size: 1rem; }
-    #mpContent .customer-statement-summary .stat-card .stat-label { font-size: 0.72rem; }
+    #mpContent .customer-statement-summary { gap: 6px; }
+    #mpContent .customer-statement-summary .stat-card { min-width: calc(50% - 6px); padding: 6px 8px; }
+    #mpContent .customer-statement-summary .stat-card:last-child:nth-child(odd) { min-width: calc(100%); }
+    #mpContent .customer-statement-summary .stat-card .stat-value { font-size: 0.95rem; }
+    #mpContent .customer-statement-summary .stat-card .stat-label { font-size: 0.68rem; }
     #mpContent .card { overflow-x: auto; }
-    #mpContent .merchant-statement-table { font-size: 0.7rem; white-space: nowrap; }
+    #mpContent .merchant-statement-table { font-size: 0.65rem; white-space: nowrap; }
     #mpContent .merchant-statement-table th,
-    #mpContent .merchant-statement-table td { padding: 5px 6px; }
-    #mpContent .merchant-statement-table td:first-child { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+    #mpContent .merchant-statement-table td { padding: 4px 5px; }
+    #mpContent .merchant-statement-table td:first-child { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+    #mpContent .mp-sticky .card:first-child { padding: 10px 12px; margin-bottom: 6px; }
+    #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
+    #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
+    #mpContent .mp-sticky > div:last-child button { font-size: 0.75rem; padding: 6px 10px; min-height: 36px; flex: 1; text-align: center; }
 }
 
 @media (min-width: 640px) {
@@ -5009,6 +5014,11 @@
             notes: notes?.trim() || ''
         };
         merchantSales.push(sale);
+        transactions.push({
+            id: Date.now() + 1, type: 'merchant_sale', amount: actualTotal,
+            merchantId, accountId: result.accountId || undefined,
+            notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString()
+        });
         p.stock -= qty;
         saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
         showToast('✅ تم بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + ' بقيمة ' + actualTotal.toFixed(2) + ' ج');
@@ -5085,6 +5095,7 @@
         merchantPurchases = merchantPurchases.filter(p => p.merchantId != merchantId);
         merchantPayments = merchantPayments.filter(p => p.merchantId != merchantId);
         merchantPaymentsOut = merchantPaymentsOut.filter(p => p.merchantId != merchantId);
+        transactions = transactions.filter(t => t.merchantId != merchantId);
         merchants = merchants.filter(x => x.id != merchantId);
         saveData(); renderMerchantSales(); renderDashboard();
         switchPage('merchantSales');
@@ -5156,7 +5167,7 @@
         let name = await showPromptModal('أدخل اسم التاجر:', '', '➕ إضافة تاجر');
         if (!name || !name.trim()) return;
         name = name.trim();
-        let phone = await showPromptModal('رقم الهاتف (اختياري):', '', '➕ إضافة تاجر');
+        let phone = await showPromptModal('رقم الهاتف (اختياري):', '', '📞 رقم الهاتف');
         phone = (phone && phone.trim()) ? phone.trim() : '';
         if (merchants.find(m => m.name === name && (!phone || m.phone === phone))) {
             showToast('التاجر موجود بالفعل', 'info'); return;
