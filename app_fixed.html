@@ -3643,18 +3643,20 @@
 
     
         // ====== عمليات المخزون (مباع / لم يباع / مصروف) ======
-    window.sellProduct = (id) => {
+    window.sellProduct = async (id) => {
         try {
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
             if (p.stock <= 0) { showToast('الرصيد صفر!', 'error'); return; }
+            let result = await showPaymentModal('💵 بيع: ' + p.name + '\nالسعر: ' + p.sellPrice + ' ج\nاختر الحساب البنكي:', p.sellPrice, '💵 بيع نقدي');
+            if (!result || isNaN(result.amount)) return;
             p.stock -= 1;
             if (p.stock <= 0) p.archived = true;
             let mId = document.getElementById('transMerchantId') ? document.getElementById('transMerchantId').value : '';
             transactions.push({
                 id: Date.now(), type: 'sell_cash', amount: p.sellPrice,
                 productId: p.id, merchantId: mId ? parseInt(mId) : null,
-                accountId: p.accountId || undefined,
+                accountId: result.accountId || undefined,
                 notes: 'بيع نقدي | ' + p.name, discount: p.discount || 0,
                 date: new Date().toISOString()
             });
@@ -3662,21 +3664,22 @@
                 date: new Date().toISOString(), productId: p.id, productName: p.name,
                 type: 'out', qty: 1, ref: 'بيع نقدي', notes: p.imei ? 'IMEI: ' + p.imei : ''
             });
-            saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
+            saveData(); renderProducts(); renderTransactions(); renderDashboard(); renderAccounts(); refreshSelectors();
             showToast('💵 تم بيع ' + p.name + ' — ' + p.sellPrice + ' ج');
         } catch (err) { showError('خطأ', err.message); }
     };
 
-    window.purchaseProduct = (id) => {
+    window.purchaseProduct = async (id) => {
         try {
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
-
+            let result = await showPaymentModal('💰 شراء: ' + p.name + '\nالتكلفة: ' + p.costPrice + ' ج\nاختر الحساب البنكي:', p.costPrice, '💰 شراء مخزون');
+            if (!result || isNaN(result.amount)) return;
             p.stock += 1;
             if (p.archived) p.archived = false;
             transactions.push({
                 id: Date.now(), type: 'purchase', amount: p.costPrice,
-                productId: p.id, merchantId: null, accountId: p.accountId || undefined,
+                productId: p.id, merchantId: null, accountId: result.accountId || undefined,
                 notes: 'شراء مخزون | ' + p.name,
                 date: new Date().toISOString()
             });
@@ -3684,7 +3687,7 @@
                 date: new Date().toISOString(), productId: p.id, productName: p.name,
                 type: 'in', qty: 1, ref: 'شراء مخزون', notes: p.imei ? 'IMEI: ' + p.imei : ''
             });
-            saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
+            saveData(); renderProducts(); renderTransactions(); renderDashboard(); renderAccounts(); refreshSelectors();
             showToast('💰 تم شراء ' + p.name + ' — ' + p.costPrice + ' ج');
         } catch (err) { showError('خطأ', err.message); }
     };
