@@ -5135,39 +5135,11 @@
         let html = '';
         list.forEach(([merchantId, s]) => {
             let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases);
-            let balClass = b > 0 ? 'debt' : (b < 0 ? 'credit' : 'clear');
-            let sales = merchantSales.filter(sale => sale.merchantId == merchantId).sort((a, b2) => b2.date.localeCompare(a.date));
-
-            html += '<div class="card">';
-            html += '<div class="sale-row" style="cursor:pointer;" onclick="window.showMerchantPage(' + merchantId + ')">';
-            html += '<div class="info"><div class="name" style="color:var(--primary);">' + s.name + ' <span class="text-muted text-xs font-normal">(' + sales.reduce((sum, sale) => sum + (sale.quantity || 1), 0) + ' قطعة)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج' + (s.totalPurchases > 0 ? ' | مشتريات: ' + s.totalPurchases.toFixed(2) + ' ج' : '') + '</div></div>';
-            html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
-            html += '<div class="sale-actions">';
-            html += '<button class="btn-sm btn-success" onclick="event.stopPropagation();generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
-            html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="event.stopPropagation();showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
-            html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();recordMerchantPayment(' + merchantId + ')">💰 دفعة</button>';
-            html += '<button class="whatsapp-btn btn-sm" onclick="event.stopPropagation();sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
-            html += '</div></div>';
-
-            // Individual items list
-            html += '<div class="schedule-wrapper open">';
-            html += '<div class="schedule-header" style="font-size:0.82rem;"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
-            sales.forEach(sale => {
-                let d = new Date(sale.date).toLocaleDateString('ar-EG');
-                let qty = sale.quantity || 1;
-                let totalPrice = (sale.sellPrice || 0) * qty;
-                html += '<div class="schedule-item">';
-                html += '<div class="ms-sale-top">';
-                html += '<span class="ms-sale-name">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
-                html += '<span class="ms-sale-price">' + totalPrice.toFixed(2) + ' ج</span>';
-                html += '</div>';
-                html += '<div class="ms-sale-top" style="margin-bottom:0;">';
-                html += '<span class="ms-sale-date">' + d + '</span>';
-                html += '<div class="ms-sale-actions">';
-                html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();editMerchantSale(' + sale.id + ')">✏️</button>';
-                html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="event.stopPropagation();deleteMerchantSale(' + sale.id + ')">🗑️</button>';
-                html += '</div></div></div>';
-            });
+            html += '<div class="card" style="cursor:pointer;" onclick="window.showMerchantPage(' + merchantId + ')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
+            html += '<div><div style="font-weight:700;font-size:1rem;color:var(--primary);">' + s.name + '</div>';
+            html += '<div style="font-size:0.82rem;color:var(--text-muted);">' + (s.phone || '') + '</div></div>';
+            html += '<div style="font-weight:700;font-size:1.1rem;color:' + (b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)')) + ';">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
             html += '</div></div>';
         });
         container.innerHTML = html;
