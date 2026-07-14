@@ -5090,17 +5090,15 @@
         let term = getSearchTerm('MerchantSales');
         let summary = getMerchantDebtSummary();
 
-        // Summary cards
-        let totalDebt = 0;
-        Object.values(summary).forEach(s => { let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases); if (b > 0) totalDebt += b; });
-        document.getElementById('msSummary').innerHTML =
-            '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + Object.keys(summary).length + '</div></div>' +
-            '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
-            '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>' +
-            '<div class="ms-summary-card info"><div>📥 مشتريات من تجار</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPurchases, 0)).toFixed(2) + ' ج</div></div>';
-
         // Build per-merchant list
         let list = Object.entries(summary);
+
+        // استبعاد عملاء التقسيط (اللي ليهم عقود تقسيط وماعندهمش مبيعات/مشتريات/مدفوعات تجار)
+        list = list.filter(([id, s]) => {
+            if (s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0) return true;
+            return !installments.some(i => i.merchantId == id);
+        });
+
         if (term) {
             list = list.filter(([id, s]) => s.name.toLowerCase().includes(term));
         }
@@ -5115,11 +5113,19 @@
             list.sort((a, b) => merchantSales.filter(s => s.merchantId == b[0]).length - merchantSales.filter(s => s.merchantId == a[0]).length);
         }
 
-        // استبعاد عملاء التقسيط (اللي ليهم عقود تقسيط وماعندهمش مبيعات/مشتريات/مدفوعات تجار)
-        list = list.filter(([id, s]) => {
-            if (s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0) return true;
-            return !installments.some(i => i.merchantId == id);
+        // Summary cards (بعد الفلترة عشان العدد يطابق)
+        let totalDebt = 0, totalPayments = 0, totalPurchases = 0;
+        list.forEach(([id, s]) => {
+            let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases);
+            if (b > 0) totalDebt += b;
+            totalPayments += s.totalPayments;
+            totalPurchases += s.totalPurchases;
         });
+        document.getElementById('msSummary').innerHTML =
+            '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + list.length + '</div></div>' +
+            '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
+            '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + totalPayments.toFixed(2) + ' ج</div></div>' +
+            '<div class="ms-summary-card info"><div>📥 مشتريات من تجار</div><div class="value">' + totalPurchases.toFixed(2) + ' ج</div></div>';
 
         if (list.length === 0) {
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد تجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع أو شراء لتاجر من الأعلى') + '</div></div>';
