@@ -1958,8 +1958,8 @@
     };
 
     const DB_NAME = 'SalesManagementDB';
-    const DB_VERSION = 4;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'partners', 'accounts'];
+    const DB_VERSION = 5;
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts'];
 
     let db = null;
     let dbReady = null;
@@ -2144,6 +2144,8 @@
         msgTemplates = JSON.parse(localStorage.getItem('msgTemplates')) || { reminder: '', late: '' };
         merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
         merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
+        merchantPurchases = JSON.parse(localStorage.getItem('merchantPurchases') || '[]');
+        merchantPaymentsOut = JSON.parse(localStorage.getItem('merchantPaymentsOut') || '[]');
         partners = JSON.parse(localStorage.getItem('partners') || '[]');
         accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
         stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
@@ -4810,6 +4812,7 @@
 
         // Ask for quantity
         let qtyStr = await showPromptModal('العدد:', '1', '🔢 العدد');
+        if (qtyStr === null) return;
         let qty = parseInt(qtyStr) || 1;
         if (qty < 1) qty = 1;
 
@@ -4871,7 +4874,8 @@
             merchantId, accountId: result.accountId || undefined,
             notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString()
         });
-        saveData(); renderMerchantPage(); renderMerchantSales(); renderTransactions();
+        saveData(); renderMerchantSales(); renderTransactions();
+        if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم دفع ' + val.toFixed(2) + ' ج إلى ' + m.name);
     };
 
@@ -4939,6 +4943,7 @@
 
         // Ask for quantity
         let qtyStr = await showPromptModal('العدد من ' + p.name + ':', '1', '🔢 العدد');
+        if (qtyStr === null) return;
         let qty = parseInt(qtyStr) || 1;
         if (qty < 1) qty = 1;
         if (p.stock < qty) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب: ' + qty, 'error'); return; }
