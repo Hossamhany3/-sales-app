@@ -1987,7 +1987,7 @@
 
     const DB_NAME = 'SalesManagementDB';
     const DB_VERSION = 5;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts'];
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements'];
 
     let db = null;
     let dbReady = null;
@@ -2577,6 +2577,13 @@
 
 
 
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function(m) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
+        });
+    }
+
     function showToast(message, type) {
         if (!type) type = 'success';
         const container = document.getElementById('toast-container');
@@ -2777,8 +2784,8 @@
         // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ)
         cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'merchant_purchase' || t.type === 'payment_out') cash -= t.amount;
         });
 
         // الإيرادات والمصروفات تحسب ضمن النطاق التاريخي فقط
@@ -2786,13 +2793,13 @@
         const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
 
         filteredTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell') {
+            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') {
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
                 let prod = products.find(p => p.id == t.productId);
                 if (prod) cogs += prod.costPrice + (prod.expenses || 0);
             }
-            if (t.type === 'expense') expenses += t.amount;
+            if (t.type === 'expense' || t.type === 'merchant_purchase') expenses += t.amount;
         });
 
         filteredInst.forEach(inst => {
@@ -2814,7 +2821,9 @@
         let merchantDebtTotal = merchants.reduce((sum, m) => {
             let ms = merchantSales.filter(s => s.merchantId == m.id).reduce((s, sale) => s + (sale.sellPrice || 0) * (sale.quantity || 1), 0);
             let mp = merchantPayments.filter(p => p.merchantId == m.id).reduce((s, pay) => s + (pay.amount || 0), 0);
-            return sum + Math.max(ms - mp, 0);
+            let mpr = merchantPurchases.filter(p => p.merchantId == m.id).reduce((s, pur) => s + (pur.costPrice || 0) * (pur.quantity || 1), 0);
+            let mpo = merchantPaymentsOut.filter(p => p.merchantId == m.id).reduce((s, po) => s + (po.amount || 0), 0);
+            return sum + Math.max(ms + mpo - mp - mpr, 0);
         }, 0);
         let totalAssets = cash + stockValue + totalDebt + merchantDebtTotal;
         let totalLiabilities = partnerInvest;
@@ -3923,8 +3932,9 @@
         try {
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
-            let isLinked = installments.some(i => !i.isPaid && i.merchantId == t.merchantId &&
-                t.notes && (t.notes.includes('قسط') || t.notes.includes('مقدم')));
+            let isLinked = installments.some(i => !i.isPaid && (i.id == t.instId ||
+                (t.merchantId && i.merchantId == t.merchantId &&
+                t.notes && (t.notes.includes('قسط') || t.notes.includes('مقدم')))));
             if (isLinked) { showToast('لا يمكن حذف حركة مرتبطة بعقد تقسيط نشط', 'error'); return; }
             let ok = await showConfirmModal('حذف حركة "' + (t.notes || t.type || '') + '" بقيمة ' + (t.amount || 0).toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!ok) return;
@@ -3938,10 +3948,10 @@
 
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
-        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك' };
-        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦' };
+        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر' };
+        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸' };
 
-        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit'].includes(type);
+        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale'].includes(type);
 
         // حساب الرصيد
         let netBalance = 0;
@@ -3978,7 +3988,7 @@
         // Pagination للمجموعات
         const groupKeys = Object.keys(groups);
         const pag = paginate(groupKeys, 'trans');
-        let html = typeStatsHtml;
+        let html = '';
         pag.items.forEach(day => {
             const dayTotal = groups[day].reduce((s, t) => {
                 return s + (isIncomeType(t.type) ? t.amount : -t.amount);
@@ -4018,8 +4028,8 @@
             });
         });
         html += '<div class="text-muted text-center text-sm p-1">عرض ' + pag.start + '-' + pag.end + ' من ' + pag.total + '</div>';
-        renderPagination(container, 'trans', pag.totalPages, 'renderTransactions()');
         container.innerHTML = html;
+        renderPagination(container, 'trans', pag.totalPages, 'renderTransactions()');
     }
 
     window.populateInstPrice = () => {
@@ -4116,7 +4126,8 @@
                     id: Date.now() + 1, type: 'payment_in', amount: upfront,
                     productId: parseInt(pId), merchantId: parseInt(mId),
                     accountId: document.getElementById('instAccountId').value ? parseInt(document.getElementById('instAccountId').value) : undefined,
-                    notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + p.name, date: new Date().toISOString()
+                    notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + p.name, date: new Date().toISOString(),
+                    instId: instId
                 });
             }
 
@@ -4241,12 +4252,16 @@
                     }
                     inst.firstDueDate = firstDate;
 
-                    // Rebuild schedule
+                    // Rebuild schedule مع الحفاظ على الأقساط المدفوعة
+                    let oldSchedule = inst.schedule || [];
                     let first = new Date(firstDate);
                     inst.schedule = Array.from({length: inst.numInstallments}, (_, i) => {
                         let d = new Date(first);
                         d.setMonth(first.getMonth() + i);
-                        return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
+                        let due = d.toISOString().split('T')[0];
+                        let old = oldSchedule.find(s => s.index === i + 1);
+                        if (old && old.isPaid) return old;
+                        return { index: i + 1, dueDate: due, paidAmount: 0, isPaid: false };
                     });
 
                     saveData(); renderInstallments(); renderDashboard(); refreshSelectors();
@@ -4279,7 +4294,7 @@
             if (!ok) return;
             let p = products.find(x => x.id == inst.productId);
             if (p) { p.stock = (p.stock || 0) + 1; }
-            transactions = transactions.filter(t => !(t.notes || '').includes('#' + id));
+            transactions = transactions.filter(t => t.instId != id);
             installments = installments.filter(i => i.id != id);
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard(); refreshSelectors();
             showToast('✅ تم حذف العقد #' + id);
@@ -4475,7 +4490,8 @@
                 id: Date.now(), type: 'payment_in', amount: val,
                 merchantId: inst.merchantId, productId: inst.productId,
                 accountId: paymentAccountId || undefined,
-                notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString()
+                notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString(),
+                instId: instId
             });
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
             showToast('تم تسجيل سداد القسط ' + slot.index + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
@@ -4507,7 +4523,8 @@
                 id: Date.now(), type: 'payment_in', amount: val,
                 merchantId: inst.merchantId, productId: inst.productId,
                 accountId: result.accountId || undefined,
-                notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString()
+                notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString(),
+                instId: id
             });
             
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
@@ -4560,11 +4577,11 @@
         let bal = calcMerchantBalance(merchantId);
         let result = await showPaymentModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل من تاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
-        let val = result.amount;
-        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
+        let transId = Date.now() + 1;
+        let pay = { id: Date.now(), transactionId: transId, merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
         merchantPayments.push(pay);
         transactions.push({
-            id: Date.now() + 1, type: 'payment_in', amount: val,
+            id: transId, type: 'payment_in', amount: val,
             merchantId, accountId: result.accountId || undefined,
             notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
         });
@@ -4881,8 +4898,10 @@
             refreshSelectors();
         }
 
+        let transId = Date.now() + 1;
         let purchase = {
             id: Date.now(),
+            transactionId: transId,
             merchantId,
             merchantName: m.name,
             productName: prodName,
@@ -4894,7 +4913,7 @@
         };
         merchantPurchases.push(purchase);
         transactions.push({
-            id: Date.now() + 1, type: 'merchant_purchase', amount: val,
+            id: transId, type: 'merchant_purchase', amount: val,
             merchantId, accountId: result.accountId || undefined,
             notes: 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + qty, date: new Date().toISOString()
         });
@@ -4909,10 +4928,11 @@
         let result = await showPaymentModal('دفعة إلى ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', '', '💸 دفعة لتاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
         let val = result.amount;
-        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
+        let transId = Date.now() + 1;
+        let pay = { id: Date.now(), transactionId: transId, merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
         merchantPaymentsOut.push(pay);
         transactions.push({
-            id: Date.now() + 1, type: 'payment_out', amount: val,
+            id: transId, type: 'payment_out', amount: val,
             merchantId, accountId: result.accountId || undefined,
             notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString()
         });
@@ -4933,6 +4953,7 @@
                 if (p.stock < 0) p.stock = 0;
             }
             merchantPurchases = merchantPurchases.filter(p => p.id != id);
+            if (purchase.transactionId) transactions = transactions.filter(t => t.id != purchase.transactionId);
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('تم حذف الشراء');
         } catch (err) {
@@ -5002,8 +5023,10 @@
         // Ask for notes
         let notes = await showPromptModal('ملاحظات (اختياري):', '', '📝 ملاحظات');
 
+        let transId = Date.now() + 1;
         let sale = {
             id: Date.now(),
+            transactionId: transId,
             merchantId,
             merchantName: m.name,
             phone: m.phone,
@@ -5015,7 +5038,7 @@
         };
         merchantSales.push(sale);
         transactions.push({
-            id: Date.now() + 1, type: 'merchant_sale', amount: actualTotal,
+            id: transId, type: 'merchant_sale', amount: actualTotal,
             merchantId, accountId: result.accountId || undefined,
             notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString()
         });
@@ -5073,6 +5096,7 @@
             if (p) p.stock += (sale.quantity || 1);
 
             merchantSales = merchantSales.filter(s => s.id != id);
+            if (sale.transactionId) transactions = transactions.filter(t => t.id != sale.transactionId);
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('تم حذف بيع ' + (sale.deviceName || ''));
         } catch (err) {
