@@ -5143,10 +5143,10 @@
     document.getElementById('addMerchantBtn').addEventListener('click', async () => {
         let name = await showPromptModal('أدخل اسم التاجر:', '', '➕ إضافة تاجر');
         if (!name || !name.trim()) return;
-        let phone = await showPromptModal('أدخل رقم الهاتف:', '', '➕ إضافة تاجر');
-        if (!phone || !phone.trim()) return;
-        name = name.trim(); phone = phone.trim();
-        if (merchants.find(m => m.name === name && m.phone === phone)) {
+        name = name.trim();
+        let phone = await showPromptModal('رقم الهاتف (اختياري):', '', '➕ إضافة تاجر');
+        phone = (phone && phone.trim()) ? phone.trim() : '';
+        if (merchants.find(m => m.name === name && (!phone || m.phone === phone))) {
             showToast('التاجر موجود بالفعل', 'info'); return;
         }
         merchants.push({ id: Date.now(), name, phone, address: '' });
