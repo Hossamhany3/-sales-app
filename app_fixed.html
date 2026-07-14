@@ -396,9 +396,39 @@
             input, select, textarea { padding: 10px 12px; font-size: 0.9rem; }
             #toast-container { bottom: 16px; }
             .toast { font-size: 0.85rem; padding: 10px 16px; }
+            /* Merchant sales mobile */
+            .ms-toolbar { flex-direction: column; }
+            .ms-toolbar .search-box { width: 100%; }
+            .ms-sort-select { width: 100%; }
+            #msSummary { gap: 6px; }
+            #msSummary .ms-summary-card { min-width: calc(50% - 6px); padding: 8px 10px; }
+            #msSummary .ms-summary-card .value { font-size: 0.9rem; }
+            #merchantSalesList .sale-actions { gap: 4px; }
+            #merchantSalesList .sale-actions button { font-size: 0.68rem; padding: 3px 6px; min-height: 28px; }
+            #merchantSalesList .schedule-header { font-size: 0.72rem; }
+            #merchantSalesList .schedule-item { padding: 8px 10px; }
+            #merchantSalesList .ms-sale-top { margin-bottom: 3px; }
+            #merchantSalesList .ms-sale-name { font-size: 0.82rem; }
+            #merchantSalesList .ms-sale-price { font-size: 0.82rem; }
+            #merchantSalesList .ms-sale-date { font-size: 0.72rem; }
+            #merchantSalesList .ms-sale-actions button { padding: 3px 6px; font-size: 0.68rem; min-height: 26px; }
+            .sale-row .info .name { font-size: 0.88rem; }
+            .sale-row .info .detail { font-size: 0.75rem; }
+            .sale-row .info { min-width: 140px; }
+            .sale-row .balance { font-size: 0.82rem; }
         }
 
         /* مبيعات التجار */
+        .ms-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+        .ms-sort-select { padding: 8px 12px; border-radius: 50px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--card-bg); color: var(--text-main); cursor: pointer; min-width: 140px; font-family: inherit; }
+        #msSummary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .ms-sale-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .ms-sale-name { font-weight: 700; font-size: 0.88rem; }
+        .ms-sale-price { font-weight: 600; font-size: 0.88rem; }
+        .ms-sale-date { font-size: 0.78rem; color: var(--text-muted); }
+        .ms-sale-actions { display: flex; gap: 6px; }
+        .ms-sale-actions button { padding: 4px 8px; font-size: 0.75rem; min-height: 30px; border-radius: 6px; }
+        #merchantSalesList .schedule-item { display: flex; flex-direction: column; padding: 10px 14px; }
         .merchant-statement { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
         .merchant-statement-header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
         .merchant-statement-header h3 { margin: 0; font-size: 1rem; color: white; }
@@ -882,6 +912,15 @@
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
     .stat-card-modern { min-width: calc(50% - 8px); }
     .card { padding: 12px 14px; }
+    #mpContent .customer-statement-summary { gap: 8px; }
+    #mpContent .customer-statement-summary .stat-card { min-width: calc(50% - 8px); padding: 8px 10px; }
+    #mpContent .customer-statement-summary .stat-card .stat-value { font-size: 1rem; }
+    #mpContent .customer-statement-summary .stat-card .stat-label { font-size: 0.72rem; }
+    #mpContent .card { overflow-x: auto; }
+    #mpContent .merchant-statement-table { font-size: 0.7rem; white-space: nowrap; }
+    #mpContent .merchant-statement-table th,
+    #mpContent .merchant-statement-table td { padding: 5px 6px; }
+    #mpContent .merchant-statement-table td:first-child { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
 }
 
 @media (min-width: 640px) {
@@ -1249,52 +1288,26 @@
         </div>
 
         <div id="merchantSales" class="page">
-            <h2>🏪 تسجيل بيع لتاجر</h2>
-            <div class="card">
-                <form id="merchantSaleForm">
-                    <div class="form-group">
-                        <label>التاجر</label>
-                        <div style="display:flex; gap:8px;">
-                            <input type="text" id="msNewName" required placeholder="اسم التاجر" style="flex:1;">
-                            <button type="button" id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>رقم الهاتف</label>
-                        <input type="tel" id="msNewPhone" required placeholder="رقم الهاتف">
-                    </div>
-                    <div class="form-group">
-                        <label>الجهاز (من المخزون)</label>
-                        <select id="msProductId" required onchange="autoFillMsPrice()">
-                            <option value="">-- اختر صنف --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>العدد</label>
-                        <input type="number" id="msQuantity" value="1" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>ملاحظات</label>
-                        <input type="text" id="msNotes" placeholder="اختياري">
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button type="submit" style="flex:1;">💳 تسجيل البيع</button>
-                    </div>
-                </form>
+            <h2>🏪 التجار</h2>
+            <div class="card" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button id="addMerchantBtn" class="btn-sm" style="background:var(--primary);color:#fff;border:none;flex:1;min-width:140px;padding:10px 16px;">➕ إضافة تاجر جديد</button>
+                <button id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
             </div>
 
             <h2>📋 كشف حساب وكشل المديونيات</h2>
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchMerchantSales" placeholder="بحث باسم التاجر..." oninput="renderMerchantSales()">
-                <select id="msSort" onchange="renderMerchantSales()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+            <div class="ms-toolbar">
+                <div class="search-box" style="flex:1; min-width:160px; margin-bottom:0;">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchMerchantSales" placeholder="بحث باسم التاجر..." oninput="renderMerchantSales()">
+                </div>
+                <select id="msSort" onchange="renderMerchantSales()" class="ms-sort-select">
                     <option value="name">👤 الاسم</option>
                     <option value="debt-desc">💳 المديونية (الأعلى)</option>
                     <option value="debt-asc">💳 المديونية (الأقل)</option>
                     <option value="count-desc">📦 عدد الأصناف (الأكثر)</option>
                 </select>
             </div>
-            <div id="msSummary" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;"></div>
+            <div id="msSummary"></div>
             <div id="merchantSalesList"></div>
         </div>
 
@@ -2161,12 +2174,25 @@
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
         recordInitDiag('afterLS', 'accounts', accounts.length);
 
-        // بعدها نحاول نحدّث من IndexedDB (لو متاح وفيه بيانات أحدث)
+        // الـ localStorage هو المصدر الأساسي. الـ IndexedDB مجرد نسخة احتياطية:
+        // نحاول نستخدم IDB فقط لو localStorage فاضي، ثم نزامن localStorage ← IDB
         try {
-            const loaded = await loadAllFromIDB();
-            recordInitDiag('afterIDB', 'accounts', accounts.length);
-            if (loaded) await migrateFromLocalStorage();
-            recordInitDiag('afterMigrate', 'accounts', accounts.length);
+            await openDB();
+            if (db) {
+                // إحضار البيانات من IDB فقط للمخازن اللي localStorage فيها فاضي
+                for (const name of STORE_NAMES) {
+                    if (!localStorage.getItem(name)) {
+                        const idbData = await idbGetAll(name);
+                        if (idbData && idbData.length > 0) {
+                            assignData(name, idbData);
+                            recordInitDiag('idbRestore', name, idbData.length);
+                        }
+                    }
+                }
+                // نزامن localStorage → IDB (للمخازن اللي فيها بيانات في localStorage)
+                await migrateFromLocalStorage();
+                recordInitDiag('afterMigrate', 'accounts', accounts.length);
+            }
         } catch (e) {
             console.warn('IndexedDB غير متاح، البيانات من localStorage', e);
         }
@@ -2590,7 +2616,7 @@
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
                 const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, partners, accounts, openingCapital };
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital };
                 localStorage.setItem('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -2623,21 +2649,25 @@
         });
     }
 
+    function lsSet(key, val) {
+        try { localStorage.setItem(key, val); } catch (e) { console.warn('localStorage.setItem فشل:', key, e); }
+    }
+
     async function saveData() {
-        localStorage.setItem('products', JSON.stringify(products));
-        localStorage.setItem('merchants', JSON.stringify(merchants));
-        localStorage.setItem('transactions', JSON.stringify(transactions));
-        localStorage.setItem('installments', JSON.stringify(installments));
-        localStorage.setItem('msgTemplates', JSON.stringify(msgTemplates));
-        localStorage.setItem('merchantSales', JSON.stringify(merchantSales));
-        localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
-        localStorage.setItem('merchantPurchases', JSON.stringify(merchantPurchases));
-        localStorage.setItem('merchantPaymentsOut', JSON.stringify(merchantPaymentsOut));
-        localStorage.setItem('partners', JSON.stringify(partners));
-        localStorage.setItem('accounts', JSON.stringify(accounts));
-        localStorage.setItem('stockMovements', JSON.stringify(stockMovements));
-    localStorage.setItem('openingCapital', String(openingCapital));
-        await saveAllToIDB();
+        lsSet('products', JSON.stringify(products));
+        lsSet('merchants', JSON.stringify(merchants));
+        lsSet('transactions', JSON.stringify(transactions));
+        lsSet('installments', JSON.stringify(installments));
+        lsSet('msgTemplates', JSON.stringify(msgTemplates));
+        lsSet('merchantSales', JSON.stringify(merchantSales));
+        lsSet('merchantPayments', JSON.stringify(merchantPayments));
+        lsSet('merchantPurchases', JSON.stringify(merchantPurchases));
+        lsSet('merchantPaymentsOut', JSON.stringify(merchantPaymentsOut));
+        lsSet('partners', JSON.stringify(partners));
+        lsSet('accounts', JSON.stringify(accounts));
+        lsSet('stockMovements', JSON.stringify(stockMovements));
+        lsSet('openingCapital', String(openingCapital));
+        try { await saveAllToIDB(); } catch (e) { console.warn('saveAllToIDB فشل', e); }
         updateStorageInfo();
         renderDashboard();
     }
@@ -2710,11 +2740,6 @@
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
-    }
-
-    function autoFillMsPrice() {
-        let pid = document.getElementById('msProductId').value;
-        if (!pid) return;
     }
 
     function getDateRange() {
@@ -5096,19 +5121,22 @@
 
             // Individual items list
             html += '<div class="schedule-wrapper open">';
-            html += '<div class="schedule-header"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
+            html += '<div class="schedule-header" style="font-size:0.82rem;"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
             sales.forEach(sale => {
                 let d = new Date(sale.date).toLocaleDateString('ar-EG');
                 let qty = sale.quantity || 1;
                 let totalPrice = (sale.sellPrice || 0) * qty;
                 html += '<div class="schedule-item">';
-                html += '<span class="schedule-inst-num text-sm">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
-                html += '<span class="schedule-amount text-sm">' + totalPrice.toFixed(2) + ' ج</span>';
-                html += '<span class="text-sm text-muted">' + d + '</span>';
-                html += '<div class="flex gap-1">';
+                html += '<div class="ms-sale-top">';
+                html += '<span class="ms-sale-name">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
+                html += '<span class="ms-sale-price">' + totalPrice.toFixed(2) + ' ج</span>';
+                html += '</div>';
+                html += '<div class="ms-sale-top" style="margin-bottom:0;">';
+                html += '<span class="ms-sale-date">' + d + '</span>';
+                html += '<div class="ms-sale-actions">';
                 html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();editMerchantSale(' + sale.id + ')">✏️</button>';
                 html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="event.stopPropagation();deleteMerchantSale(' + sale.id + ')">🗑️</button>';
-                html += '</div></div>';
+                html += '</div></div></div>';
             });
             html += '</div></div>';
         });
@@ -5116,73 +5144,41 @@
     }
 
     // ====== Event handlers لمبيعات التجار ======
+    document.getElementById('addMerchantBtn').addEventListener('click', async () => {
+        let name = await showPromptModal('أدخل اسم التاجر:', '', '➕ إضافة تاجر');
+        if (!name || !name.trim()) return;
+        let phone = await showPromptModal('أدخل رقم الهاتف:', '', '➕ إضافة تاجر');
+        if (!phone || !phone.trim()) return;
+        name = name.trim(); phone = phone.trim();
+        if (merchants.find(m => m.name === name && m.phone === phone)) {
+            showToast('التاجر موجود بالفعل', 'info'); return;
+        }
+        merchants.push({ id: Date.now(), name, phone, address: '' });
+        refreshSelectors();
+        saveData(); renderMerchantSales(); renderDashboard();
+        showToast('✅ تم إضافة التاجر ' + name);
+    });
+
     document.getElementById('msLoadContactsBtn').addEventListener('click', async () => {
         if ('contacts' in navigator && 'ContactsManager' in window) {
             try {
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
-                    document.getElementById('msNewName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('msNewPhone').value = contacts[0].tel[0] || '';
+                    let name = contacts[0].name.join(' ') || '';
+                    let phone = contacts[0].tel[0] || '';
+                    if (merchants.find(m => m.name === name && m.phone === phone)) {
+                        showToast('التاجر موجود بالفعل', 'info'); return;
+                    }
+                    merchants.push({ id: Date.now(), name, phone, address: '' });
+                    refreshSelectors();
+                    saveData(); renderMerchantSales(); renderDashboard();
+                    showToast('✅ تم إضافة التاجر ' + name + ' من جهات الاتصال');
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
             }
         } else {
             showToast('ميزة جهات الاتصال غير متاحة على هذا الجهاز', 'error');
-        }
-    });
-
-    document.getElementById('merchantSaleForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        try {
-            let name = document.getElementById('msNewName').value.trim();
-            let phone = document.getElementById('msNewPhone').value.trim();
-            if (!name || !phone) { showToast('أدخل اسم التاجر ورقم الهاتف', 'error'); return; }
-
-            let existing = merchants.find(m => m.name === name && m.phone === phone);
-            let merchantId;
-            if (existing) {
-                merchantId = existing.id;
-            } else {
-                let newMerchant = { id: Date.now(), name, phone, address: '' };
-                merchants.push(newMerchant);
-                merchantId = newMerchant.id;
-                refreshSelectors();
-            }
-
-            let pid = document.getElementById('msProductId').value;
-            if (!pid) { showToast('اختر صنفاً من المخزون', 'error'); return; }
-            let p = products.find(x => x.id == pid);
-            if (!p) { showToast('الصنف غير موجود', 'error'); return; }
-            let deviceName = p.name;
-            let sellPrice = p.sellPrice;
-            let quantity = parseInt(document.getElementById('msQuantity').value) || 1;
-            if (quantity < 1) quantity = 1;
-            if (p.stock < quantity) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب: ' + quantity, 'error'); return; }
-            let notes = document.getElementById('msNotes').value.trim();
-            if (!deviceName || !sellPrice || sellPrice <= 0) { showToast('أدخل اسم الجهاز وسعر البيع', 'error'); return; }
-
-            let sale = {
-                id: Date.now(),
-                merchantId,
-                merchantName: name,
-                phone,
-                deviceName,
-                sellPrice,
-                quantity,
-                date: new Date().toISOString(),
-                notes
-            };
-            let totalVal = sellPrice * quantity;
-            merchantSales.push(sale);
-            p.stock -= quantity;
-
-            document.getElementById('merchantSaleForm').reset();
-            document.getElementById('msQuantity').value = 1;
-            saveData(); renderMerchantSales(); renderDashboard();
-            showToast('✅ تم تسجيل بيع ' + quantity + '× ' + deviceName + ' لـ ' + name + ' بقيمة ' + totalVal.toFixed(2) + ' ج');
-        } catch (err) {
-            showError('حدث خطأ', err.message);
         }
     });
 
@@ -6804,6 +6800,8 @@
         renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId) renderMerchantPage();
     });
+
+    window.addEventListener('beforeunload', () => { saveData(); });
 
     // التحميل الأولي
     setTimeout(() => {
