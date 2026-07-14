@@ -415,6 +415,7 @@
         .ms-summary-card.danger .value { color: var(--danger); }
         .ms-summary-card.success .value { color: var(--success); }
         .ms-summary-card.primary .value { color: var(--primary); }
+        .ms-summary-card.info .value { color: #f59e0b; }
 
         /* كشف حساب العميل (تقسيط) */
         .customer-statement-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
@@ -432,6 +433,7 @@
         .customer-statement-summary .stat-card .stat-value.danger { color: var(--danger); }
         .customer-statement-summary .stat-card .stat-value.success { color: var(--success); }
         .customer-statement-summary .stat-card .stat-value.primary { color: var(--primary); }
+        .customer-statement-summary .stat-card .stat-value.warning { color: #f59e0b; }
         .customer-contract-card { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; background: var(--card-bg); }
         .customer-contract-card .contract-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
         .customer-contract-card .contract-header .contract-title { font-weight: 700; font-size: 0.95rem; }
@@ -527,6 +529,364 @@
 .modal-body input:focus { border-color:var(--primary); }
 .modal-footer { display:flex; gap:10px; justify-content:flex-start; }
 .modal-footer button { flex:1; padding:12px; font-size:0.95rem; font-weight:700; border-radius:10px; min-height:48px; }
+
+/* ==============================
+   🎨 نظام التصميم الاحترافي v2
+   ============================== */
+
+/* متغيرات إضافية */
+:root {
+    --font-xs: 0.75rem;
+    --font-sm: 0.85rem;
+    --font-base: 0.95rem;
+    --font-lg: 1.05rem;
+    --font-xl: 1.2rem;
+    --font-2xl: 1.5rem;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 20px;
+    --space-2xl: 24px;
+    --radius-xl: 20px;
+    --radius-2xl: 24px;
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+    --shadow-inner: inset 0 2px 4px 0 rgba(0,0,0,0.06);
+    --blur-bg: rgba(255,255,255,0.7);
+}
+
+[data-theme="dark"]:root {
+    --blur-bg: rgba(30,41,59,0.8);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.3), 0 4px 6px -2px rgba(0,0,0,0.2);
+    --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.4), 0 10px 10px -5px rgba(0,0,0,0.3);
+}
+
+/* ===== تذييل الصفحة و Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ===== تنسيقات الخطوط ===== */
+.text-xs { font-size: var(--font-xs); }
+.text-sm { font-size: var(--font-sm); }
+.text-base { font-size: var(--font-base); }
+.text-lg { font-size: var(--font-lg); }
+.text-xl { font-size: var(--font-xl); }
+.text-2xl { font-size: var(--font-2xl); }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-left { text-align: left; }
+.text-primary { color: var(--primary); }
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+.text-accent { color: var(--accent); }
+.text-muted { color: var(--text-muted); }
+.text-white { color: #fff; }
+.font-bold, .fw-bold { font-weight: 700; }
+.font-semibold, .fw-semibold { font-weight: 600; }
+.font-normal, .fw-normal { font-weight: 400; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-nowrap { white-space: nowrap; }
+
+/* ===== المسافات ===== */
+.p-0 { padding: 0; }
+.p-1 { padding: var(--space-xs); }
+.p-2 { padding: var(--space-sm); }
+.p-3 { padding: var(--space-md); }
+.p-4 { padding: var(--space-lg); }
+.p-5 { padding: var(--space-xl); }
+.p-6 { padding: var(--space-2xl); }
+.px-2 { padding-left: var(--space-sm); padding-right: var(--space-sm); }
+.px-3 { padding-left: var(--space-md); padding-right: var(--space-md); }
+.px-4 { padding-left: var(--space-lg); padding-right: var(--space-lg); }
+.py-1 { padding-top: var(--space-xs); padding-bottom: var(--space-xs); }
+.py-2 { padding-top: var(--space-sm); padding-bottom: var(--space-sm); }
+.py-3 { padding-top: var(--space-md); padding-bottom: var(--space-md); }
+
+.m-0 { margin: 0; }
+.mt-1 { margin-top: var(--space-xs); }
+.mt-2 { margin-top: var(--space-sm); }
+.mt-3 { margin-top: var(--space-md); }
+.mt-4 { margin-top: var(--space-lg); }
+.mb-1 { margin-bottom: var(--space-xs); }
+.mb-2 { margin-bottom: var(--space-sm); }
+.mb-3 { margin-bottom: var(--space-md); }
+.mb-4 { margin-bottom: var(--space-lg); }
+.mr-2 { margin-left: var(--space-sm); }
+.ml-2 { margin-right: var(--space-sm); }
+
+/* ===== الفجوات ===== */
+.gap-1 { gap: var(--space-xs); }
+.gap-2 { gap: var(--space-sm); }
+.gap-3 { gap: var(--space-md); }
+.gap-4 { gap: var(--space-lg); }
+
+/* ===== المرونة ===== */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.flex-auto { flex: 1 1 auto; }
+.flex-shrink-0 { flex-shrink: 0; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+
+/* ===== الشبكة ===== */
+.grid { display: grid; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.gap-2 { gap: var(--space-sm); }
+.gap-3 { gap: var(--space-md); }
+.gap-4 { gap: var(--space-lg); }
+
+/* ===== الحواف ===== */
+.rounded-sm { border-radius: var(--radius-sm); }
+.rounded { border-radius: var(--radius); }
+.rounded-lg { border-radius: var(--radius-lg); }
+.rounded-xl { border-radius: var(--radius-xl); }
+.rounded-2xl { border-radius: var(--radius-2xl); }
+.rounded-full { border-radius: 9999px; }
+.border { border: 1px solid var(--border); }
+.border-0 { border: none; }
+.border-t { border-top: 1px solid var(--border); }
+.border-b { border-bottom: 1px solid var(--border); }
+
+/* ===== الظلال ===== */
+.shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.shadow { box-shadow: var(--shadow-card); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
+
+/* ===== الألوان الخلفية ===== */
+.bg-primary-light { background: var(--primary-light); }
+.bg-success-light { background: var(--success-light); }
+.bg-danger-light { background: var(--danger-light); }
+.bg-card { background: var(--card-bg); }
+.bg-transparent { background: transparent; }
+
+/* ===== تأثيرات ===== */
+.transition { transition: all var(--transition); }
+.transition-fast { transition: all 0.15s ease; }
+.hover-lift:hover { transform: translateY(-2px); }
+.hover-shadow:hover { box-shadow: var(--shadow-hover); }
+.opacity-50 { opacity: 0.5; }
+.opacity-70 { opacity: 0.7; }
+.cursor-pointer { cursor: pointer; }
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+.h-full { height: 100%; }
+.block { display: block; }
+.inline-block { display: inline-block; }
+.hidden { display: none; }
+.overflow-hidden { overflow: hidden; }
+.relative { position: relative; }
+.tr-ease { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* ===== تحسين البطاقات ===== */
+.card-elevated { box-shadow: var(--shadow-lg); }
+.card-highlight { border-color: var(--primary); border-width: 2px; }
+.card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    font-weight: 700; font-size: 0.95rem;
+}
+.card-body { padding: 18px 20px; }
+.card-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* ===== تحسين الأزرار ===== */
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-ghost { background: transparent; color: var(--text-main); border: none; }
+.btn-ghost:hover { background: var(--primary-light); color: var(--primary); }
+.btn-icon {
+    width: 44px; height: 44px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm);
+}
+.btn-sm-icon { width: 36px; height: 36px; padding: 0; min-height: 36px; }
+.btn-xs { padding: 4px 10px; font-size: 0.78rem; min-height: 30px; border-radius: 6px; }
+
+/* ===== تنسيق متقدم للفورم ===== */
+.form-control {
+    width: 100%; padding: 11px 14px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); font-size: 0.95rem;
+    background: var(--card-bg); transition: all var(--transition);
+    font-family: 'Cairo', sans-serif; color: var(--text-main);
+}
+.form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+.form-label {
+    display: block; font-weight: 600; margin-bottom: 6px;
+    font-size: 0.85rem; color: var(--text-muted);
+}
+.form-error { color: var(--danger); font-size: 0.8rem; margin-top: 4px; }
+.input-with-icon { position: relative; }
+.input-with-icon input { padding-right: 40px; }
+.input-with-icon .input-icon-pos { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+.input-with-icon .input-clear { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; display: none; }
+
+/* ===== تنسيقات القسم العلوي ===== */
+.app-header-modern {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+}
+
+/* ===== تحسين القائمة الجانبية ===== */
+.side-nav-modern .nav-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    text-align: right;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.side-nav-modern .nav-item:hover {
+    background: rgba(79,70,229,0.25);
+    border-color: rgba(79,70,229,0.3);
+    transform: translateX(-4px);
+    color: #fff;
+}
+
+/* ===== حالة التحميل ===== */
+.skeleton {
+    background: linear-gradient(90deg, var(--border) 25%, var(--card-bg) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ===== شارة إحصائيات محسّنة ===== */
+.stat-card-modern {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 16px 18px;
+    border: 1px solid var(--border);
+    flex: 1;
+    min-width: 120px;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+.stat-card-modern::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 0 0 4px 4px;
+}
+.stat-card-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+.stat-card-modern .stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.stat-card-modern .stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+.stat-card-modern .stat-value.text-success { color: var(--success); }
+.stat-card-modern .stat-value.text-danger { color: var(--danger); }
+.stat-card-modern .stat-value.text-primary { color: var(--primary); }
+.stat-card-modern .stat-value.text-accent { color: var(--accent); }
+
+/* ===== تحسين التبويبات ===== */
+.tab-modern {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    background: var(--card-bg);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.tab-modern .tab-item {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    font-weight: 600;
+    min-height: 36px;
+}
+.tab-modern .tab-item:hover { color: var(--text-main); background: var(--primary-light); }
+.tab-modern .tab-item.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+}
+
+/* ===== تحسين الجداول ===== */
+.table-clean {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+}
+.table-clean th {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.8rem;
+    padding: 10px 12px;
+    text-align: right;
+    font-weight: 700;
+    border-bottom: 2px solid var(--border);
+}
+.table-clean th:first-child { border-radius: 0 8px 0 0; }
+.table-clean th:last-child { border-radius: 8px 0 0 0; }
+.table-clean td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* ===== تنسيق متجاوب متقدم ===== */
+@media (max-width: 480px) {
+    .hide-mobile { display: none !important; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .stat-card-modern { min-width: calc(50% - 8px); }
+    .card { padding: 12px 14px; }
+}
+
+@media (min-width: 640px) {
+    .show-mobile { display: none !important; }
+}
     </style>
 </head>
 <body>
@@ -802,39 +1162,13 @@
                     <button type="submit">➕ تسجيل المصروف</button>
                 </form>
             </div>
-            <div class="card" style="padding:12px;margin-bottom:12px;">
-                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center;">
-                    <span style="font-size:0.85rem;font-weight:700;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> تصفية
-                    </span>
-                    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
-                        <span style="font-size:0.78rem;">📅 من</span>
-                        <input type="date" id="transDateFrom" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
-                        <span style="font-size:0.78rem;">إلى</span>
-                        <input type="date" id="transDateTo" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
-                    </div>
-                    <select id="transEntityFilter" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);flex:1;min-width:120px;">
-                        <option value="">👥 الكل</option>
-                        <option value="customer">👤 عملاء</option>
-                        <option value="partner">🤝 شركاء</option>
-                    </select>
-                    <select id="transSort" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
-                        <option value="date-desc">📅 الأحدث</option>
-                        <option value="date-asc">📅 الأقدم</option>
-                        <option value="amount-desc">💵 الأعلى</option>
-                        <option value="amount-asc">💵 الأقل</option>
-                    </select>
-                    <select id="transAccountFilter" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);flex:1;min-width:100px;">
-                        <option value="">🏦 جميع الحسابات</option>
-                    </select>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="transTypeFilters">
-                    <!-- تُملأ ديناميكياً من JavaScript -->
-                </div>
-            </div>
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchTransactions" placeholder="بحث في العمليات..." oninput="renderTransactions()">
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+                <select id="transSort" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="date-desc">📅 الأحدث</option>
+                    <option value="date-asc">📅 الأقدم</option>
+                    <option value="amount-desc">💵 الأعلى</option>
+                    <option value="amount-asc">💵 الأقل</option>
+                </select>
             </div>
             <div id="transactionsLog"></div>
         </div>
@@ -893,6 +1227,10 @@
                     <div class="form-group">
                         <label>تاريخ أول قسط</label>
                         <input type="date" id="firstDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>🏦 الحساب البنكي للمقدم</label>
+                        <select id="instAccountId"><option value="">بدون حساب</option></select>
                     </div>
                     <button type="submit">📝 اعتماد عقد التقسيط</button>
                 </form>
@@ -960,6 +1298,14 @@
             <div id="merchantSalesList"></div>
         </div>
 
+        <div id="merchantPage" class="page">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+                <button class="btn-sm btn-outline" onclick="switchPage('merchantSales')">🔙 رجوع</button>
+                <h2 style="margin:0;" id="mpMerchantName">🏪 صفحة التاجر</h2>
+            </div>
+            <div id="mpContent"></div>
+        </div>
+
         <div id="partners" class="page">
             <h2>🤝 الشركاء والمستثمرون</h2>
             <div class="card">
@@ -978,6 +1324,10 @@
                     <div class="form-group">
                         <label>المبلغ المستثمر (ج.م)</label>
                         <input type="number" id="partnerAmount" step="any" required placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label>🏦 الحساب البنكي للاستثمار</label>
+                        <select id="partnerAccountId"><option value="">بدون حساب</option></select>
                     </div>
                     <div class="form-group">
                         <label>ملاحظات</label>
@@ -1029,11 +1379,6 @@
                     </div>
                     <button type="submit">💾 إضافة الحساب</button>
                 </form>
-            </div>
-            <h2>قائمة الحسابات</h2>
-            <div class="search-box">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchAccounts" placeholder="بحث في الحسابات..." oninput="renderAccounts()">
             </div>
             <div id="accountsList"></div>
         </div>
@@ -1439,6 +1784,10 @@
             <input type="text" id="modalInput" autocomplete="off" style="display:none;">
             <input type="number" step="any" id="modalNumberInput" autocomplete="off" style="display:none;">
             <select id="modalSelectInput" style="display:none;width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);margin-top:6px;"></select>
+            <div id="modalAccountRow" style="display:none;margin-top:6px;">
+                <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:4px;">🏦 الحساب البنكي</label>
+                <select id="modalAccountSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"></select>
+            </div>
         </div>
         <div class="modal-footer">
             <button id="modalCancelBtn" class="btn-sm" style="background:var(--border);color:var(--text-main);border:none;" onclick="window._closeModal?.(null)">إلغاء</button>
@@ -1479,7 +1828,12 @@
         const textInput = document.getElementById('modalInput');
         const numInput = document.getElementById('modalNumberInput');
         const selectInput = document.getElementById('modalSelectInput');
-        if (textInput.style.display !== 'none') _closeModal(textInput.value);
+        const accountRow = document.getElementById('modalAccountRow');
+        if (accountRow.style.display !== 'none') {
+            const amount = parseFloat(numInput.value);
+            const accountId = document.getElementById('modalAccountSelect').value;
+            _closeModal(amount ? { amount, accountId: accountId ? parseInt(accountId) : null } : null);
+        } else if (textInput.style.display !== 'none') _closeModal(textInput.value);
         else if (numInput.style.display !== 'none') _closeModal(parseFloat(numInput.value));
         else if (selectInput.style.display !== 'none') _closeModal(selectInput.value);
         else _closeModal(true);
@@ -1504,6 +1858,7 @@
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
             document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
@@ -1519,6 +1874,7 @@
             document.getElementById('modalInput').style.display = '';
             document.getElementById('modalNumberInput').style.display = 'none';
             document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalInput').value = String(defaultValue);
             document.getElementById('modalInput').type = 'text';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
@@ -1537,7 +1893,28 @@
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = '';
             document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalNumberInput').value = defaultValue;
+            document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+            setTimeout(() => { document.getElementById('modalNumberInput').focus(); document.getElementById('modalNumberInput').select(); }, 100);
+        });
+    };
+
+    window.showPaymentModal = function(message, defaultValue = '', title = 'إدخال') {
+        return new Promise((resolve) => {
+            _modalResolve = resolve;
+            const accSel = document.getElementById('modalAccountSelect');
+            accSel.innerHTML = '<option value="">🏦 بدون حساب</option>' + accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+            document.getElementById('modalIcon').textContent = '💵';
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = '';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalNumberInput').value = defaultValue;
+            document.getElementById('modalAccountRow').style.display = '';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
@@ -1554,6 +1931,7 @@
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
             document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'حسناً';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
@@ -1568,6 +1946,7 @@
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
             const sel = document.getElementById('modalSelectInput');
             sel.style.display = '';
             sel.innerHTML = '<option value="">-- اختر --</option>' + options.map(o => '<option value="' + o.value + '">' + o.label + '</option>').join('');
@@ -1684,13 +2063,15 @@
         else if (name === 'msgTemplates') msgTemplates = data;
         else if (name === 'merchantSales') merchantSales = data;
         else if (name === 'merchantPayments') merchantPayments = data;
+        else if (name === 'merchantPurchases') merchantPurchases = data;
+        else if (name === 'merchantPaymentsOut') merchantPaymentsOut = data;
         else if (name === 'partners') partners = data;
         else if (name === 'accounts') accounts = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, partners, accounts };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -1737,6 +2118,8 @@
     let openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
     let merchantSales = [];
     let merchantPayments = [];
+    let merchantPurchases = [];
+    let merchantPaymentsOut = [];
     let partners = [];
     let stockMovements = [];
     let accounts = [];
@@ -1744,7 +2127,7 @@
     let receiptData = null;
     let currentPage = {};
     const PAGE_SIZE = 20;
-    let transTypeFilter = {}; // populated dynamically from checkboxes
+
 
     let initDiags = [];
 
@@ -2149,35 +2532,7 @@
         if (container) container.insertAdjacentHTML('beforeend', html);
     }
 
-    function initTransTypeFilters() {
-        const typeList = [
-            { key: 'sell_cash', label: 'بيع نقدي', icon: '💵' },
-            { key: 'payment_in', label: 'تحصيل', icon: '💰' },
-            { key: 'purchase', label: 'شراء مخزون', icon: '📦' },
-            { key: 'expense', label: 'مصروفات', icon: '📉' },
-            { key: 'partner_deposit', label: 'استثمار شريك', icon: '🤝' },
-            { key: 'partner_withdrawal', label: 'سحب شريك', icon: '🏦' }
-        ];
-        const container = document.getElementById('transTypeFilters');
-        if (!container) return;
-        let html = '<span style="font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">النوع:</span>';
-        typeList.forEach(t => {
-            transTypeFilter[t.key] = true;
-            html += '<label style="display:flex;align-items:center;gap:3px;font-size:0.78rem;cursor:pointer;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);transition:all 0.2s;" data-type="' + t.key + '">' +
-                '<input type="checkbox" checked onchange="toggleTransType(\'' + t.key + '\')" style="accent-color:var(--primary);margin:0;cursor:pointer;"> ' +
-                t.icon + ' ' + t.label +
-            '</label>';
-        });
-        html += '<button class="btn-sm" style="font-size:0.75rem;padding:3px 10px;" onclick="document.querySelectorAll(\'#transTypeFilters input[type=checkbox]\').forEach(cb => { cb.checked = true; }); Object.keys(transTypeFilter).forEach(k => transTypeFilter[k] = true); renderTransactions();">✅ تحديد الكل</button>';
-        html += '<button class="btn-sm" style="font-size:0.75rem;padding:3px 10px;" onclick="document.querySelectorAll(\'#transTypeFilters input[type=checkbox]\').forEach(cb => { cb.checked = false; }); Object.keys(transTypeFilter).forEach(k => transTypeFilter[k] = false); renderTransactions();">🗑️ إلغاء الكل</button>';
-        container.innerHTML = html;
-    }
 
-    window.toggleTransType = (key) => {
-        transTypeFilter[key] = !transTypeFilter[key];
-        currentPage['trans'] = 0;
-        renderTransactions();
-    };
 
     function showToast(message, type) {
         if (!type) type = 'success';
@@ -2265,6 +2620,8 @@
         localStorage.setItem('msgTemplates', JSON.stringify(msgTemplates));
         localStorage.setItem('merchantSales', JSON.stringify(merchantSales));
         localStorage.setItem('merchantPayments', JSON.stringify(merchantPayments));
+        localStorage.setItem('merchantPurchases', JSON.stringify(merchantPurchases));
+        localStorage.setItem('merchantPaymentsOut', JSON.stringify(merchantPaymentsOut));
         localStorage.setItem('partners', JSON.stringify(partners));
         localStorage.setItem('accounts', JSON.stringify(accounts));
         localStorage.setItem('stockMovements', JSON.stringify(stockMovements));
@@ -2275,7 +2632,7 @@
     }
 
     function updateStorageInfo() {
-        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, partners, accounts, openingCapital });
+        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital });
         const sizeKB = (new Blob([total]).size / 1024).toFixed(1);
         document.getElementById('storageSize').textContent = sizeKB + ' KB';
         const pct = Math.min((parseFloat(sizeKB) / 5000) * 100, 100);
@@ -2333,13 +2690,12 @@
         
         if (document.getElementById('incomeAccountId')) document.getElementById('incomeAccountId').innerHTML = accountOptions;
         if (document.getElementById('expenseAccountId')) document.getElementById('expenseAccountId').innerHTML = accountOptions;
-        if (document.getElementById('transAccountFilter')) {
-            document.getElementById('transAccountFilter').innerHTML = '<option value="">🏦 جميع الحسابات</option>' + accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
-        }
         if (document.getElementById('transProductId')) document.getElementById('transProductId').innerHTML = prodOptions;
         if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
         if (document.getElementById('prodAccountId')) document.getElementById('prodAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
+        if (document.getElementById('instAccountId')) document.getElementById('instAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
+        if (document.getElementById('partnerAccountId')) document.getElementById('partnerAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
@@ -3148,7 +3504,7 @@
         return;
     }
     const pag = paginate(filtered, 'products');
-    let html = '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+    let html = '<div class="text-sm text-muted mb-2">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
     pag.items.forEach(p => {
         const totalCost = p.costPrice + (p.expenses || 0);
         const profit = p.sellPrice - totalCost;
@@ -3156,29 +3512,29 @@
         const badgeClass = p.stock > 5 ? 'badge-primary' : p.stock > 0 ? 'badge-warning' : 'badge-danger';
         const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
         const disabledAttr = p.stock <= 0 ? 'disabled' : '';
-        const profitColor = profit >= 0 ? 'var(--success)' : 'var(--danger)';
+        const profitColor = profit >= 0 ? 'text-success' : 'text-danger';
         const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
         html += '' +
-        '<div class="card" style="' + (p.archived ? 'opacity:0.7;' : '') + '">' +
-            '<div class="flex-between" style="margin-bottom:8px;">' +
-                '<strong style="font-size:1.05rem;">📱 ' + p.name + archiveBadge + '</strong>' +
+        '<div class="card' + (p.archived ? ' opacity-50' : '') + '">' +
+            '<div class="flex-between mb-2">' +
+                '<strong class="text-lg">📱 ' + p.name + archiveBadge + '</strong>' +
                 '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
             '</div>' +
-            '<div style="border-top:1px solid var(--border); padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.88rem;">' +
-                '<div><span style="color:var(--text-muted);">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
-                '<div><span style="color:var(--text-muted);">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
-                '<div><span style="color:var(--text-muted);">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
-                '<div><span style="color:var(--text-muted);">📈 ربح</span><br><strong style="color:' + profitColor + ';">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
-                (p.imei ? '<div style="grid-column:1/-1;"><span style="color:var(--text-muted);">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
+            '<div class="grid-2 gap-2 border-t pt-3 text-sm">' +
+                '<div><span class="text-muted">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
+                '<div><span class="text-muted">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
+                '<div><span class="text-muted">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
+                '<div><span class="text-muted">📈 ربح</span><br><strong class="' + profitColor + '">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
+                (p.imei ? '<div class="col-span-2" style="grid-column:1/-1;"><span class="text-muted">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
             '</div>' +
-            '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
+            '<div class="flex flex-wrap gap-1 mt-3 pt-3 border-t">' +
                 (p.archived
-                    ? '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
-                      '<button class="btn-sm btn-outline" onclick="unarchiveProduct(' + p.id + ')" style="flex:1; min-width:60px;">📦 إظهار</button>'
-                    : '<button class="btn-sm btn-success" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')" style="flex:1; min-width:60px;">💵 بيع</button>' +
-                      '<button class="btn-sm btn-outline" onclick="purchaseProduct(' + p.id + ')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
-                      '<button class="btn-sm btn-outline" onclick="editProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
-                      '<button class="btn-sm btn-danger" onclick="deleteProduct(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>'
+                    ? '<button class="btn-sm btn-outline flex-1" onclick="purchaseProduct(' + p.id + ')" style="border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                      '<button class="btn-sm btn-outline flex-1" onclick="unarchiveProduct(' + p.id + ')">📦 إظهار</button>'
+                    : '<button class="btn-sm btn-success flex-1" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')">💵 بيع</button>' +
+                      '<button class="btn-sm btn-outline flex-1" onclick="purchaseProduct(' + p.id + ')" style="border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
+                      '<button class="btn-sm btn-outline flex-shrink-0" onclick="editProduct(' + p.id + ')">✏️</button>' +
+                      '<button class="btn-sm btn-danger flex-shrink-0" onclick="deleteProduct(' + p.id + ')">🗑️</button>'
                 ) +
             '</div>' +
         '</div>';
@@ -3247,6 +3603,7 @@
             transactions.push({
                 id: Date.now(), type: 'sell_cash', amount: p.sellPrice,
                 productId: p.id, merchantId: mId ? parseInt(mId) : null,
+                accountId: p.accountId || undefined,
                 notes: 'بيع نقدي | ' + p.name, discount: p.discount || 0,
                 date: new Date().toISOString()
             });
@@ -3539,7 +3896,6 @@
 
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
-        const term = getSearchTerm('Transactions');
         const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك' };
         const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦' };
 
@@ -3557,70 +3913,8 @@
 
         let filtered = [...transactions];
 
-        // تصفية حسب نوع الحركة (checkboxes)
-        const activeTypes = Object.keys(transTypeFilter).filter(k => transTypeFilter[k]);
-        if (activeTypes.length > 0 && activeTypes.length < Object.keys(transTypeFilter).length) {
-            filtered = filtered.filter(t => activeTypes.includes(t.type));
-        }
-
-        // تصفية حسب التاريخ
-        const dateFrom = document.getElementById('transDateFrom')?.value;
-        const dateTo = document.getElementById('transDateTo')?.value;
-        if (dateFrom) {
-            const from = new Date(dateFrom); from.setHours(0,0,0,0);
-            filtered = filtered.filter(t => new Date(t.date) >= from);
-        }
-        if (dateTo) {
-            const to = new Date(dateTo); to.setHours(23,59,59,999);
-            filtered = filtered.filter(t => new Date(t.date) <= to);
-        }
-
-        // تصفية حسب الكيان (عميل/شريك)
-        const entityFilter = document.getElementById('transEntityFilter')?.value;
-        if (entityFilter === 'customer') {
-            filtered = filtered.filter(t => t.merchantId || (t.type === 'sell_cash' && !t.partnerId));
-        } else if (entityFilter === 'partner') {
-            filtered = filtered.filter(t => t.partnerId);
-        }
-
-        // تصفية حسب الحساب
-        const accountFilter = document.getElementById('transAccountFilter')?.value;
-        if (accountFilter) {
-            filtered = filtered.filter(t => t.accountId == accountFilter);
-        }
-
-        // تصفية حسب البحث
-        if (term) {
-            filtered = filtered.filter(t => {
-                const typeLabel = typeMap[t.type] || t.type;
-                let p = products.find(x => x.id == t.productId);
-                let m = merchants.find(x => x.id == t.merchantId);
-                let pr = partners.find(x => x.id == t.partnerId);
-                const searchStr = (typeLabel + ' ' + (t.notes || '') + ' ' + (p?.name || '') + ' ' + (m?.name || '') + ' ' + (pr?.name || '')).toLowerCase();
-                return searchStr.includes(term);
-            });
-        }
-
-        // إحصائيات لكل نوع
-        let typeStatsHtml = '';
-        if (filtered.length > 0) {
-            const typeKeys = ['sell_cash', 'payment_in', 'purchase', 'expense', 'partner_deposit', 'partner_withdrawal'];
-            typeStatsHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;">';
-            typeKeys.forEach(k => {
-                let items = filtered.filter(t => t.type === k);
-                if (items.length === 0) return;
-                let total = items.reduce((s, t) => s + (t.amount || 0), 0);
-                let isInc = isIncomeType(k);
-                typeStatsHtml += '<div style="display:flex;align-items:center;gap:4px;font-size:0.78rem;padding:3px 10px;background:' + (isInc ? 'var(--success-light)' : 'var(--danger-light)') + ';border-radius:6px;">' +
-                    typeIcons[k] + ' ' + typeMap[k] + ': <strong style="color:' + (isInc ? 'var(--success)' : 'var(--danger)') + ';">' + total.toLocaleString() + ' ج</strong>' +
-                    ' <span style="color:var(--text-muted);font-size:0.72rem;">(' + items.length + ')</span>' +
-                '</div>';
-            });
-            typeStatsHtml += '</div>';
-        }
-
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا يوجد حركات') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'الحركات تظهر تلقائياً عند البيع أو الشراء أو التحصيل') + '</div></div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد حركات</div><div class="empty-sub">الحركات تظهر تلقائياً عند البيع أو الشراء أو التحصيل</div></div>';
             return;
         }
 
@@ -3647,10 +3941,10 @@
             const dayTotal = groups[day].reduce((s, t) => {
                 return s + (isIncomeType(t.type) ? t.amount : -t.amount);
             }, 0);
-            const dayColor = dayTotal >= 0 ? 'var(--success)' : 'var(--danger)';
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:var(--text-muted); font-weight:700; padding:8px 4px 4px 4px; margin-top:14px; border-bottom:2px solid var(--border);">' +
-                '<span>📅 ' + day + ' <span style="font-size:0.8rem; font-weight:400; color:#94a3b8;">(' + groups[day].length + ')</span></span>' +
-                '<span style="color:' + dayColor + ';">' + (dayTotal >= 0 ? '+' : '') + dayTotal.toFixed(0) + ' ج</span>' +
+            const dayColor = dayTotal >= 0 ? 'text-success' : 'text-danger';
+            html += '<div class="flex-between items-center text-sm text-muted font-bold p-1 mt-3" style="border-bottom:2px solid var(--border);">' +
+                '<span>📅 ' + day + ' <span class="text-xs font-normal" style="color:#94a3b8;">(' + groups[day].length + ')</span></span>' +
+                '<span class="' + dayColor + '">' + (dayTotal >= 0 ? '+' : '') + dayTotal.toFixed(0) + ' ج</span>' +
             '</div>';
             groups[day].forEach(t => {
                 let p = products.find(x => x.id == t.productId);
@@ -3661,26 +3955,27 @@
                 let isInc = isIncomeType(t.type);
                 let bgColor = isInc ? 'var(--success-light)' : 'var(--danger-light)';
                 let textColor = isInc ? 'var(--success)' : 'var(--danger)';
+                let textClass = isInc ? 'text-success' : 'text-danger';
                 let sign = isInc ? '+' : '';
                 let entityName = pr?.name || m?.name || '';
                 html += '' +
-                '<div style="display:flex; align-items:center; gap:10px; padding:10px 12px; margin:4px 0; background:' + bgColor + '; border-radius:10px; border-right:3px solid ' + textColor + ';">' +
-                    '<span style="font-size:1.2rem;">' + icon + '</span>' +
-                    '<div style="flex:1; min-width:0;">' +
-                        '<div style="font-size:0.85rem; font-weight:700; color:var(--text-main);display:flex;align-items:center;gap:4px;">' + (typeMap[t.type] || t.type) + (entityName ? ' <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">· ' + entityName + '</span>' : '') + '</div>' +
-                        '<div style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                '<div class="flex items-center gap-2 p-3" style="margin:4px 0; background:' + bgColor + '; border-radius:10px; border-right:3px solid ' + textColor + ';">' +
+                    '<span class="text-lg">' + icon + '</span>' +
+                    '<div class="flex-1" style="min-width:0;">' +
+                        '<div class="text-sm font-bold flex items-center gap-1">' + (typeMap[t.type] || t.type) + (entityName ? ' <span class="text-xs font-normal text-muted">· ' + entityName + '</span>' : '') + '</div>' +
+                        '<div class="text-xs text-muted truncate">' +
                             new Date(t.date).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) +
                             (p?.name ? ' · 📦 ' + p.name : '') +
                             (a ? ' · ' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name : '') +
                         '</div>' +
                     '</div>' +
-                    '<strong style="color:' + textColor + '; font-size:1rem; white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
-                    '<button class="btn-sm" style="background:none;color:var(--primary);padding:4px 6px;min-height:30px;font-size:0.9rem;border:none;box-shadow:none;" onclick="editTransaction(' + t.id + ')" title="تعديل">✏️</button>' +
-                    '<button class="btn-sm" style="background:none;color:var(--danger);padding:4px 6px;min-height:30px;font-size:0.9rem;border:none;box-shadow:none;" onclick="deleteTransaction(' + t.id + ')" title="حذف">🗑️</button>' +
+                    '<strong class="' + textClass + ' text-base ws-nowrap">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
+                    '<button class="btn-sm btn-icon" style="color:var(--primary);" onclick="editTransaction(' + t.id + ')" title="تعديل">✏️</button>' +
+                    '<button class="btn-sm btn-icon" style="color:var(--danger);" onclick="deleteTransaction(' + t.id + ')" title="حذف">🗑️</button>' +
                 '</div>';
             });
         });
-        html += '<div style="color:var(--text-muted); text-align:center; font-size:0.85rem; padding:6px 0;">عرض ' + pag.start + '-' + pag.end + ' من ' + pag.total + '</div>';
+        html += '<div class="text-muted text-center text-sm p-1">عرض ' + pag.start + '-' + pag.end + ' من ' + pag.total + '</div>';
         renderPagination(container, 'trans', pag.totalPages, 'renderTransactions()');
         container.innerHTML = html;
     }
@@ -3778,6 +4073,7 @@
                 transactions.push({
                     id: Date.now() + 1, type: 'payment_in', amount: upfront,
                     productId: parseInt(pId), merchantId: parseInt(mId),
+                    accountId: document.getElementById('instAccountId').value ? parseInt(document.getElementById('instAccountId').value) : undefined,
                     notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + p.name, date: new Date().toISOString()
                 });
             }
@@ -4122,9 +4418,10 @@
             let slot = inst.schedule[slotIdx];
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let remaining = parseFloat((inst.monthlyAmount - slot.paidAmount).toFixed(2));
-            let amount = await showNumberPromptModal('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م', remaining.toFixed(2), '💵 تحصيل القسط');
-            if (amount === null || isNaN(amount)) return;
-            let val = Math.min(amount, remaining);
+            let result = await showPaymentModal('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م', remaining.toFixed(2), '💵 تحصيل القسط');
+            if (!result || isNaN(result.amount)) return;
+            let val = Math.min(result.amount, remaining);
+            let paymentAccountId = result.accountId;
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
             slot.paidAmount = parseFloat((slot.paidAmount + val).toFixed(2));
             if (slot.paidAmount >= inst.monthlyAmount - 0.01) { slot.isPaid = true; slot.paidAmount = inst.monthlyAmount; }
@@ -4135,6 +4432,7 @@
             transactions.push({
                 id: Date.now(), type: 'payment_in', amount: val,
                 merchantId: inst.merchantId, productId: inst.productId,
+                accountId: paymentAccountId || undefined,
                 notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString()
             });
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
@@ -4156,9 +4454,9 @@
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) return;
-            let amount = await showNumberPromptModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل');
-            if (amount === null || isNaN(amount)) return;
-            let val = amount;
+            let result = await showPaymentModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل');
+            if (!result || isNaN(result.amount)) return;
+            let val = result.amount;
             if(val > inst.remainingBalance) val = inst.remainingBalance;
             inst.remainingBalance -= val;
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
@@ -4166,6 +4464,7 @@
             transactions.push({
                 id: Date.now(), type: 'payment_in', amount: val,
                 merchantId: inst.merchantId, productId: inst.productId,
+                accountId: result.accountId || undefined,
                 notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString()
             });
             
@@ -4180,7 +4479,9 @@
     function calcMerchantBalance(merchantId) {
         let totalSales = merchantSales.filter(s => s.merchantId == merchantId).reduce((sum, s) => sum + (s.sellPrice || 0) * (s.quantity || 1), 0);
         let totalPayments = merchantPayments.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.amount || 0), 0);
-        return { totalSales, totalPayments, balance: totalSales - totalPayments };
+        let totalPurchases = merchantPurchases.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.costPrice || 0) * (p.quantity || 1), 0);
+        let totalPaymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.amount || 0), 0);
+        return { totalSales, totalPayments, totalPurchases, totalPaymentsOut, balance: totalSales + totalPaymentsOut - totalPayments - totalPurchases };
     }
 
     function getMerchantDebtSummary() {
@@ -4188,13 +4489,28 @@
         merchantSales.forEach(s => {
             if (!summary[s.merchantId]) {
                 let m = merchants.find(x => x.id == s.merchantId);
-                summary[s.merchantId] = { name: m?.name || s.merchantName, phone: m?.phone || s.phone, totalSales: 0, totalPayments: 0 };
+                summary[s.merchantId] = { name: m?.name || s.merchantName, phone: m?.phone || s.phone, totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: 0 };
             }
             summary[s.merchantId].totalSales += (s.sellPrice || 0) * (s.quantity || 1);
         });
         merchantPayments.forEach(p => {
             if (summary[p.merchantId]) {
                 summary[p.merchantId].totalPayments += p.amount || 0;
+            }
+        });
+        merchantPurchases.forEach(p => {
+            if (!summary[p.merchantId]) {
+                let m = merchants.find(x => x.id == p.merchantId);
+                summary[p.merchantId] = { name: m?.name || p.merchantName, phone: m?.phone || '', totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: 0 };
+            }
+            summary[p.merchantId].totalPurchases += (p.costPrice || 0) * (p.quantity || 1);
+        });
+        merchantPaymentsOut.forEach(p => {
+            if (summary[p.merchantId]) {
+                summary[p.merchantId].totalPaymentsOut += p.amount || 0;
+            } else {
+                let m = merchants.find(x => x.id == p.merchantId);
+                summary[p.merchantId] = { name: m?.name || '', phone: m?.phone || '', totalSales: 0, totalPayments: 0, totalPurchases: 0, totalPaymentsOut: p.amount || 0 };
             }
         });
         return summary;
@@ -4204,16 +4520,18 @@
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
         let bal = calcMerchantBalance(merchantId);
-        let amount = await showNumberPromptModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل');
-        if (amount === null || isNaN(amount) || amount <= 0) return;
-        let val = amount;
+        let result = await showPaymentModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل من تاجر');
+        if (!result || isNaN(result.amount) || result.amount <= 0) return;
+        let val = result.amount;
         let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
         merchantPayments.push(pay);
         transactions.push({
             id: Date.now() + 1, type: 'payment_in', amount: val,
-            merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
+            merchantId, accountId: result.accountId || undefined,
+            notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
         });
         saveData(); renderMerchantSales(); renderTransactions();
+        if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
     };
 
@@ -4222,6 +4540,8 @@
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
         let sales = merchantSales.filter(s => s.merchantId == merchantId);
         let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+        let purchases = merchantPurchases.filter(p => p.merchantId == merchantId);
+        let paymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId);
         let bal = calcMerchantBalance(merchantId);
 
         let rows = [];
@@ -4233,24 +4553,121 @@
         payments.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
         });
+        purchases.forEach(p => {
+            let qty = p.quantity || 1;
+            let totalPrice = (p.costPrice || 0) * qty;
+            rows.push({ date: p.date, desc: 'شراء: ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : ''), debit: 0, credit: totalPrice });
+        });
+        paymentsOut.forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
+        });
         rows.sort((a, b) => a.date.localeCompare(b.date));
 
-        let html = '<div class="merchant-statement">';
-        html += '<div class="merchant-statement-header"><h3>📋 كشف حساب ' + m.name + '</h3><button class="btn-sm" style="background:rgba(255,255,255,0.2);color:white;" onclick="document.getElementById(\'msStatement\').innerHTML=\'\'">✖ إغلاق</button></div>';
-        html += '<table class="merchant-statement-table"><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>';
-        rows.forEach(r => {
-            html += '<tr><td>' + r.date.slice(0,10) + '</td><td>' + r.desc + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>';
-        });
-        html += '</tbody></table>';
-        html += '<div class="merchant-statement-total"><span>الرصيد المتبقي</span><span class="' + (bal.balance > 0 ? 'debt' : 'credit') + '">' + bal.balance.toFixed(2) + ' ج</span></div>';
-        html += '</div>';
+        const MSI = {
+            doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+            print: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+            close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        };
 
-        let stDiv = document.getElementById('msStatement') || (() => {
-            let d = document.createElement('div'); d.id = 'msStatement';
-            document.getElementById('merchantSalesList').parentNode.insertBefore(d, document.getElementById('merchantSalesList'));
-            return d;
-        })();
-        stDiv.innerHTML = html;
+        let rowsHtml = rows.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
+                '<thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>' +
+                rows.map(r => '<tr><td>' + r.date.slice(0,10) + '</td><td>' + r.desc + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>').join('') +
+                '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد مبيعات</div>';
+
+        let overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'merchantStatementOverlay';
+        overlay.innerHTML = '' +
+        '<div class="customer-statement-modal">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">' + MSI.doc + ' كشف حساب: ' + m.name + '</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;">' +
+                    (m.phone || '') +
+                '</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printMerchantStatement(' + merchantId + ')">' + MSI.print + ' طباعة</button>' +
+                    '<button onclick="document.getElementById(\'merchantStatementOverlay\').remove()">' + MSI.close + ' إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div class="customer-statement-summary">' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value primary">' + bal.totalSales.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value warning">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">مدفوعات (منه)</div><div class="stat-value success">' + bal.totalPayments.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">مدفوعات (له)</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">الرصيد</div><div class="stat-value ' + (bal.balance > 0 ? 'danger' : 'success') + '">' + bal.balance.toFixed(2) + ' ج</div></div>' +
+                '</div>' +
+                '<h4 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">' + MSI.doc + ' سجل الحركات (' + rows.length + ')</h4>' +
+                rowsHtml +
+            '</div>' +
+        '</div>';
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    };
+
+    window.printMerchantStatement = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let sales = merchantSales.filter(s => s.merchantId == merchantId);
+        let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+        let purchases = merchantPurchases.filter(p => p.merchantId == merchantId);
+        let paymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId);
+        let bal = calcMerchantBalance(merchantId);
+
+        let rows = [];
+        sales.forEach(s => {
+            let qty = s.quantity || 1;
+            let totalPrice = (s.sellPrice || 0) * qty;
+            rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : ''), debit: totalPrice, credit: 0 });
+        });
+        payments.forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
+        });
+        purchases.forEach(p => {
+            let qty = p.quantity || 1;
+            let totalPrice = (p.costPrice || 0) * qty;
+            rows.push({ date: p.date, desc: 'شراء: ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : ''), debit: 0, credit: totalPrice });
+        });
+        paymentsOut.forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
+        });
+        rows.sort((a, b) => a.date.localeCompare(b.date));
+
+        const PMSI = {
+            doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+        };
+
+        let rowsHtml = rows.map(r => '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + r.date.slice(0,10) + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>').join('');
+
+        let htmlContent = '' +
+        '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:900px;margin:auto;box-sizing:border-box;">' +
+            '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
+                '<h1 style="color:#4f46e5;font-size:1.6rem;margin:0 0 4px 0;display:flex;align-items:center;justify-content:center;gap:8px;">' + PMSI.doc + ' كشف حساب تاجر: ' + m.name + '</h1>' +
+                '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات والتقسيط</p>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المبيعات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + bal.totalSales.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المشتريات</div><div style="font-size:1.15rem;font-weight:800;color:#d97706;">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">مدفوعات (منه)</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + bal.totalPayments.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">مدفوعات (له)</div><div style="font-size:1.15rem;font-weight:800;color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد</div><div style="font-size:1.15rem;font-weight:800;' + (bal.balance > 0 ? 'color:#ef4444;' : 'color:#059669;') + '">' + bal.balance.toFixed(2) + ' ج</div></div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (عليه)</th><th style="padding:10px 8px;text-align:right;">دائن (له)</th></tr></thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+            '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات والتقسيط</div>' +
+        '</div>';
+
+        const w = window.open('', '', 'width=700,height=500');
+        if (!w) { showToast('السماح بالنوافذ المنبثقة للطباعة', 'error'); return; }
+        w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب ' + m.name + '</title></head><body>' + htmlContent + '<script>window.onafterprint=()=>window.close();<\/script></body></html>');
+        w.document.close();
+        setTimeout(() => w.print(), 500);
     };
 
     window.sendMerchantWhatsApp = (merchantId) => {
@@ -4259,10 +4676,300 @@
         let phone = m.phone.replace(/^0/, '20').replace(/[^0-9]/g, '');
         if (!phone) { showToast('رقم الهاتف غير متاح', 'error'); return; }
         let bal = calcMerchantBalance(merchantId);
-        let balLabel = bal.balance > 0 ? 'المديونية' : (bal.balance < 0 ? 'الزيادة' : 'الرصيد');
-        let msg = 'كشف حساب ' + m.name + '\n' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج\nاجمالي المبيعات: ' + bal.totalSales.toFixed(2) + ' ج\nاجمالي المدفوعات: ' + bal.totalPayments.toFixed(2) + ' ج';
+        let balLabel = bal.balance > 0 ? 'المديونية' : (bal.balance < 0 ? 'زيادة لصالحه' : 'الرصيد');
+        let msg = 'كشف حساب ' + m.name + '\n' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج\nاجمالي المبيعات: ' + bal.totalSales.toFixed(2) + ' ج\nاجمالي المشتريات: ' + bal.totalPurchases.toFixed(2) + ' ج\nمدفوعات منه: ' + bal.totalPayments.toFixed(2) + ' ج\nمدفوعات له: ' + bal.totalPaymentsOut.toFixed(2) + ' ج';
         window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
         setTimeout(() => generateMerchantStatementPDF(merchantId), 300);
+    };
+
+    window.currentMerchantId = null;
+
+    window.showMerchantPage = (merchantId) => {
+        window.currentMerchantId = merchantId;
+        switchPage('merchantPage');
+        renderMerchantPage();
+    };
+
+    window.renderMerchantPage = () => {
+        let merchantId = window.currentMerchantId;
+        if (!merchantId) return;
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { document.getElementById('mpContent').innerHTML = '<div class="empty-state"><div class="empty-icon">❓</div><div class="empty-text">التاجر غير موجود</div></div>'; return; }
+
+        document.getElementById('mpMerchantName').textContent = '🏪 ' + m.name;
+        let sales = merchantSales.filter(s => s.merchantId == merchantId).sort((a, b) => b.date.localeCompare(a.date));
+        let payments = merchantPayments.filter(p => p.merchantId == merchantId).sort((a, b) => b.date.localeCompare(a.date));
+        let purchases = merchantPurchases.filter(p => p.merchantId == merchantId).sort((a, b) => b.date.localeCompare(a.date));
+        let paymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId).sort((a, b) => b.date.localeCompare(a.date));
+        let bal = calcMerchantBalance(merchantId);
+
+        let html = '';
+
+        // Merchant info + summary cards
+        html += '<div class="card" style="margin-bottom:14px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
+        html += '<div><div style="font-weight:700;font-size:1.1rem;">' + m.name + '</div>';
+        html += '<div style="font-size:0.85rem;color:var(--text-muted);">' + (m.phone || '') + (m.address ? ' | ' + m.address : '') + '</div></div>';
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+        html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
+        html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
+        html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
+        html += '</div></div>';
+
+        // Action buttons row
+        html += '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">';
+        html += '<button class="btn-sm" style="background:var(--primary);color:#fff;border:none;" onclick="recordMerchantSaleOnPage(' + merchantId + ')">➕ بيع جديد</button>';
+        html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء من تاجر</button>';
+        html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + merchantId + ')">💰 دفعة منه</button>';
+        html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 دفعة له</button>';
+        html += '</div></div>';
+
+        // Summary cards
+        html += '<div class="customer-statement-summary" style="margin-bottom:14px;">';
+        html += '<div class="stat-card"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value primary">' + bal.totalSales.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card"><div class="stat-label">مدفوعات (منه)</div><div class="stat-value success">' + bal.totalPayments.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card"><div class="stat-label">مدفوعات (له)</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card"><div class="stat-label">الرصيد</div><div class="stat-value ' + (bal.balance > 0 ? 'danger' : 'success') + '">' + bal.balance.toFixed(2) + ' ج</div></div>';
+        html += '</div>';
+
+        // Sales section
+        html += '<div class="card" style="margin-bottom:14px;">';
+        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">📦 مبيعات للتاجر (' + sales.length + ')</h3>';
+        if (sales.length === 0) {
+            html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مبيعات</div>';
+        } else {
+            html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
+            html += '<thead><tr><th>المنتج</th><th>العدد</th><th>السعر</th><th>الإجمالي</th><th>التاريخ</th><th>إجراءات</th></tr></thead><tbody>';
+            sales.forEach(s => {
+                let qty = s.quantity || 1;
+                let totalPrice = (s.sellPrice || 0) * qty;
+                let d = new Date(s.date).toLocaleDateString('ar-EG');
+                html += '<tr><td>' + (s.deviceName || '') + '</td><td>' + qty + '</td><td>' + (s.sellPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
+                html += '<td><button class="btn-sm btn-outline" onclick="editMerchantSale(' + s.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantSale(' + s.id + ')">🗑️</button></td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        // Purchases section
+        html += '<div class="card" style="margin-bottom:14px;">';
+        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">📥 مشتريات من التاجر (' + purchases.length + ')</h3>';
+        if (purchases.length === 0) {
+            html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مشتريات</div>';
+        } else {
+            html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
+            html += '<thead><tr><th>المنتج</th><th>العدد</th><th>سعر الشراء</th><th>الإجمالي</th><th>التاريخ</th><th>إجراءات</th></tr></thead><tbody>';
+            purchases.forEach(p => {
+                let qty = p.quantity || 1;
+                let totalPrice = (p.costPrice || 0) * qty;
+                let d = new Date(p.date).toLocaleDateString('ar-EG');
+                html += '<tr><td>' + (p.productName || '') + '</td><td>' + qty + '</td><td>' + (p.costPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
+                html += '<td><button class="btn-sm btn-outline" onclick="editMerchantPurchase(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantPurchase(' + p.id + ')">🗑️</button></td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        // Payments section
+        html += '<div class="card" style="margin-bottom:14px;">';
+        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">💰 المدفوعات (' + (payments.length + paymentsOut.length) + ')</h3>';
+        let allPmts = [];
+        payments.forEach(p => allPmts.push({ date: p.date, desc: p.notes || 'دفعة من تاجر', amount: p.amount, dir: 'in' }));
+        paymentsOut.forEach(p => allPmts.push({ date: p.date, desc: p.notes || 'دفعة لتاجر', amount: p.amount, dir: 'out' }));
+        allPmts.sort((a, b) => b.date.localeCompare(a.date));
+        if (allPmts.length === 0) {
+            html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مدفوعات</div>';
+        } else {
+            html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
+            html += '<thead><tr><th>البيان</th><th>المبلغ</th><th>النوع</th><th>التاريخ</th></tr></thead><tbody>';
+            allPmts.forEach(p => {
+                let d = new Date(p.date).toLocaleDateString('ar-EG');
+                let typeLabel = p.dir === 'in' ? '🧾 دفعة منه' : '💸 دفعة له';
+                let color = p.dir === 'in' ? 'var(--success)' : 'var(--danger)';
+                html += '<tr><td>' + p.desc + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td></tr>';
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        document.getElementById('mpContent').innerHTML = html;
+    };
+
+    window.recordMerchantPurchase = async (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let result = await showPaymentModal('شراء من ' + m.name + '\nأدخل سعر الشراء الإجمالي', '', '📥 شراء من تاجر');
+        if (!result || isNaN(result.amount) || result.amount <= 0) return;
+        let val = result.amount;
+
+        // Ask for product name
+        let prodName = await showPromptModal('اسم المنتج المشترى من ' + m.name + ':', '', '🏷️ اسم المنتج');
+        if (!prodName || !prodName.trim()) { showToast('يجب إدخال اسم المنتج', 'error'); return; }
+        prodName = prodName.trim();
+
+        // Ask for quantity
+        let qtyStr = await showPromptModal('العدد:', '1', '🔢 العدد');
+        let qty = parseInt(qtyStr) || 1;
+        if (qty < 1) qty = 1;
+
+        let costPrice = val / qty;
+
+        // Find or create product in inventory
+        let existingProd = products.find(p => p.name === prodName);
+        if (existingProd) {
+            existingProd.stock += qty;
+        } else {
+            let newProd = {
+                id: Date.now() + 1000,
+                name: prodName,
+                costPrice: costPrice,
+                expenses: 0,
+                sellPrice: costPrice * 1.2,
+                stock: qty,
+                imei: '',
+                accountId: result.accountId || undefined,
+                discount: 0,
+                archived: false
+            };
+            products.push(newProd);
+            refreshSelectors();
+        }
+
+        let purchase = {
+            id: Date.now(),
+            merchantId,
+            merchantName: m.name,
+            productName: prodName,
+            costPrice,
+            quantity: qty,
+            date: new Date().toISOString(),
+            notes: 'شراء من ' + m.name,
+            accountId: result.accountId || undefined
+        };
+        merchantPurchases.push(purchase);
+        transactions.push({
+            id: Date.now() + 1, type: 'merchant_purchase', amount: val,
+            merchantId, accountId: result.accountId || undefined,
+            notes: 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + qty, date: new Date().toISOString()
+        });
+        saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
+        showToast('✅ تم شراء ' + qty + '× ' + prodName + ' من ' + m.name + ' بقيمة ' + val.toFixed(2) + ' ج');
+    };
+
+    window.recordMerchantPaymentOut = async (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let bal = calcMerchantBalance(merchantId);
+        let result = await showPaymentModal('دفعة إلى ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', '', '💸 دفعة لتاجر');
+        if (!result || isNaN(result.amount) || result.amount <= 0) return;
+        let val = result.amount;
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
+        merchantPaymentsOut.push(pay);
+        transactions.push({
+            id: Date.now() + 1, type: 'payment_out', amount: val,
+            merchantId, accountId: result.accountId || undefined,
+            notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString()
+        });
+        saveData(); renderMerchantPage(); renderMerchantSales(); renderTransactions();
+        showToast('✅ تم دفع ' + val.toFixed(2) + ' ج إلى ' + m.name);
+    };
+
+    window.deleteMerchantPurchase = async (id) => {
+        try {
+            let purchase = merchantPurchases.find(p => p.id == id);
+            if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
+            let ok = await showConfirmModal('حذف شراء "' + (purchase.productName || '') + '" من ' + (purchase.merchantName || '') + ' بقيمة ' + ((purchase.costPrice || 0) * (purchase.quantity || 1)).toFixed(2) + ' ج؟\n(سيتم خصم الكمية من المخزون)', '⚠️ تأكيد الحذف');
+            if (!ok) return;
+            let p = products.find(x => x.name === purchase.productName);
+            if (p) {
+                p.stock -= (purchase.quantity || 1);
+                if (p.stock < 0) p.stock = 0;
+            }
+            merchantPurchases = merchantPurchases.filter(p => p.id != id);
+            saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
+            showToast('تم حذف الشراء');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.editMerchantPurchase = async (id) => {
+        try {
+            let purchase = merchantPurchases.find(p => p.id == id);
+            if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
+            let qty = purchase.quantity || 1;
+            let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (purchase.productName || '') + '\nالكمية الحالية: ' + qty, qty, 'تعديل الكمية');
+            if (newQty === null || isNaN(newQty) || newQty < 1) { showToast('كمية غير صالحة', 'error'); return; }
+            let diff = newQty - qty;
+            if (diff !== 0) {
+                let p = products.find(x => x.name === purchase.productName);
+                if (p) {
+                    p.stock += diff;
+                    if (p.stock < 0) p.stock = 0;
+                }
+                purchase.quantity = newQty;
+            }
+            let newPrice = await showNumberPromptModal('✏️ تعديل سعر شراء ' + (purchase.productName || '') + '\nسعر القطعة الحالي: ' + (purchase.costPrice || 0).toFixed(2) + ' ج', purchase.costPrice, 'تعديل السعر');
+            if (newPrice === null || isNaN(newPrice) || newPrice <= 0) { showToast('سعر غير صالح', 'error'); return; }
+            purchase.costPrice = newPrice;
+            saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard();
+            showToast('✅ تم تحديث الشراء');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.recordMerchantSaleOnPage = async (merchantId) => {
+        // Simple sale form inline on the merchant page
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+
+        // Build product options
+        let activeProducts = products.filter(p => !p.archived && p.stock > 0);
+        if (activeProducts.length === 0) { showToast('لا توجد أصناف متاحة في المخزون', 'error'); return; }
+
+        // Show a product select modal first
+        let prodOptions = activeProducts.map(p => ({ value: p.id, label: p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج' }));
+        let selectedPid = await showSelectModal('اختر الصنف لبيعه إلى ' + m.name + ':', prodOptions, '📦 اختيار صنف');
+        if (!selectedPid) return;
+
+        let p = products.find(x => x.id == parseInt(selectedPid));
+        if (!p) { showToast('الصنف غير موجود', 'error'); return; }
+
+        // Ask for quantity
+        let qtyStr = await showPromptModal('العدد من ' + p.name + ':', '1', '🔢 العدد');
+        let qty = parseInt(qtyStr) || 1;
+        if (qty < 1) qty = 1;
+        if (p.stock < qty) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب: ' + qty, 'error'); return; }
+
+        // Show payment modal with price and account
+        let totalVal = p.sellPrice * qty;
+        let result = await showPaymentModal('بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + '\nسعر القطعة: ' + p.sellPrice.toFixed(2) + ' ج\nالإجمالي: ' + totalVal.toFixed(2) + ' ج', totalVal.toString(), '💳 بيع لتاجر');
+        if (!result || isNaN(result.amount) || result.amount <= 0) return;
+
+        // The price entered could be different from sellPrice (discount etc.)
+        let actualTotal = result.amount;
+        let actualUnitPrice = actualTotal / qty;
+
+        // Ask for notes
+        let notes = await showPromptModal('ملاحظات (اختياري):', '', '📝 ملاحظات');
+
+        let sale = {
+            id: Date.now(),
+            merchantId,
+            merchantName: m.name,
+            phone: m.phone,
+            deviceName: p.name,
+            sellPrice: actualUnitPrice,
+            quantity: qty,
+            date: new Date().toISOString(),
+            notes: notes?.trim() || ''
+        };
+        merchantSales.push(sale);
+        p.stock -= qty;
+        saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
+        showToast('✅ تم بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + ' بقيمة ' + actualTotal.toFixed(2) + ' ج');
     };
 
     window.editMerchantSale = async (id) => {
@@ -4328,11 +5035,12 @@
 
         // Summary cards
         let totalDebt = 0; let merchantCount = Object.keys(summary).length;
-        Object.values(summary).forEach(s => { let b = s.totalSales - s.totalPayments; if (b > 0) totalDebt += b; });
+        Object.values(summary).forEach(s => { let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases); if (b > 0) totalDebt += b; });
         document.getElementById('msSummary').innerHTML =
             '<div class="ms-summary-card primary"><div>🏪 التجار</div><div class="value">' + merchantCount + '</div></div>' +
             '<div class="ms-summary-card danger"><div>💳 إجمالي المديونية</div><div class="value">' + totalDebt.toFixed(2) + ' ج</div></div>' +
-            '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>';
+            '<div class="ms-summary-card success"><div>✅ تم تحصيله</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPayments, 0)).toFixed(2) + ' ج</div></div>' +
+            '<div class="ms-summary-card info"><div>📥 مشتريات من تجار</div><div class="value">' + (Object.values(summary).reduce((sum, s) => sum + s.totalPurchases, 0)).toFixed(2) + ' ج</div></div>';
 
         // Build per-merchant list
         let list = Object.entries(summary);
@@ -4343,48 +5051,49 @@
         const msSort = (document.getElementById('msSort')?.value) || 'name';
         if (msSort === 'name') list.sort((a, b) => a[1].name.localeCompare(b[1].name));
         else if (msSort === 'debt-desc') {
-            list.sort((a, b) => ((b[1].totalSales - b[1].totalPayments)) - ((a[1].totalSales - a[1].totalPayments)));
+            list.sort((a, b) => ((b[1].totalSales + b[1].totalPaymentsOut) - (b[1].totalPayments + b[1].totalPurchases)) - ((a[1].totalSales + a[1].totalPaymentsOut) - (a[1].totalPayments + a[1].totalPurchases)));
         } else if (msSort === 'debt-asc') {
-            list.sort((a, b) => ((a[1].totalSales - a[1].totalPayments)) - ((b[1].totalSales - b[1].totalPayments)));
+            list.sort((a, b) => ((a[1].totalSales + a[1].totalPaymentsOut) - (a[1].totalPayments + a[1].totalPurchases)) - ((b[1].totalSales + b[1].totalPaymentsOut) - (b[1].totalPayments + b[1].totalPurchases)));
         } else if (msSort === 'count-desc') {
             list.sort((a, b) => merchantSales.filter(s => s.merchantId == b[0]).length - merchantSales.filter(s => s.merchantId == a[0]).length);
         }
 
         if (list.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد مبيعات للتجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع لتاجر من الأعلى') + '</div></div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد تجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع أو شراء لتاجر من الأعلى') + '</div></div>';
             return;
         }
 
         let html = '';
         list.forEach(([merchantId, s]) => {
-            let b = s.totalSales - s.totalPayments;
+            let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases);
             let balClass = b > 0 ? 'debt' : (b < 0 ? 'credit' : 'clear');
             let sales = merchantSales.filter(sale => sale.merchantId == merchantId).sort((a, b2) => b2.date.localeCompare(a.date));
 
-            html += '<div class="card" style="padding:14px 16px;">';
-            html += '<div class="sale-row" style="cursor:pointer;" onclick="this.nextElementSibling.classList.toggle(\'open\')">';
-            html += '<div class="info"><div class="name">' + s.name + ' <span style="color:var(--text-muted);font-size:0.8rem;font-weight:400;">(' + sales.reduce((sum, sale) => sum + (sale.quantity || 1), 0) + ' قطعة)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج</div></div>';
+            html += '<div class="card">';
+            html += '<div class="sale-row" style="cursor:pointer;" onclick="window.showMerchantPage(' + merchantId + ')">';
+            html += '<div class="info"><div class="name" style="color:var(--primary);">' + s.name + ' <span class="text-muted text-xs font-normal">(' + sales.reduce((sum, sale) => sum + (sale.quantity || 1), 0) + ' قطعة)</span></div><div class="detail">' + (s.phone || '') + ' | إجمالي المبيعات: ' + s.totalSales.toFixed(2) + ' ج' + (s.totalPurchases > 0 ? ' | مشتريات: ' + s.totalPurchases.toFixed(2) + ' ج' : '') + '</div></div>';
             html += '<div class="balance ' + balClass + '">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
             html += '<div class="sale-actions">';
             html += '<button class="btn-sm btn-success" onclick="event.stopPropagation();generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
-            html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();recordMerchantPayment(' + merchantId + ')">💵 دفعة</button>';
+            html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="event.stopPropagation();showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
+            html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();recordMerchantPayment(' + merchantId + ')">💰 دفعة</button>';
             html += '<button class="whatsapp-btn btn-sm" onclick="event.stopPropagation();sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
             html += '</div></div>';
 
             // Individual items list
-            html += '<div class="schedule-wrapper open" style="margin-top:8px;">';
+            html += '<div class="schedule-wrapper open">';
             html += '<div class="schedule-header"><span>المنتج</span><span>السعر</span><span>التاريخ</span><span>إجراءات</span></div>';
             sales.forEach(sale => {
                 let d = new Date(sale.date).toLocaleDateString('ar-EG');
                 let qty = sale.quantity || 1;
                 let totalPrice = (sale.sellPrice || 0) * qty;
-                html += '<div class="schedule-item" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">';
-                html += '<span class="schedule-inst-num" style="font-size:0.9rem;">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
-                html += '<span class="schedule-amount" style="font-size:0.9rem;">' + totalPrice.toFixed(2) + ' ج</span>';
-                html += '<span style="color:var(--text-muted);font-size:0.82rem;">' + d + '</span>';
-                html += '<div style="display:flex;gap:4px;">';
-                html += '<button class="btn-sm btn-outline" style="padding:4px 10px;min-height:30px;font-size:0.78rem;" onclick="editMerchantSale(' + sale.id + ')">✏️</button>';
-                html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);padding:4px 10px;min-height:30px;font-size:0.78rem;" onclick="deleteMerchantSale(' + sale.id + ')">🗑️</button>';
+                html += '<div class="schedule-item">';
+                html += '<span class="schedule-inst-num text-sm">' + (sale.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + '</span>';
+                html += '<span class="schedule-amount text-sm">' + totalPrice.toFixed(2) + ' ج</span>';
+                html += '<span class="text-sm text-muted">' + d + '</span>';
+                html += '<div class="flex gap-1">';
+                html += '<button class="btn-sm btn-outline" onclick="event.stopPropagation();editMerchantSale(' + sale.id + ')">✏️</button>';
+                html += '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="event.stopPropagation();deleteMerchantSale(' + sale.id + ')">🗑️</button>';
                 html += '</div></div>';
             });
             html += '</div></div>';
@@ -4469,6 +5178,8 @@
             if (!m) { showToast('التاجر غير موجود', 'error'); return; }
             let sales = merchantSales.filter(s => s.merchantId == merchantId);
             let payments = merchantPayments.filter(p => p.merchantId == merchantId);
+            let purchases = merchantPurchases.filter(p => p.merchantId == merchantId);
+            let paymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId);
             let bal = calcMerchantBalance(merchantId);
             let rows = [];
             sales.forEach(s => {
@@ -4477,6 +5188,12 @@
                 rows.push({ date: s.date, desc: 'بيع: ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : ''), debit: totalPrice, credit: 0 });
             });
             payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
+            purchases.forEach(p => {
+                let qty = p.quantity || 1;
+                let totalPrice = (p.costPrice || 0) * qty;
+                rows.push({ date: p.date, desc: 'شراء: ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : ''), debit: 0, credit: totalPrice });
+            });
+            paymentsOut.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 }));
             rows.sort((a, b) => a.date.localeCompare(b.date));
             let rowsHtml = rows.map(r => {
                 return '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.date.slice(0,10) + '</td>' +
@@ -4495,7 +5212,8 @@
                     '<div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px;">' +
                         '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
                             '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>اسم التاجر:</strong> ' + m.name + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>رقم الهاتف:</strong> ' + (m.phone || '—') + '</td></tr>' +
-                            '<tr><td style="padding:8px 4px;"><strong>إجمالي المبيعات:</strong> ' + bal.totalSales.toFixed(2) + ' ج</td><td style="padding:8px 4px;"><strong>إجمالي المدفوعات:</strong> ' + bal.totalPayments.toFixed(2) + ' ج</td></tr>' +
+                            '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>إجمالي المبيعات:</strong> ' + bal.totalSales.toFixed(2) + ' ج</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>إجمالي المشتريات:</strong> ' + bal.totalPurchases.toFixed(2) + ' ج</td></tr>' +
+                            '<tr><td style="padding:8px 4px;"><strong>مدفوعات منه:</strong> ' + bal.totalPayments.toFixed(2) + ' ج</td><td style="padding:8px 4px;"><strong>مدفوعات له:</strong> ' + bal.totalPaymentsOut.toFixed(2) + ' ج</td></tr>' +
                         '</table>' +
                     '</div>' +
                     '<h3 style="color:#0f172a;margin:0 0 14px 0;">📋 تفاصيل الحركات</h3>' +
@@ -4538,9 +5256,9 @@
             let p = partners.find(x => x.id == id);
             if (!p) { showToast('الشريك غير موجود', 'error'); return; }
             let label = type === 'deposit' ? 'إيداع' : 'سحب';
-            let amount = await showNumberPromptModal(label + ' — ' + p.name + '\nالرصيد الحالي: ' + p.balance.toFixed(2) + ' ج', '', '💵 ' + label);
-            if (amount === null || isNaN(amount) || amount <= 0) return;
-            let val = amount;
+            let result = await showPaymentModal(label + ' — ' + p.name + '\nالرصيد الحالي: ' + p.balance.toFixed(2) + ' ج', '', '💵 ' + label);
+            if (!result || isNaN(result.amount) || result.amount <= 0) return;
+            let val = result.amount;
             if (type === 'withdrawal' && val > p.balance) {
                 let ok = await showConfirmModal('الرصيد الحالي (' + p.balance.toFixed(2) + ' ج) أقل من مبلغ السحب (' + val.toFixed(2) + ' ج).\nهل تريد المتابعة؟', '⚠️ تأكيد السحب');
                 if (!ok) return;
@@ -4553,6 +5271,7 @@
                 amount: val,
                 notes: (type === 'deposit' ? '💵 إيداع من ' : '💰 سحب من ') + p.name + (p.notes ? ' (' + p.notes + ')' : ''),
                 partnerId: p.id,
+                accountId: result.accountId || undefined,
                 date: new Date().toISOString()
             });
             saveData(); renderPartners();
@@ -4604,21 +5323,21 @@
         const pag = paginate(filtered, 'partners');
         let listHtml = '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
         pag.items.forEach(p => {
-            let balClass = p.balance >= 0 ? '#059669' : '#dc2626';
+            let balClass = p.balance >= 0 ? 'text-success' : 'text-danger';
             listHtml += '' +
-            '<div class="card" style="padding:14px 16px;">' +
-                '<div class="flex-between" style="margin-bottom:8px;">' +
-                    '<strong style="font-size:1.05rem;">👤 ' + p.name + '</strong>' +
-                    '<strong style="color:' + balClass + '; font-size:1.1rem;">' + p.balance.toFixed(2) + ' ج</strong>' +
+            '<div class="card">' +
+                '<div class="flex-between mb-2">' +
+                    '<strong class="text-lg">👤 ' + p.name + '</strong>' +
+                    '<strong class="' + balClass + ' text-xl">' + p.balance.toFixed(2) + ' ج</strong>' +
                 '</div>' +
-                (p.phone ? '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">📞 ' + p.phone + '</div>' : '') +
-                (p.notes ? '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px;">📝 ' + p.notes + '</div>' : '') +
-                '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG') + '</div>' +
-                '<div style="display:flex; gap:6px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--border);">' +
-                    '<button class="btn-sm btn-success" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')" style="flex:1; min-width:60px;">💵 إيداع</button>' +
-                    '<button class="btn-sm btn-outline" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')" style="flex:1; min-width:60px; border-color:var(--accent); color:var(--accent);">💰 سحب</button>' +
-                    '<button class="btn-sm" style="flex:0;background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
-                    '<button class="btn-sm btn-danger" onclick="deletePartner(' + p.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
+                (p.phone ? '<div class="text-sm text-muted mb-2">📞 ' + p.phone + '</div>' : '') +
+                (p.notes ? '<div class="text-sm text-muted mb-2">📝 ' + p.notes + '</div>' : '') +
+                '<div class="text-xs text-muted mb-4">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG') + '</div>' +
+                '<div class="flex gap-2 flex-wrap pt-3 border-t">' +
+                    '<button class="btn-sm btn-success flex-1" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')">💵 إيداع</button>' +
+                    '<button class="btn-sm btn-outline flex-1" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')">💰 سحب</button>' +
+                    '<button class="btn-sm flex-shrink-0" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
+                    '<button class="btn-sm btn-danger flex-shrink-0" onclick="deletePartner(' + p.id + ')">🗑️</button>' +
                 '</div>' +
             '</div>';
         });
@@ -4806,6 +5525,7 @@
                     amount: amount,
                     notes: '💵 استثمار جديد من ' + name + (notes ? ' (' + notes + ')' : ''),
                     partnerId: partner.id,
+                    accountId: document.getElementById('partnerAccountId').value ? parseInt(document.getElementById('partnerAccountId').value) : undefined,
                     date: new Date().toISOString()
                 });
                 showToast('✅ تم إضافة الشريك ' + name + ' بمبلغ ' + amount.toFixed(2) + ' ج');
@@ -4822,8 +5542,6 @@
     window.renderAccounts = function() {
         const container = document.getElementById('accountsList');
         if (!container) return;
-        const term = getSearchTerm('Accounts');
-
         // Fallback: if accounts is empty but localStorage has data, reload
         if (accounts.length === 0) {
             try {
@@ -4838,7 +5556,6 @@
         }
 
         let filtered = [...accounts];
-        if (term) filtered = filtered.filter(a => a.name.toLowerCase().includes(term) || (a.accountNumber || '').includes(term));
         filtered.sort((a, b) => a.name.localeCompare(b.name));
 
         if (filtered.length === 0) {
@@ -4846,9 +5563,9 @@
             try {
                 const lsCount = (JSON.parse(localStorage.getItem('accounts') || '[]')).length;
                 const diagStr = initDiags.length ? ' [' + initDiags.join(' | ') + ']' : '';
-                debugInfo = ' <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;direction:ltr;text-align:center;">🔍 accounts[]=' + accounts.length + ' | localStorage=' + lsCount + diagStr + '</div>';
+                debugInfo = ' <div class="text-xs text-muted mt-2" style="direction:ltr;text-align:center;">🔍 accounts[]=' + accounts.length + ' | localStorage=' + lsCount + diagStr + '</div>';
             } catch(e) {}
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد حسابات') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف أول حساب من الفورم أعلاه') + '</div>' + debugInfo + '</div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏦</div><div class="empty-text">لا توجد حسابات</div><div class="empty-sub">أضف أول حساب من الفورم أعلاه</div>' + debugInfo + '</div>';
             return;
         }
 
@@ -4873,35 +5590,35 @@
             else totalCash += bal;
         });
 
-        let totalHtml = '<div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">' +
-            '<div class="ms-summary-card primary" style="flex:1;"><div>🏦 إجمالي البنوك</div><div class="value">' + totalBank.toFixed(2) + ' ج</div></div>' +
-            '<div class="ms-summary-card" style="flex:1;border-color:#25D366;"><div>📱 فودافون كاش</div><div class="value" style="color:#25D366;">' + totalVodafone.toFixed(2) + ' ج</div></div>' +
-            '<div class="ms-summary-card success" style="flex:1;"><div>💵 كاش</div><div class="value">' + totalCash.toFixed(2) + ' ج</div></div>' +
+        let totalHtml = '<div class="flex gap-2 mb-4 flex-wrap">' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">🏦 إجمالي البنوك</div><div class="stat-value text-primary">' + totalBank.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;--primary:#25D366;"><div class="stat-label">📱 فودافون كاش</div><div class="stat-value" style="color:#25D366;">' + totalVodafone.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;--primary:var(--success);"><div class="stat-label">💵 كاش</div><div class="stat-value text-success">' + totalCash.toFixed(2) + ' ج</div></div>' +
         '</div>';
 
         const pag = paginate(filtered, 'accounts');
-        let listHtml = '<div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+        let listHtml = '<div class="text-sm text-muted mb-2">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
         pag.items.forEach(a => {
             let bal = getAccountBalance(a);
             let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
             let typeName = a.type === 'bank' ? 'بنك' : a.type === 'vodafone' ? 'فودافون كاش' : 'كاش';
-            let balClass = bal >= 0 ? '#059669' : '#dc2626';
+            let balClass = bal >= 0 ? 'text-success' : 'text-danger';
 
             listHtml += '' +
-            '<div class="card" style="padding:14px 16px;">' +
-                '<div class="flex-between" style="margin-bottom:8px;">' +
-                    '<strong style="font-size:1.05rem;">' + typeIcon + ' ' + a.name + '</strong>' +
-                    '<strong style="color:' + balClass + '; font-size:1.1rem;">' + bal.toFixed(2) + ' ج</strong>' +
+            '<div class="card">' +
+                '<div class="flex-between mb-2">' +
+                    '<strong class="text-lg">' + typeIcon + ' ' + a.name + '</strong>' +
+                    '<strong class="' + balClass + ' text-xl">' + bal.toFixed(2) + ' ج</strong>' +
                 '</div>' +
-                '<div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:4px; display:flex; gap:12px; flex-wrap:wrap;">' +
+                '<div class="flex flex-wrap gap-3 text-sm text-muted mb-2">' +
                     '<span>' + typeName + '</span>' +
                     (a.accountNumber ? '<span>🔢 ' + a.accountNumber + '</span>' : '') +
                     (a.notes ? '<span>📝 ' + a.notes + '</span>' : '') +
                 '</div>' +
-                '<div style="display:flex; gap:6px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--border);">' +
-                    '<button class="btn-sm" style="flex:1;background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;justify-content:center;" onclick="showAccountStatement(' + a.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> كشف حساب</button>' +
-                    '<button class="btn-sm btn-outline" onclick="editAccount(' + a.id + ')" style="flex:0; padding:8px 10px;">✏️</button>' +
-                    '<button class="btn-sm btn-danger" onclick="deleteAccount(' + a.id + ')" style="flex:0; padding:8px 10px;">🗑️</button>' +
+                '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
+                    '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;justify-content:center;" onclick="showAccountStatement(' + a.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> كشف حساب</button>' +
+                    '<button class="btn-sm btn-outline flex-shrink-0" onclick="editAccount(' + a.id + ')">✏️</button>' +
+                    '<button class="btn-sm btn-danger flex-shrink-0" onclick="deleteAccount(' + a.id + ')">🗑️</button>' +
                 '</div>' +
             '</div>';
         });
@@ -5622,12 +6339,12 @@
         if (!ok2) return;
         products = []; merchants = []; transactions = []; installments = [];
         msgTemplates = { reminder: '', late: '' };
-        merchantSales = []; merchantPayments = []; partners = []; accounts = [];
+        merchantSales = []; merchantPayments = []; merchantPurchases = []; merchantPaymentsOut = []; partners = []; accounts = [];
         openingCapital = 0;
         localStorage.setItem('openingCapital', '0');
         saveData();
         refreshSelectors(); renderProducts();
-        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
         renderPartners();
         showToast('تم مسح جميع البيانات');
     });
@@ -5639,7 +6356,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -5679,6 +6396,8 @@
                     msgTemplates = data.msgTemplates || msgTemplates;
                     merchantSales = data.merchantSales || [];
                     merchantPayments = data.merchantPayments || [];
+                    merchantPurchases = data.merchantPurchases || [];
+                    merchantPaymentsOut = data.merchantPaymentsOut || [];
                     partners = data.partners || [];
                     accounts = data.accounts || [];
                     if (data.openingCapital !== undefined) {
@@ -5687,7 +6406,7 @@
                     }
                     await saveData();
                     refreshSelectors();
-                    renderProducts(); renderTransactions(); initTransTypeFilters();
+                    renderProducts(); renderTransactions();
                     renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderDashboard(); initSettingsPage();
                     showToast('تم استيراد النسخة الاحتياطية بنجاح!');
                 } catch (parseErr) {
@@ -5708,7 +6427,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             if (navigator.share && navigator.canShare) {
@@ -5830,7 +6549,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const metadata = {
@@ -5906,6 +6625,8 @@
             msgTemplates = data.msgTemplates || msgTemplates;
             merchantSales = data.merchantSales || [];
             merchantPayments = data.merchantPayments || [];
+            merchantPurchases = data.merchantPurchases || [];
+            merchantPaymentsOut = data.merchantPaymentsOut || [];
             partners = data.partners || [];
             accounts = data.accounts || [];
             if (data.openingCapital !== undefined) {
@@ -5957,7 +6678,7 @@
             switchPage(pageId);
             toggleMenu(true);
             renderDashboard(); renderProducts();
-            renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
+            renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
     });
@@ -6049,14 +6770,15 @@
     // تحديث تلقائي عند تغيير البيانات من تبويب آخر
     window.addEventListener('storage', () => {
         checkAppLock(); refreshSelectors(); renderProducts();
-        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
+        if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId) renderMerchantPage();
     });
 
     // التحميل الأولي
     setTimeout(() => {
         checkAppLock();
         refreshSelectors(); renderProducts();
-        renderTransactions(); initTransTypeFilters(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard();
         initSettingsPage();
     }, 100);
 
