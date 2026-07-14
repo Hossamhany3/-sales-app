@@ -2781,7 +2781,7 @@
         let interestProfit = 0;
         let totalDiscounts = 0;
 
-        // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ)
+        // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ) — التحويلات بين الحسابات متعادلة
         cash = openingCapital;
         transactions.forEach(t => {
             if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') cash += t.amount;
@@ -2983,10 +2983,10 @@
         } else {
             document.getElementById('recentTransactions').innerHTML = recent.map((t, idx) => {
                 let icon = '💰'; let color = 'var(--danger)'; let bgColor = 'var(--danger-light)';
-                if(t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') { icon = '📉'; color = 'var(--danger)'; bgColor = 'var(--danger-light)'; }
-                else if(t.type === 'payment_in' || t.type === 'partner_deposit') { icon = '💰'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
+                if(t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') { icon = '📉'; color = 'var(--danger)'; bgColor = 'var(--danger-light)'; }
+                else if(t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in') { icon = '💰'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
                 else if(t.type === 'sell_cash') { icon = '💵'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
-                let sign = (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') ? '' : '+';
+                let sign = (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') ? '' : '+';
                 return '<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:6px; background:' + bgColor + '; border-radius:10px;">' +
                     '<span style="font-size:1.3rem;">' + icon + '</span>' +
                     '<div style="flex:1; min-width:0;">' +
@@ -3047,8 +3047,8 @@
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') cash -= t.amount;
         });
         const container = document.getElementById('dailySummaryContent');
         container.innerHTML = '' +
@@ -3086,8 +3086,8 @@
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') cash -= t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') cash -= t.amount;
         });
         const dateLabel = today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
         const w = window.open('', '', 'width=400,height=600');
@@ -3321,8 +3321,8 @@
             transactions.forEach(t => {
                 const td = new Date(t.date);
                 if (td < cutoff) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') bal += t.amount;
-                    if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal') bal -= t.amount;
+                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') bal += t.amount;
+                    if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') bal -= t.amount;
                 }
             });
             data.push(bal);
@@ -3857,7 +3857,12 @@
                 { key: 'purchase', label: '📦 شراء مخزون' },
                 { key: 'payment_in', label: '💰 تحصيل' },
                 { key: 'partner_deposit', label: '🤝 استثمار شريك' },
-                { key: 'partner_withdrawal', label: '🏦 سحب شريك' }
+                { key: 'partner_withdrawal', label: '🏦 سحب شريك' },
+                { key: 'merchant_sale', label: '🏪 بيع لتاجر' },
+                { key: 'merchant_purchase', label: '📥 شراء من تاجر' },
+                { key: 'payment_out', label: '💸 دفعة لتاجر' },
+                { key: 'transfer_in', label: '🔄 تحويل وارد' },
+                { key: 'transfer_out', label: '🔄 تحويل صادر' }
             ];
             let typeHtml = typeOptions.map(o =>
                 '<label style="display:block;padding:6px 10px;margin:4px 0;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:' + (o.key === t.type ? 'var(--primary-light)' : 'var(--card-bg)') + ';">' +
@@ -3948,10 +3953,10 @@
 
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
-        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر' };
-        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸' };
+        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
+        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸', 'transfer_in':'🔄', 'transfer_out':'🔄' };
 
-        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale'].includes(type);
+        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale','transfer_in'].includes(type);
 
         // حساب الرصيد
         let netBalance = 0;
@@ -5627,8 +5632,8 @@
             let balance = acc.balance || 0;
             transactions.forEach(t => {
                 if (t.accountId == acc.id) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit') balance += t.amount;
-                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') balance -= t.amount;
+                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in') balance += t.amount;
+                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') balance -= t.amount;
                 }
             });
             return balance;
@@ -5670,6 +5675,7 @@
                 '</div>' +
                 '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
                     '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;justify-content:center;" onclick="showAccountStatement(' + a.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> كشف حساب</button>' +
+                    '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="transferBetweenAccounts(' + a.id + ')">🔄 تحويل</button>' +
                     '<button class="btn-sm btn-outline flex-shrink-0" onclick="editAccount(' + a.id + ')">✏️</button>' +
                     '<button class="btn-sm btn-danger flex-shrink-0" onclick="deleteAccount(' + a.id + ')">🗑️</button>' +
                 '</div>' +
@@ -5686,6 +5692,66 @@
         listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (pag.totalPages - 1) + ');renderAccounts()">››</button>';
         listHtml += '</div>';
         container.innerHTML = totalHtml + listHtml;
+    };
+
+    window.transferBetweenAccounts = async (preselectedId) => {
+        if (accounts.length < 2) { showToast('يجب أن يكون لديك حسابان على الأقل للتحويل', 'error'); return; }
+        let srcOpts = accounts.map(a => '<option value="' + a.id + '" ' + (a.id == preselectedId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+        let dstOpts = accounts.map(a => '<option value="' + a.id + '" ' + (a.id != preselectedId ? '' : 'disabled') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+
+        document.getElementById('modalIcon').textContent = '🔄';
+        document.getElementById('modalTitle').textContent = 'تحويل بين الحسابات';
+        document.getElementById('modalMessage').innerHTML = '' +
+            '<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">💰 من الحساب:</label><select id="transferFrom" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;">' + srcOpts + '</select></div>' +
+            '<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">🏦 إلى الحساب:</label><select id="transferTo" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;">' + dstOpts + '</select></div>' +
+            '<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">💵 المبلغ (ج.م):</label><input type="number" id="transferAmount" step="any" min="0.01" value="0" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
+            '<div style="margin-bottom:8px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">📝 ملاحظات (اختياري):</label><input type="text" id="transferNotes" placeholder="تحويل بين حساباتي" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>';
+        document.getElementById('modalInput').style.display = 'none';
+        document.getElementById('modalNumberInput').style.display = 'none';
+        document.getElementById('modalSelectInput').style.display = 'none';
+        document.getElementById('modalAccountRow').style.display = 'none';
+        document.getElementById('modalConfirmBtn').textContent = '💸 تنفيذ التحويل';
+        document.getElementById('modalCancelBtn').style.display = '';
+        document.getElementById('modalOverlay').classList.add('show');
+
+        let saved = false;
+        let oldResolve = _modalResolve;
+        let newResolve = null;
+        let p = new Promise((resolve) => { newResolve = resolve; });
+        _modalResolve = (value) => {
+            if (value === null) { newResolve(false); oldResolve?.(null); return; }
+            let fromId = parseInt(document.getElementById('transferFrom').value);
+            let toId = parseInt(document.getElementById('transferTo').value);
+            let amount = parseFloat(document.getElementById('transferAmount').value);
+            let notes = document.getElementById('transferNotes').value.trim() || 'تحويل بين الحسابات';
+            if (!fromId || !toId) { showToast('اختر الحساب المصدر والهدف', 'error'); return; }
+            if (fromId === toId) { showToast('لا يمكن التحويل لنفس الحساب', 'error'); return; }
+            if (!amount || amount <= 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
+            let fromAcc = accounts.find(a => a.id == fromId);
+            let toAcc = accounts.find(a => a.id == toId);
+            if (!fromAcc || !toAcc) { showToast('الحساب غير موجود', 'error'); return; }
+            let refId = Date.now();
+            transactions.push({
+                id: refId, type: 'transfer_out', amount: amount,
+                accountId: fromId, toAccountId: toId,
+                notes: '🔄 تحويل من ' + fromAcc.name + ' → ' + toAcc.name + (notes ? ' (' + notes + ')' : ''),
+                date: new Date().toISOString()
+            });
+            transactions.push({
+                id: refId + 1, type: 'transfer_in', amount: amount,
+                accountId: toId, fromAccountId: fromId,
+                notes: '🔄 تحويل وارد من ' + fromAcc.name + ' → ' + toAcc.name + (notes ? ' (' + notes + ')' : ''),
+                date: new Date().toISOString()
+            });
+            saveData(); renderAccounts(); renderTransactions(); renderDashboard();
+            document.getElementById('modalOverlay').classList.remove('show');
+            saved = true;
+            newResolve(true);
+            oldResolve?.(true);
+            showToast('✅ تم تحويل ' + amount.toFixed(2) + ' ج من ' + fromAcc.name + ' إلى ' + toAcc.name);
+        };
+        let result = await p;
+        if (!saved) { _modalResolve = oldResolve; }
     };
 
     window.editAccount = (id) => {
@@ -5756,8 +5822,8 @@
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
         let accTxns = transactions.filter(t => t.accountId == accountId);
-        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit').reduce((s, t) => s + (t.amount || 0), 0);
-        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out').reduce((s, t) => s + (t.amount || 0), 0);
         let runningBal = (a.balance || 0) + totalIn - totalOut;
 
         let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
@@ -5775,8 +5841,8 @@
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th></tr></thead><tbody>' +
                 accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
                     let d = new Date(t.date).toLocaleDateString('ar-EG');
-                    let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit';
-                    let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal';
+                    let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in';
+                    let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out';
                     if (isIn) runningBalCalc += t.amount;
                     if (isOut) runningBalCalc -= t.amount;
                     let inStr = isIn ? '<span style="color:var(--success);font-weight:700;">+' + (t.amount || 0).toFixed(2) + ' ج</span>' : '—';
@@ -5827,8 +5893,8 @@
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
         let accTxns = transactions.filter(t => t.accountId == accountId);
-        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit').reduce((s, t) => s + (t.amount || 0), 0);
-        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out').reduce((s, t) => s + (t.amount || 0), 0);
 
         let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
         let typeName = a.type === 'bank' ? 'بنك' : a.type === 'vodafone' ? 'فودافون كاش' : 'كاش';
@@ -5840,8 +5906,8 @@
         let runningBalCalc = a.balance || 0;
         let rowsHtml = accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
             let d = new Date(t.date).toLocaleDateString('ar-EG');
-            let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit';
-            let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal';
+            let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in';
+            let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out';
             if (isIn) runningBalCalc += t.amount;
             if (isOut) runningBalCalc -= t.amount;
             let inStr = isIn ? (t.amount || 0).toFixed(2) + ' ج' : '—';
