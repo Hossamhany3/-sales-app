@@ -979,6 +979,7 @@
         <button data-page="products">📦 إدارة المخزون والأصناف</button>
         <button data-page="transactions">💰 الخزينة والمعاملات</button>
         <button data-page="installments">📅 إدارة عقود التقسيط</button>
+        <button data-page="arabonSales">🤝 مبيعات العربون</button>
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
         <button data-page="partners">🤝 الشركاء والمستثمرون</button>
         <button data-page="accounts">🏦 الحسابات البنكية</button>
@@ -1291,6 +1292,98 @@
                 </select>
             </div>
             <div id="installmentsList"></div>
+        </div>
+
+        <div id="arabonSales" class="page">
+            <h2>🤝 مبيعات العربون</h2>
+            <div class="card">
+                <h3 style="margin-bottom:12px;">📝 إنشاء عقد بيع بالعربون</h3>
+                <form id="arabonForm">
+                    <input type="hidden" id="arabonId">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>اسم العميل</label>
+                            <input type="text" id="arabonName" required placeholder="اسم العميل">
+                        </div>
+                        <div class="form-group">
+                            <label>رقم الهاتف (اختياري)</label>
+                            <input type="tel" id="arabonPhone" placeholder="01xxxxxxxxx">
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>الجهاز / الصنف</label>
+                            <select id="arabonProductId" required onchange="calcArabonPrice()"><option value="">-- اختر صنف --</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>سعر البيع (ج.م)</label>
+                            <input type="number" id="arabonSellPrice" step="any" required placeholder="0.00" oninput="calcArabonRemaining()">
+                        </div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label>💰 مبلغ العربون (ج.م)</label>
+                            <input type="number" id="arabonDeposit" step="any" min="0" value="0" required oninput="calcArabonRemaining()">
+                        </div>
+                        <div class="form-group">
+                            <label>المتبقي (ج.م)</label>
+                            <input type="text" id="arabonRemaining" readonly style="background:var(--bg);font-weight:700;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>💳 طريقة سداد المتبقي</label>
+                        <select id="arabonPayMethod" onchange="toggleArabonPayFields()">
+                            <option value="cash">💵 كاش</option>
+                            <option value="bank">🏦 حساب بنكي</option>
+                            <option value="vodafone">📱 فودافون كاش</option>
+                            <option value="installments">📅 أقساط (عقد تقسيط)</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="arabonAccountRow">
+                        <label>🏦 الحساب البنكي</label>
+                        <select id="arabonAccountId"><option value="">بدون حساب</option></select>
+                    </div>
+                    <div id="arabonInstFields" style="display:none;">
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>نسبة الفائدة (%)</label>
+                                <input type="number" id="arabonRate" step="any" min="0" value="0" oninput="calcArabonInst()">
+                            </div>
+                            <div class="form-group">
+                                <label>عدد الشهور</label>
+                                <input type="number" id="arabonMonths" min="1" value="3" oninput="calcArabonInst()">
+                            </div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="form-group">
+                                <label>القسط الشهري</label>
+                                <input type="text" id="arabonMonthly" readonly style="background:var(--bg);font-weight:700;">
+                            </div>
+                            <div class="form-group">
+                                <label>تاريخ أول قسط</label>
+                                <input type="date" id="arabonFirstDate">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ملاحظات (اختياري)</label>
+                        <input type="text" id="arabonNotes" placeholder="ملاحظات إضافية">
+                    </div>
+                    <button type="submit">🤝 اعتماد عقد العربون</button>
+                </form>
+            </div>
+            <h2>العقود</h2>
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchArabon" placeholder="بحث في عقود العربون..." oninput="renderArabonSales()">
+                <select id="arabonFilter" onchange="renderArabonSales()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="all">📋 الكل</option>
+                    <option value="unpaid">🔴 متبقي</option>
+                    <option value="installments">📅 أقساط</option>
+                    <option value="paid">✅ مسدّد</option>
+                </select>
+            </div>
+            <div id="arabonSalesList"></div>
         </div>
 
         <div id="merchantSales" class="page">
@@ -1987,7 +2080,7 @@
 
     const DB_NAME = 'SalesManagementDB';
     const DB_VERSION = 5;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements'];
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements', 'arabonSales'];
 
     let db = null;
     let dbReady = null;
@@ -2095,11 +2188,12 @@
         else if (name === 'merchantPaymentsOut') merchantPaymentsOut = data;
         else if (name === 'partners') partners = data;
         else if (name === 'accounts') accounts = data;
+        else if (name === 'arabonSales') arabonSales = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, arabonSales };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -2151,6 +2245,7 @@
     let partners = [];
     let stockMovements = [];
     let accounts = [];
+    let arabonSales = [];
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
@@ -2177,6 +2272,7 @@
         partners = JSON.parse(localStorage.getItem('partners') || '[]');
         accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
         stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
+        arabonSales = JSON.parse(localStorage.getItem('arabonSales') || '[]');
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
         recordInitDiag('afterLS', 'accounts', accounts.length);
 
@@ -2679,6 +2775,7 @@
         lsSet('partners', JSON.stringify(partners));
         lsSet('accounts', JSON.stringify(accounts));
         lsSet('stockMovements', JSON.stringify(stockMovements));
+        lsSet('arabonSales', JSON.stringify(arabonSales));
         lsSet('openingCapital', String(openingCapital));
         try { await saveAllToIDB(); } catch (e) { console.warn('saveAllToIDB فشل', e); }
         updateStorageInfo();
@@ -2686,7 +2783,7 @@
     }
 
     function updateStorageInfo() {
-        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital });
+        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, arabonSales, openingCapital });
         const sizeKB = (new Blob([total]).size / 1024).toFixed(1);
         document.getElementById('storageSize').textContent = sizeKB + ' KB';
         const pct = Math.min((parseFloat(sizeKB) / 5000) * 100, 100);
@@ -2753,6 +2850,8 @@
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
+        if (document.getElementById('arabonProductId')) document.getElementById('arabonProductId').innerHTML = prodOptions;
+        if (document.getElementById('arabonAccountId')) document.getElementById('arabonAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
     }
 
     function getDateRange() {
@@ -2796,6 +2895,11 @@
             if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') {
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
+                let prod = products.find(p => p.id == t.productId);
+                if (prod) cogs += prod.costPrice + (prod.expenses || 0);
+            }
+            if (t.type === 'payment_in' && t.arabonId && !t.instId) {
+                revenue += t.amount;
                 let prod = products.find(p => p.id == t.productId);
                 if (prod) cogs += prod.costPrice + (prod.expenses || 0);
             }
@@ -4549,6 +4653,363 @@
         } catch (err) {
             showError('حدث خطأ أثناء تسجيل السداد', err.message);
         }
+    };
+
+    // ====== مبيعات العربون ======
+    window.calcArabonPrice = function() {
+        let pId = document.getElementById('arabonProductId').value;
+        if (pId) {
+            let p = products.find(x => x.id == pId);
+            if (p) document.getElementById('arabonSellPrice').value = p.sellPrice;
+        }
+        calcArabonRemaining();
+    };
+
+    window.calcArabonRemaining = function() {
+        let price = parseFloat(document.getElementById('arabonSellPrice').value) || 0;
+        let deposit = parseFloat(document.getElementById('arabonDeposit').value) || 0;
+        let remaining = Math.max(price - deposit, 0);
+        document.getElementById('arabonRemaining').value = remaining.toFixed(2) + ' ج';
+        calcArabonInst();
+    };
+
+    window.toggleArabonPayFields = function() {
+        let method = document.getElementById('arabonPayMethod').value;
+        document.getElementById('arabonAccountRow').style.display = (method === 'installments') ? 'none' : '';
+        document.getElementById('arabonInstFields').style.display = (method === 'installments') ? '' : 'none';
+        calcArabonInst();
+    };
+
+    window.calcArabonInst = function() {
+        let method = document.getElementById('arabonPayMethod').value;
+        if (method !== 'installments') return;
+        let price = parseFloat(document.getElementById('arabonSellPrice').value) || 0;
+        let deposit = parseFloat(document.getElementById('arabonDeposit').value) || 0;
+        let rate = parseFloat(document.getElementById('arabonRate').value) || 0;
+        let months = parseInt(document.getElementById('arabonMonths').value) || 3;
+        let remaining = Math.max(price - deposit, 0);
+        let total = remaining * (1 + rate / 100);
+        let monthly = total / months;
+        document.getElementById('arabonMonthly').value = monthly.toFixed(2) + ' ج / شهر';
+    };
+
+    (function() { let d = new Date(); d.setMonth(d.getMonth() + 1); let fd = document.getElementById('arabonFirstDate'); if (fd) fd.valueAsDate = d; })();
+
+    document.getElementById('arabonForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        try {
+            let name = document.getElementById('arabonName').value.trim();
+            let phone = document.getElementById('arabonPhone').value.trim();
+            let pId = document.getElementById('arabonProductId').value;
+            let sellPrice = parseFloat(document.getElementById('arabonSellPrice').value);
+            let deposit = parseFloat(document.getElementById('arabonDeposit').value) || 0;
+            let payMethod = document.getElementById('arabonPayMethod').value;
+            let notes = document.getElementById('arabonNotes').value.trim();
+
+            if (!validateRequired(name, 'العميل')) return;
+            if (!validateRequired(pId, 'الجهاز')) return;
+            if (!validatePositive(sellPrice, 'سعر البيع')) return;
+
+            let p = products.find(x => x.id == pId);
+            if (!p) { showToast('اختر صنفاً صحيحاً', 'error'); return; }
+            if (p.stock <= 0) { showToast('الرصيد صفر!', 'error'); return; }
+            if (deposit > sellPrice) { showToast('العربون لا يمكن أن يكون أكبر من السعر', 'error'); return; }
+
+            let remaining = Math.max(sellPrice - deposit, 0);
+            let editId = document.getElementById('arabonId').value;
+
+            let existing = merchants.find(m => m.name === name && (!phone || m.phone === phone));
+            let mId;
+            if (existing) { mId = existing.id; }
+            else { let newM = { id: Date.now(), name, phone, address: '' }; merchants.push(newM); mId = newM.id; refreshSelectors(); }
+
+            if (editId) {
+                let a = arabonSales.find(x => x.id == editId);
+                if (a) {
+                    a.merchantId = mId; a.productId = parseInt(pId); a.deviceName = p.name;
+                    a.sellPrice = sellPrice; a.depositAmount = deposit; a.remainingAmount = remaining;
+                    a.remainingPaymentMethod = payMethod; a.notes = notes;
+                    if (payMethod === 'installments') {
+                        let rate = parseFloat(document.getElementById('arabonRate').value) || 0;
+                        let months = parseInt(document.getElementById('arabonMonths').value) || 3;
+                        let firstDate = document.getElementById('arabonFirstDate').value;
+                        let totalFinanced = remaining * (1 + rate / 100);
+                        let monthly = totalFinanced / months;
+                        a.interestRate = rate; a.numInstallments = months; a.monthlyAmount = monthly;
+                        a.firstDueDate = firstDate; a.remainingBalance = totalFinanced;
+                        a.schedule = Array.from({length: months}, (_, i) => {
+                            let d = new Date(firstDate); d.setMonth(d.getMonth() + i);
+                            return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
+                        });
+                    }
+                    a.accountId = payMethod !== 'installments' ? (document.getElementById('arabonAccountId').value ? parseInt(document.getElementById('arabonAccountId').value) : undefined) : undefined;
+                }
+                showToast('تم تحديث العقد');
+            } else {
+                let accId = payMethod !== 'installments' ? (document.getElementById('arabonAccountId').value ? parseInt(document.getElementById('arabonAccountId').value) : undefined) : undefined;
+                let newArabon = {
+                    id: Date.now(), merchantId: mId, productId: parseInt(pId), deviceName: p.name,
+                    sellPrice, depositAmount: deposit, remainingAmount: remaining,
+                    remainingPaymentMethod: payMethod, accountId: accId,
+                    interestRate: 0, numInstallments: 0, monthlyAmount: 0,
+                    firstDueDate: '', schedule: [], isPaid: false,
+                    remainingBalance: 0, date: new Date().toISOString(), notes
+                };
+
+                if (payMethod === 'installments') {
+                    let rate = parseFloat(document.getElementById('arabonRate').value) || 0;
+                    let months = parseInt(document.getElementById('arabonMonths').value) || 3;
+                    let firstDate = document.getElementById('arabonFirstDate').value;
+                    let totalFinanced = remaining * (1 + rate / 100);
+                    let monthly = totalFinanced / months;
+                    newArabon.interestRate = rate; newArabon.numInstallments = months;
+                    newArabon.monthlyAmount = monthly; newArabon.firstDueDate = firstDate;
+                    newArabon.remainingBalance = totalFinanced;
+                    newArabon.schedule = Array.from({length: months}, (_, i) => {
+                        let d = new Date(firstDate); d.setMonth(d.getMonth() + i);
+                        return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
+                    });
+                } else if (remaining > 0) {
+                    newArabon.remainingBalance = remaining;
+                }
+
+                p.stock -= 1;
+                stockMovements.push({ date: new Date().toISOString(), productId: p.id, productName: p.name, type: 'out', qty: 1, ref: 'بيع بال العربون', notes: p.imei ? 'IMEI: ' + p.imei : '' });
+
+                if (deposit > 0) {
+                    transactions.push({
+                        id: Date.now() + 1, type: 'payment_in', amount: deposit,
+                        productId: parseInt(pId), merchantId: mId, accountId: accId,
+                        notes: 'عربون بيع | ' + name + ' - ' + p.name, date: new Date().toISOString(), arabonId: newArabon.id
+                    });
+                }
+
+                if (payMethod === 'installments') {
+                    let instId = Date.now() + 10;
+                    let totalFinanced = newArabon.remainingBalance;
+                    let newInst = {
+                        id: instId, merchantId: mId, productId: parseInt(pId), deviceName: p.name,
+                        purchasePrice: remaining, paidUpfront: deposit, interestRate: newArabon.interestRate,
+                        totalAfterInterest: totalFinanced, remainingBalance: totalFinanced,
+                        numInstallments: newArabon.numInstallments, monthlyAmount: newArabon.monthlyAmount,
+                        firstDueDate: newArabon.firstDueDate, isPaid: false,
+                        schedule: newArabon.schedule, discount: 0
+                    };
+                    installments.push(newInst);
+                    transactions.push({
+                        id: Date.now() + 2, type: 'payment_in', amount: deposit,
+                        productId: parseInt(pId), merchantId: mId, accountId: accId,
+                        notes: 'مقدم عقد تقسيط من عربون | ' + name + ' - ' + p.name,
+                        date: new Date().toISOString(), instId: instId, arabonId: newArabon.id
+                    });
+                    newArabon.instId = instId;
+                } else if (remaining > 0 && payMethod !== 'installments') {
+                    transactions.push({
+                        id: Date.now() + 3, type: 'payment_in', amount: remaining,
+                        productId: parseInt(pId), merchantId: mId, accountId: accId,
+                        notes: 'سداد متبقي عربون | ' + name + ' - ' + p.name,
+                        date: new Date().toISOString(), arabonId: newArabon.id
+                    });
+                    newArabon.isPaid = true; newArabon.remainingBalance = 0;
+                }
+
+                if (payMethod !== 'installments' && remaining <= 0) {
+                    newArabon.isPaid = true;
+                }
+
+                arabonSales.push(newArabon);
+                showToast('تم اعتماد عقد العربون بنجاح');
+            }
+
+            saveData(); renderArabonSales(); renderTransactions(); renderProducts(); renderInstallments(); renderDashboard(); renderAccounts(); refreshSelectors();
+            e.target.reset(); document.getElementById('arabonId').value = '';
+            document.getElementById('arabonRemaining').value = '';
+            toggleArabonPayFields();
+        } catch (err) {
+            showError('حدث خطأ أثناء حفظ العقد', err.message);
+        }
+    });
+
+    window.renderArabonSales = function() {
+        const container = document.getElementById('arabonSalesList');
+        if (!container) return;
+        const term = getSearchTerm('Arabon');
+        const filterVal = (document.getElementById('arabonFilter')?.value) || 'all';
+        let filtered = [...arabonSales];
+
+        if (filterVal === 'paid') filtered = filtered.filter(a => a.isPaid);
+        else if (filterVal === 'unpaid') filtered = filtered.filter(a => !a.isPaid && a.remainingPaymentMethod !== 'installments');
+        else if (filterVal === 'installments') filtered = filtered.filter(a => a.remainingPaymentMethod === 'installments' && !a.isPaid);
+
+        if (term) filtered = filtered.filter(a => {
+            let mName = merchants.find(x => x.id == a.merchantId)?.name || '';
+            return mName.toLowerCase().includes(term) || (a.deviceName || '').toLowerCase().includes(term);
+        });
+
+        filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+        let totalSales = arabonSales.reduce((s, a) => s + (a.sellPrice || 0), 0);
+        let totalDeposits = arabonSales.reduce((s, a) => s + (a.depositAmount || 0), 0);
+        let totalRemaining = arabonSales.filter(a => !a.isPaid).reduce((s, a) => s + (a.remainingAmount || 0), 0);
+        let paidCount = arabonSales.filter(a => a.isPaid).length;
+
+        let statsHtml = '<div class="flex gap-2 mb-4 flex-wrap">' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">🤝 العقود</div><div class="stat-value text-primary">' + arabonSales.length + '</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">💰 إجمالي المبيعات</div><div class="stat-value text-primary">' + totalSales.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">💵 العربون المحصّل</div><div class="stat-value text-success">' + totalDeposits.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">🔴 المتبقي</div><div class="stat-value text-danger">' + totalRemaining.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">✅ مسدّد</div><div class="stat-value text-success">' + paidCount + ' / ' + arabonSales.length + '</div></div>' +
+        '</div>';
+
+        if (filtered.length === 0) {
+            container.innerHTML = statsHtml + '<div class="empty-state"><div class="empty-icon">🤝</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا توجد عقود عربون') + '</div><div class="empty-sub">أضف أول عقد من الفورم أعلاه</div></div>';
+            return;
+        }
+
+        const pag = paginate(filtered, 'arabonSales');
+        let listHtml = '<div class="text-sm text-muted mb-2">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+        pag.items.forEach(a => {
+            let mName = merchants.find(x => x.id == a.merchantId)?.name || 'عميل';
+            let mPhone = merchants.find(x => x.id == a.merchantId)?.phone || '';
+            let statusBadge = a.isPaid ? '<span class="badge" style="background:#059669;color:#fff;">✅ مسدّد</span>'
+                : a.remainingPaymentMethod === 'installments' ? '<span class="badge" style="background:#f59e0b;color:#fff;">📅 أقساط</span>'
+                : '<span class="badge" style="background:#dc2626;color:#fff;">💳 متبقي</span>';
+            let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : a.remainingPaymentMethod === 'installments' ? '📅 أقساط' : '—';
+            let dateStr = a.date ? new Date(a.date).toLocaleDateString('ar-EG') : '—';
+
+            listHtml += '<div class="card">' +
+                '<div class="flex-between mb-2">' +
+                    '<strong class="text-lg">📱 ' + (a.deviceName || 'جهاز') + ' ' + statusBadge + '</strong>' +
+                    '<strong class="text-primary text-xl">' + (a.sellPrice || 0).toFixed(2) + ' ج</strong>' +
+                '</div>' +
+                '<div class="flex flex-wrap gap-3 text-sm text-muted mb-2">' +
+                    '<span>👤 ' + mName + '</span>' +
+                    (mPhone ? '<span>📱 ' + mPhone + '</span>' : '') +
+                    '<span>💰 العربون: ' + (a.depositAmount || 0).toFixed(2) + ' ج</span>' +
+                    '<span>💳 المتبقي: ' + (a.remainingAmount || 0).toFixed(2) + ' ج (' + methodLabel + ')</span>' +
+                    '<span>📅 ' + dateStr + '</span>' +
+                '</div>' +
+                '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
+                    '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showArabonStatement(' + a.id + ')">📋 كشف حساب</button>' +
+                    (!a.isPaid && a.remainingPaymentMethod !== 'installments' ? '<button class="btn-sm flex-1" style="background:#059669;color:#fff;" onclick="recordArabonRemaining(' + a.id + ')">💵 سداد المتبقي</button>' : '') +
+                    (a.remainingPaymentMethod === 'installments' && a.instId ? '<button class="btn-sm flex-1" style="background:#f59e0b;color:#fff;" onclick="switchPage(\'installments\');renderInstallments();">📅 عرض الأقساط</button>' : '') +
+                    '<button class="btn-sm btn-outline" onclick="editArabonSale(' + a.id + ')">✏️</button>' +
+                    '<button class="btn-sm btn-danger" onclick="deleteArabonSale(' + a.id + ')">🗑️</button>' +
+                '</div>' +
+            '</div>';
+        });
+
+        const page = getPage('arabonSales');
+        listHtml += '<div class="pagination">';
+        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'arabonSales\',0);renderArabonSales()">‹‹</button>';
+        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'arabonSales\',' + (page - 1) + ');renderArabonSales()">‹</button>';
+        for (let i = Math.max(0, page - 2); i <= Math.min(pag.totalPages - 1, page + 2); i++) {
+            listHtml += '<button class="' + (i === page ? 'active' : '') + '" onclick="setPage(\'arabonSales\',' + i + ');renderArabonSales()">' + (i + 1) + '</button>';
+        }
+        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'arabonSales\',' + (page + 1) + ');renderArabonSales()">›</button>';
+        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'arabonSales\',' + (pag.totalPages - 1) + ');renderArabonSales()">››</button>';
+        listHtml += '</div>';
+        container.innerHTML = statsHtml + listHtml;
+    };
+
+    window.showArabonStatement = (arabonId) => {
+        let a = arabonSales.find(x => x.id == arabonId);
+        if (!a) return;
+        let mName = merchants.find(x => x.id == a.merchantId)?.name || 'عميل';
+        let mPhone = merchants.find(x => x.id == a.merchantId)?.phone || '';
+        let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : '📅 أقساط';
+        let linkedTxns = transactions.filter(t => t.arabonId == arabonId || (t.instId && a.instId && t.instId == a.instId));
+
+        let runningBal = 0;
+        let rowsHtml = linkedTxns.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;"><thead><tr><th>التاريخ</th><th>البيان</th><th>وارد</th><th>الرصيد</th></tr></thead><tbody>' +
+                linkedTxns.sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(t => {
+                    let d = new Date(t.date).toLocaleDateString('ar-EG');
+                    let isIn = t.type === 'payment_in' || t.type === 'sell_cash';
+                    if (isIn) runningBal += t.amount;
+                    return '<tr><td>' + d + '</td><td>' + (t.notes || t.type) + '</td><td style="color:#059669;font-weight:700;">+' + (t.amount || 0).toFixed(2) + ' ج</td><td style="font-weight:700;">' + runningBal.toFixed(2) + ' ج</td></tr>';
+                }).join('') + '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات مالية مسجلة</div>';
+
+        let overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'arabonStatementOverlay';
+        overlay.innerHTML = '<div class="customer-statement-modal">' +
+            '<div class="customer-statement-header"><div><h2>🤝 كشف حساب عقد العربون</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;">' + mName + (mPhone ? ' | 📱 ' + mPhone : '') + '</div></div><div class="header-actions"><button onclick="document.getElementById(\'arabonStatementOverlay\').remove()">✖ إغلاق</button></div></div>' +
+            '<div class="customer-statement-body">' +
+                '<div class="customer-statement-summary">' +
+                    '<div class="stat-card"><div class="stat-label">الجهاز</div><div class="stat-value primary">' + (a.deviceName || '—') + '</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">سعر البيع</div><div class="stat-value primary">' + (a.sellPrice || 0).toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">العربون</div><div class="stat-value success">' + (a.depositAmount || 0).toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">المتبقي</div><div class="stat-value danger">' + (a.remainingAmount || 0).toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">طريقة السداد</div><div class="stat-value primary">' + methodLabel + '</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">الحالة</div><div class="stat-value ' + (a.isPaid ? 'success' : 'danger') + '">' + (a.isPaid ? '✅ مسدّد' : '💳 متبقي') + '</div></div>' +
+                '</div>' +
+                '<h4 style="margin:0 0 12px 0;font-size:0.95rem;">📋 سجل الحركات</h4>' + rowsHtml +
+            '</div></div>';
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    };
+
+    window.recordArabonRemaining = async (arabonId) => {
+        try {
+            let a = arabonSales.find(x => x.id == arabonId);
+            if (!a || a.isPaid) return;
+            let remaining = a.remainingAmount || 0;
+            if (remaining <= 0) { showToast('لا يوجد متبقي', 'error'); return; }
+            let result = await showPaymentModal('💵 سداد متبقي عربون\nالعميل: ' + (merchants.find(x => x.id == a.merchantId)?.name || 'عميل') + '\nالجهاز: ' + (a.deviceName || '') + '\nالمتبقي: ' + remaining.toFixed(2) + ' ج', remaining.toFixed(2), '💵 سداد متبقي');
+            if (!result || isNaN(result.amount) || result.amount <= 0) return;
+            let val = Math.min(result.amount, remaining);
+            transactions.push({
+                id: Date.now(), type: 'payment_in', amount: val,
+                productId: a.productId, merchantId: a.merchantId, accountId: result.accountId || undefined,
+                notes: 'سداد متبقي عربون | ' + (a.deviceName || ''), date: new Date().toISOString(), arabonId: a.id
+            });
+            a.remainingAmount = parseFloat((a.remainingAmount - val).toFixed(2));
+            if (a.remainingAmount <= 0.01) { a.isPaid = true; a.remainingAmount = 0; a.remainingBalance = 0; }
+            saveData(); renderArabonSales(); renderTransactions(); renderDashboard(); renderAccounts();
+            showToast('✅ تم سداد ' + val.toFixed(2) + ' ج من المتبقي');
+        } catch (err) { showError('خطأ', err.message); }
+    };
+
+    window.editArabonSale = (arabonId) => {
+        let a = arabonSales.find(x => x.id == arabonId);
+        if (!a) return;
+        let mName = merchants.find(x => x.id == a.merchantId)?.name || '';
+        let mPhone = merchants.find(x => x.id == a.merchantId)?.phone || '';
+        document.getElementById('arabonId').value = a.id;
+        document.getElementById('arabonName').value = mName;
+        document.getElementById('arabonPhone').value = mPhone;
+        document.getElementById('arabonProductId').value = a.productId || '';
+        document.getElementById('arabonSellPrice').value = a.sellPrice || 0;
+        document.getElementById('arabonDeposit').value = a.depositAmount || 0;
+        document.getElementById('arabonPayMethod').value = a.remainingPaymentMethod || 'cash';
+        document.getElementById('arabonNotes').value = a.notes || '';
+        toggleArabonPayFields();
+        calcArabonRemaining();
+        if (a.accountId) document.getElementById('arabonAccountId').value = a.accountId;
+        switchPage('arabonSales');
+        showToast('✏️ جاري التعديل — عدّل واحفظ');
+    };
+
+    window.deleteArabonSale = async (arabonId) => {
+        try {
+            let a = arabonSales.find(x => x.id == arabonId);
+            if (!a) return;
+            let ok = await showConfirmModal('هل أنت متأكد من حذف عقد العربون؟\nسيتم إعادة المخزون وحذف الحركات المالية المرتبطة.', '⚠️ حذف عقد');
+            if (!ok) return;
+            let p = products.find(x => x.id == a.productId);
+            if (p) { p.stock = (p.stock || 0) + 1; p.archived = false; }
+            transactions = transactions.filter(t => t.arabonId != arabonId);
+            if (a.instId) {
+                installments = installments.filter(i => i.id != a.instId);
+                transactions = transactions.filter(t => t.instId != a.instId);
+            }
+            stockMovements = stockMovements.filter(s => !(s.productId == a.productId && s.ref && s.ref.includes('العربون')));
+            arabonSales = arabonSales.filter(x => x.id != arabonId);
+            saveData(); renderArabonSales(); renderTransactions(); renderProducts(); renderInstallments(); renderDashboard(); renderAccounts(); refreshSelectors();
+            showToast('تم حذف العقد');
+        } catch (err) { showError('خطأ', err.message); }
     };
 
     // ====== مبيعات التجار ======
@@ -6826,7 +7287,7 @@
             switchPage(pageId);
             toggleMenu(true);
             renderDashboard(); renderProducts();
-            renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
+            renderTransactions(); renderInstallments(); renderArabonSales(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
     });
