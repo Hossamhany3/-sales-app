@@ -1227,7 +1227,7 @@
                         <label>اسم العميل</label>
                         <div style="display:flex; gap:8px;">
                             <input type="text" id="instName" required placeholder="اسم العميل" style="flex:1;">
-                            <button type="button" id="instContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
+                            <button type="button" id="instContactsBtn" class="btn-sm btn-icon btn-outline" title="جلب من جهات الاتصال" style="flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1303,14 +1303,16 @@
                     <div class="grid-2">
                         <div class="form-group">
                             <label>اسم العميل</label>
-                            <input type="text" id="arabonName" required placeholder="اسم العميل">
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="arabonName" required placeholder="اسم العميل" style="flex:1;">
+                                <button type="button" id="arabonContactsBtn" class="btn-sm btn-icon btn-outline" title="جلب من جهات الاتصال" style="flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>رقم الهاتف (اختياري)</label>
                             <input type="tel" id="arabonPhone" placeholder="01xxxxxxxxx">
                         </div>
                     </div>
-                    <button type="button" id="arabonContactsBtn" class="btn-sm btn-outline" style="width:100%;margin-bottom:12px;">📇 جلب من جهات الاتصال</button>
                     <div class="grid-2">
                         <div class="form-group">
                             <label>الجهاز / الصنف</label>
@@ -1360,7 +1362,7 @@
             <h2>🏪 التجار</h2>
             <div class="card" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <button id="addMerchantBtn" class="btn-sm" style="background:var(--primary);color:#fff;border:none;flex:1;min-width:140px;padding:10px 16px;">➕ إضافة تاجر جديد</button>
-                <button id="msLoadContactsBtn" class="btn-sm btn-outline">📇 جهات الاتصال</button>
+                <button id="msLoadContactsBtn" class="btn-sm btn-icon btn-outline" title="جلب من جهات الاتصال"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
             </div>
 
             <h2>📋 كشف حساب وكشل المديونيات</h2>
