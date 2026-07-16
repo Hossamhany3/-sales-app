@@ -2794,7 +2794,7 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     document.getElementById('instName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('instPhone').value = contacts[0].tel[0] || '';
+                    document.getElementById('instPhone').value = contacts[0].tel.join(' / ') || '';
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
@@ -2811,7 +2811,7 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     document.getElementById('arabonName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('arabonPhone').value = contacts[0].tel[0] || '';
+                    document.getElementById('arabonPhone').value = contacts[0].tel.join(' / ') || '';
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
@@ -5706,7 +5706,7 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     let name = contacts[0].name.join(' ') || '';
-                    let phone = contacts[0].tel[0] || '';
+                    let phone = contacts[0].tel.join(' / ') || '';
                     if (merchants.find(m => m.name === name && m.phone === phone)) {
                         showToast('التاجر موجود بالفعل', 'info'); return;
                     }
