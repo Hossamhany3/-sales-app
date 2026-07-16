@@ -2188,6 +2188,7 @@
         else if (name === 'merchantPaymentsOut') merchantPaymentsOut = data;
         else if (name === 'partners') partners = data;
         else if (name === 'accounts') accounts = data;
+        else if (name === 'stockMovements') stockMovements = data;
         else if (name === 'arabonSales') arabonSales = data;
     }
 
@@ -2725,7 +2726,7 @@
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
                 const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital };
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital };
                 localStorage.setItem('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -2891,6 +2892,7 @@
         const filteredTrans = transactions.filter(t => inRange(t.date, range));
         const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
 
+        let countedArabonIds = new Set();
         filteredTrans.forEach(t => {
             if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') {
                 revenue += t.amount;
@@ -2898,10 +2900,16 @@
                 let prod = products.find(p => p.id == t.productId);
                 if (prod) cogs += prod.costPrice + (prod.expenses || 0);
             }
-            if (t.type === 'payment_in' && t.arabonId && !t.instId) {
-                revenue += t.amount;
-                let prod = products.find(p => p.id == t.productId);
-                if (prod) cogs += prod.costPrice + (prod.expenses || 0);
+            if (t.type === 'payment_in' && t.arabonId && !t.instId && !countedArabonIds.has(t.arabonId)) {
+                countedArabonIds.add(t.arabonId);
+                let arabonObj = arabonSales.find(a => a.id == t.arabonId);
+                if (arabonObj) {
+                    revenue += arabonObj.sellPrice;
+                    let prod = products.find(p => p.id == arabonObj.productId);
+                    if (prod) cogs += prod.costPrice + (prod.expenses || 0);
+                } else {
+                    revenue += t.amount;
+                }
             }
             if (t.type === 'expense' || t.type === 'merchant_purchase') expenses += t.amount;
         });
@@ -4716,6 +4724,9 @@
             if (deposit > sellPrice) { showToast('العربون لا يمكن أن يكون أكبر من السعر', 'error'); return; }
 
             let remaining = Math.max(sellPrice - deposit, 0);
+            if (remaining > 0 && payMethod === 'installments') {
+                if (!document.getElementById('arabonFirstDate').value) { showToast('اختر تاريخ أول قسط', 'error'); return; }
+            }
             let editId = document.getElementById('arabonId').value;
 
             let existing = merchants.find(m => m.name === name && (!phone || m.phone === phone));
@@ -4726,9 +4737,22 @@
             if (editId) {
                 let a = arabonSales.find(x => x.id == editId);
                 if (a) {
+                    if (remaining > 0 && payMethod === 'installments' && !document.getElementById('arabonFirstDate').value) {
+                        showToast('اختر تاريخ أول قسط', 'error'); return;
+                    }
+                    if (remaining > 0 && payMethod === 'installments' && remaining <= 0) {
+                        showToast('المتبقي يجب أن يكون أكبر من الصفر للأقساط', 'error'); return;
+                    }
+                    let oldInstId = a.instId;
+                    let oldTransactions = transactions.filter(t => t.arabonId == a.id);
+                    oldTransactions.forEach(t => { transactions = transactions.filter(x => x.id != t.id); });
+                    if (oldInstId) {
+                        installments = installments.filter(i => i.id != oldInstId);
+                    }
                     a.merchantId = mId; a.productId = parseInt(pId); a.deviceName = p.name;
                     a.sellPrice = sellPrice; a.depositAmount = deposit; a.remainingAmount = remaining;
                     a.remainingPaymentMethod = payMethod; a.notes = notes;
+                    a.isPaid = false; a.instId = undefined;
                     if (payMethod === 'installments') {
                         let rate = parseFloat(document.getElementById('arabonRate').value) || 0;
                         let months = parseInt(document.getElementById('arabonMonths').value) || 3;
@@ -4741,8 +4765,43 @@
                             let d = new Date(firstDate); d.setMonth(d.getMonth() + i);
                             return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
                         });
+                        let instId = Date.now() + 10;
+                        let newInst = {
+                            id: instId, merchantId: mId, productId: parseInt(pId), deviceName: p.name,
+                            purchasePrice: remaining, paidUpfront: deposit, interestRate: rate,
+                            totalAfterInterest: totalFinanced, remainingBalance: totalFinanced,
+                            numInstallments: months, monthlyAmount: monthly,
+                            firstDueDate: firstDate, isPaid: false, schedule: a.schedule, discount: 0
+                        };
+                        installments.push(newInst);
+                        if (deposit > 0) {
+                            transactions.push({
+                                id: Date.now() + 1, type: 'payment_in', amount: deposit,
+                                productId: parseInt(pId), merchantId: mId, accountId: a.accountId,
+                                notes: 'مقدم عقد تقسيط من عربون | ' + name + ' - ' + p.name,
+                                date: new Date().toISOString(), instId: instId, arabonId: a.id
+                            });
+                        }
+                        a.instId = instId;
+                    } else {
+                        a.accountId = document.getElementById('arabonAccountId').value ? parseInt(document.getElementById('arabonAccountId').value) : undefined;
+                        if (deposit > 0) {
+                            transactions.push({
+                                id: Date.now() + 1, type: 'payment_in', amount: deposit,
+                                productId: parseInt(pId), merchantId: mId, accountId: a.accountId,
+                                notes: 'عربون بيع | ' + name + ' - ' + p.name, date: new Date().toISOString(), arabonId: a.id
+                            });
+                        }
+                        if (remaining > 0) {
+                            transactions.push({
+                                id: Date.now() + 2, type: 'payment_in', amount: remaining,
+                                productId: parseInt(pId), merchantId: mId, accountId: a.accountId,
+                                notes: 'سداد متبقي عربون | ' + name + ' - ' + p.name,
+                                date: new Date().toISOString(), arabonId: a.id
+                            });
+                            a.isPaid = true; a.remainingBalance = 0;
+                        } else { a.isPaid = true; }
                     }
-                    a.accountId = payMethod !== 'installments' ? (document.getElementById('arabonAccountId').value ? parseInt(document.getElementById('arabonAccountId').value) : undefined) : undefined;
                 }
                 showToast('تم تحديث العقد');
             } else {
@@ -4776,14 +4835,6 @@
                 p.stock -= 1;
                 stockMovements.push({ date: new Date().toISOString(), productId: p.id, productName: p.name, type: 'out', qty: 1, ref: 'بيع بال العربون', notes: p.imei ? 'IMEI: ' + p.imei : '' });
 
-                if (deposit > 0) {
-                    transactions.push({
-                        id: Date.now() + 1, type: 'payment_in', amount: deposit,
-                        productId: parseInt(pId), merchantId: mId, accountId: accId,
-                        notes: 'عربون بيع | ' + name + ' - ' + p.name, date: new Date().toISOString(), arabonId: newArabon.id
-                    });
-                }
-
                 if (payMethod === 'installments') {
                     let instId = Date.now() + 10;
                     let totalFinanced = newArabon.remainingBalance;
@@ -4796,25 +4847,34 @@
                         schedule: newArabon.schedule, discount: 0
                     };
                     installments.push(newInst);
-                    transactions.push({
-                        id: Date.now() + 2, type: 'payment_in', amount: deposit,
-                        productId: parseInt(pId), merchantId: mId, accountId: accId,
-                        notes: 'مقدم عقد تقسيط من عربون | ' + name + ' - ' + p.name,
-                        date: new Date().toISOString(), instId: instId, arabonId: newArabon.id
-                    });
+                    if (deposit > 0) {
+                        transactions.push({
+                            id: Date.now() + 1, type: 'payment_in', amount: deposit,
+                            productId: parseInt(pId), merchantId: mId, accountId: accId,
+                            notes: 'مقدم عقد تقسيط من عربون | ' + name + ' - ' + p.name,
+                            date: new Date().toISOString(), instId: instId, arabonId: newArabon.id
+                        });
+                    }
                     newArabon.instId = instId;
-                } else if (remaining > 0 && payMethod !== 'installments') {
-                    transactions.push({
-                        id: Date.now() + 3, type: 'payment_in', amount: remaining,
-                        productId: parseInt(pId), merchantId: mId, accountId: accId,
-                        notes: 'سداد متبقي عربون | ' + name + ' - ' + p.name,
-                        date: new Date().toISOString(), arabonId: newArabon.id
-                    });
-                    newArabon.isPaid = true; newArabon.remainingBalance = 0;
-                }
-
-                if (payMethod !== 'installments' && remaining <= 0) {
-                    newArabon.isPaid = true;
+                } else {
+                    if (deposit > 0) {
+                        transactions.push({
+                            id: Date.now() + 1, type: 'payment_in', amount: deposit,
+                            productId: parseInt(pId), merchantId: mId, accountId: accId,
+                            notes: 'عربون بيع | ' + name + ' - ' + p.name, date: new Date().toISOString(), arabonId: newArabon.id
+                        });
+                    }
+                    if (remaining > 0) {
+                        transactions.push({
+                            id: Date.now() + 2, type: 'payment_in', amount: remaining,
+                            productId: parseInt(pId), merchantId: mId, accountId: accId,
+                            notes: 'سداد متبقي عربون | ' + name + ' - ' + p.name,
+                            date: new Date().toISOString(), arabonId: newArabon.id
+                        });
+                        newArabon.isPaid = true; newArabon.remainingBalance = 0;
+                    } else {
+                        newArabon.isPaid = true;
+                    }
                 }
 
                 arabonSales.push(newArabon);
@@ -5005,7 +5065,7 @@
                 installments = installments.filter(i => i.id != a.instId);
                 transactions = transactions.filter(t => t.instId != a.instId);
             }
-            stockMovements = stockMovements.filter(s => !(s.productId == a.productId && s.ref && s.ref.includes('العربون')));
+            stockMovements = stockMovements.filter(s => !(s.productId == a.productId && s.ref && s.ref.includes('العربون') && s.date && a.date && Math.abs(new Date(s.date) - new Date(a.date)) < 5000));
             arabonSales = arabonSales.filter(x => x.id != arabonId);
             saveData(); renderArabonSales(); renderTransactions(); renderProducts(); renderInstallments(); renderDashboard(); renderAccounts(); refreshSelectors();
             showToast('تم حذف العقد');
@@ -6965,7 +7025,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -7036,7 +7096,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             if (navigator.share && navigator.canShare) {
@@ -7158,7 +7218,7 @@
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const metadata = {
