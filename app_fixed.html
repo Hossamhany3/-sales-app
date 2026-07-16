@@ -1338,6 +1338,10 @@
                         <select id="arabonAccountId"><option value="">بدون حساب</option></select>
                     </div>
                     <div class="form-group">
+                        <label>📅 تاريخ استحقاق المتبقي</label>
+                        <input type="date" id="arabonDueDate">
+                    </div>
+                    <div class="form-group">
                         <label>ملاحظات (اختياري)</label>
                         <input type="text" id="arabonNotes" placeholder="ملاحظات إضافية">
                     </div>
@@ -4703,6 +4707,7 @@
             let sellPrice = parseFloat(document.getElementById('arabonSellPrice').value);
             let deposit = parseFloat(document.getElementById('arabonDeposit').value) || 0;
             let notes = document.getElementById('arabonNotes').value.trim();
+            let dueDate = document.getElementById('arabonDueDate').value || '';
 
             if (!validateRequired(name, 'العميل')) return;
             if (!validateRequired(pId, 'الجهاز')) return;
@@ -4731,7 +4736,7 @@
                     if (a.instId) { installments = installments.filter(i => i.id != a.instId); }
                     a.merchantId = mId; a.productId = parseInt(pId); a.deviceName = p.name;
                     a.sellPrice = sellPrice; a.depositAmount = deposit; a.remainingAmount = remaining;
-                    a.accountId = accId; a.notes = notes;
+                    a.accountId = accId; a.notes = notes; a.dueDate = dueDate;
                     a.isPaid = false; a.instId = undefined;
                     a.remainingPaymentMethod = ''; a.remainingBalance = remaining;
                     a.interestRate = 0; a.numInstallments = 0; a.monthlyAmount = 0;
@@ -4750,7 +4755,7 @@
                 let newArabon = {
                     id: Date.now(), merchantId: mId, productId: parseInt(pId), deviceName: p.name,
                     sellPrice, depositAmount: deposit, remainingAmount: remaining,
-                    remainingPaymentMethod: '', accountId: accId,
+                    remainingPaymentMethod: '', accountId: accId, dueDate,
                     interestRate: 0, numInstallments: 0, monthlyAmount: 0,
                     firstDueDate: '', schedule: [], isPaid: (remaining <= 0),
                     remainingBalance: remaining, date: new Date().toISOString(), notes
@@ -4826,6 +4831,32 @@
             let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : a.remainingPaymentMethod === 'installments' ? '📅 أقساط' : '—';
             let dateStr = a.date ? new Date(a.date).toLocaleDateString('ar-EG') : '—';
 
+            let dueDateHtml = '';
+            let isOverdue = false;
+            if (a.dueDate && !a.isPaid) {
+                let today = new Date(); today.setHours(0,0,0,0);
+                let due = new Date(a.dueDate); due.setHours(0,0,0,0);
+                let diffDays = Math.ceil((due - today) / (1000*60*60*24));
+                if (diffDays < 0) {
+                    dueDateHtml = '<span style="color:#dc2626;font-weight:700;">⏰ استحق: ' + a.dueDate + ' (متأخر ' + Math.abs(diffDays) + ' يوم)</span>';
+                    isOverdue = true;
+                } else if (diffDays <= 3) {
+                    dueDateHtml = '<span style="color:#f59e0b;font-weight:700;">⏳ يستحق بعد ' + diffDays + ' يوم (' + a.dueDate + ')</span>';
+                } else {
+                    dueDateHtml = '<span style="color:#059669;">📅 الاستحقاق: ' + a.dueDate + '</span>';
+                }
+            } else if (a.dueDate && a.isPaid) {
+                dueDateHtml = '<span style="color:var(--text-muted);">📅 الاستحقاق: ' + a.dueDate + '</span>';
+            }
+
+            let whatsappHtml = '';
+            if (!a.isPaid && mPhone) {
+                let waMsg = isOverdue
+                    ? 'تذكير عاجل: العميل ' + mName + ' — متبقي عربون ' + (a.remainingAmount || 0).toFixed(2) + ' ج.م على جهاز ' + (a.deviceName || '') + ' (تاريخ الاستحقاق: ' + (a.dueDate || 'غير محدد') + ') — يرجى السداد في أقرب وقت'
+                    : 'تذكير: العميل ' + mName + ' — متبقي عربون ' + (a.remainingAmount || 0).toFixed(2) + ' ج.م على جهاز ' + (a.deviceName || '') + (a.dueDate ? ' (الاستحقاق: ' + a.dueDate + ')' : '');
+                whatsappHtml = '<button class="btn-sm" style="background:#25D366;color:#fff;border:none;display:inline-flex;align-items:center;gap:4px;" onclick="sendWhatsApp(\'' + mPhone.replace(/'/g,"\\'") + '\',\'' + waMsg.replace(/'/g,"\\'") + '\')">📲 واتساب</button>';
+            }
+
             listHtml += '<div class="card">' +
                 '<div class="flex-between mb-2">' +
                     '<strong class="text-lg">📱 ' + (a.deviceName || 'جهاز') + ' ' + statusBadge + '</strong>' +
@@ -4837,10 +4868,12 @@
                     '<span>💰 العربون: ' + (a.depositAmount || 0).toFixed(2) + ' ج</span>' +
                     '<span>💳 المتبقي: ' + (a.remainingAmount || 0).toFixed(2) + ' ج (' + methodLabel + ')</span>' +
                     '<span>📅 ' + dateStr + '</span>' +
+                    (dueDateHtml ? '<span>' + dueDateHtml + '</span>' : '') +
                 '</div>' +
                 '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
                     '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showArabonStatement(' + a.id + ')">📋 كشف حساب</button>' +
                     (!a.isPaid ? '<button class="btn-sm flex-1" style="background:#059669;color:#fff;" onclick="recordArabonRemaining(' + a.id + ')">💵 سداد المتبقي</button>' : '') +
+                    whatsappHtml +
                     (a.remainingPaymentMethod === 'installments' && a.instId ? '<button class="btn-sm flex-1" style="background:#f59e0b;color:#fff;" onclick="switchPage(\'installments\');renderInstallments();">📅 عرض الأقساط</button>' : '') +
                     '<button class="btn-sm btn-outline" onclick="editArabonSale(' + a.id + ')">✏️</button>' +
                     '<button class="btn-sm btn-danger" onclick="deleteArabonSale(' + a.id + ')">🗑️</button>' +
@@ -4893,6 +4926,7 @@
                     '<div class="stat-card"><div class="stat-label">المتبقي</div><div class="stat-value danger">' + (a.remainingAmount || 0).toLocaleString() + ' ج</div></div>' +
                     '<div class="stat-card"><div class="stat-label">طريقة السداد</div><div class="stat-value primary">' + methodLabel + '</div></div>' +
                     '<div class="stat-card"><div class="stat-label">الحالة</div><div class="stat-value ' + (a.isPaid ? 'success' : 'danger') + '">' + (a.isPaid ? '✅ مسدّد' : '💳 متبقي') + '</div></div>' +
+                    (a.dueDate ? '<div class="stat-card"><div class="stat-label">تاريخ الاستحقاق</div><div class="stat-value primary">' + a.dueDate + '</div></div>' : '') +
                 '</div>' +
                 '<h4 style="margin:0 0 12px 0;font-size:0.95rem;">📋 سجل الحركات</h4>' + rowsHtml +
             '</div></div>';
@@ -5031,6 +5065,7 @@
         document.getElementById('arabonSellPrice').value = a.sellPrice || 0;
         document.getElementById('arabonDeposit').value = a.depositAmount || 0;
         document.getElementById('arabonNotes').value = a.notes || '';
+        document.getElementById('arabonDueDate').value = a.dueDate || '';
         calcArabonRemaining();
         if (a.accountId) document.getElementById('arabonAccountId').value = a.accountId;
         switchPage('arabonSales');
