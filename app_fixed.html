@@ -1310,6 +1310,7 @@
                             <input type="tel" id="arabonPhone" placeholder="01xxxxxxxxx">
                         </div>
                     </div>
+                    <button type="button" id="arabonContactsBtn" class="btn-sm btn-outline" style="width:100%;margin-bottom:12px;">📇 جلب من جهات الاتصال</button>
                     <div class="grid-2">
                         <div class="form-group">
                             <label>الجهاز / الصنف</label>
@@ -2792,6 +2793,23 @@
                 if (contacts.length > 0) {
                     document.getElementById('instName').value = contacts[0].name.join(' ') || '';
                     document.getElementById('instPhone').value = contacts[0].tel[0] || '';
+                }
+            } catch (err) {
+                if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
+            }
+        } else {
+            showToast('ميزة جهات الاتصال غير متاحة على هذا الجهاز', 'error');
+        }
+    });
+
+    // ====== Arabon contacts fetch ======
+    document.getElementById('arabonContactsBtn').addEventListener('click', async () => {
+        if ('contacts' in navigator && 'ContactsManager' in window) {
+            try {
+                const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+                if (contacts.length > 0) {
+                    document.getElementById('arabonName').value = contacts[0].name.join(' ') || '';
+                    document.getElementById('arabonPhone').value = contacts[0].tel[0] || '';
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
