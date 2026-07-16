@@ -1917,6 +1917,29 @@
     }
     window._closeModal = _closeModal;
 
+    function selectPhoneNumber(tels) {
+        return new Promise((resolve) => {
+            if (!tels || tels.length === 0) { resolve(''); return; }
+            if (tels.length === 1) { resolve(tels[0]); return; }
+            let btnsHtml = tels.map((t, i) =>
+                '<button onclick="window._closeModal(\'' + t.replace(/'/g, "\\'") + '\')" style="width:100%;padding:12px;margin-bottom:6px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);font-size:1rem;cursor:pointer;text-align:center;">📱 ' + t + '</button>'
+            ).join('');
+            document.getElementById('modalIcon').textContent = '📱';
+            document.getElementById('modalTitle').textContent = 'اختر رقم الهاتف';
+            document.getElementById('modalMessage').innerHTML = '<div style="margin-bottom:4px;color:var(--text-muted);font-size:0.85rem;">الجهة تمتلك عدة أرقام — اختر الرقم المطلوب:</div>' + btnsHtml;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalConfirmBtn').style.display = 'none';
+            document.getElementById('modalOverlay').classList.add('show');
+            let oldResolve = _modalResolve;
+            _modalResolve = (val) => { resolve(val || ''); oldResolve?.(null); };
+        });
+    }
+    window.selectPhoneNumber = selectPhoneNumber;
+
     function _confirmModal() {
         const textInput = document.getElementById('modalInput');
         const numInput = document.getElementById('modalNumberInput');
@@ -2794,7 +2817,8 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     document.getElementById('instName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('instPhone').value = contacts[0].tel.join(' / ') || '';
+                    let phone = await selectPhoneNumber(contacts[0].tel || []);
+                    document.getElementById('instPhone').value = phone;
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
@@ -2811,7 +2835,8 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     document.getElementById('arabonName').value = contacts[0].name.join(' ') || '';
-                    document.getElementById('arabonPhone').value = contacts[0].tel.join(' / ') || '';
+                    let phone = await selectPhoneNumber(contacts[0].tel || []);
+                    document.getElementById('arabonPhone').value = phone;
                 }
             } catch (err) {
                 if (err.name !== 'NotAllowedError') showToast('خطأ في جلب جهات الاتصال', 'error');
@@ -5706,7 +5731,7 @@
                 const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
                 if (contacts.length > 0) {
                     let name = contacts[0].name.join(' ') || '';
-                    let phone = contacts[0].tel.join(' / ') || '';
+                    let phone = await selectPhoneNumber(contacts[0].tel || []);
                     if (merchants.find(m => m.name === name && m.phone === phone)) {
                         showToast('التاجر موجود بالفعل', 'info'); return;
                     }
