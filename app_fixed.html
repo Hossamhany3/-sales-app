@@ -560,6 +560,20 @@
 .modal-body input:focus { border-color:var(--primary); }
 .modal-footer { display:flex; gap:10px; justify-content:flex-start; }
 .modal-footer button { flex:1; padding:12px; font-size:0.95rem; font-weight:700; border-radius:10px; min-height:48px; }
+.split-toggle { display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 12px; border-radius:10px; border:1px dashed var(--border); cursor:pointer; transition:all 0.2s; user-select:none; }
+.split-toggle:hover { border-color:var(--primary); background:rgba(79,70,229,0.05); }
+.split-toggle.active { border-style:solid; border-color:var(--primary); background:rgba(79,70,229,0.08); }
+.split-toggle input[type="checkbox"] { display:none; }
+.split-toggle .split-check { width:20px; height:20px; border-radius:6px; border:2px solid var(--border); display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+.split-toggle.active .split-check { border-color:var(--primary); background:var(--primary); color:#fff; }
+.split-fields { display:none; margin-top:10px; padding:12px; border-radius:10px; border:1px solid var(--border); background:rgba(0,0,0,0.02); }
+.split-fields.show { display:block; }
+.split-fields label { font-size:0.82rem; color:var(--text-muted); display:block; margin-bottom:4px; margin-top:8px; }
+.split-fields label:first-child { margin-top:0; }
+.split-fields input { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); font-size:0.9rem; background:var(--card-bg); color:var(--text-main); box-sizing:border-box; }
+.split-fields input:focus { border-color:var(--primary); outline:none; }
+.split-fields select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); font-size:0.9rem; background:var(--card-bg); color:var(--text-main); box-sizing:border-box; }
+.split-summary { display:flex; justify-content:space-between; margin-top:8px; padding:6px 8px; border-radius:6px; background:rgba(79,70,229,0.06); font-size:0.8rem; font-weight:600; }
 
 /* ==============================
    🎨 نظام التصميم الاحترافي v2
@@ -1885,6 +1899,19 @@
                 <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:4px;">🏦 الحساب البنكي</label>
                 <select id="modalAccountSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"></select>
             </div>
+            <div id="modalSplitToggle" class="split-toggle" onclick="window._toggleSplit()" style="display:none;">
+                <div class="split-check" id="modalSplitCheck">✓</div>
+                <span>💰💵 تقسيم كاش + بنك</span>
+            </div>
+            <div id="modalSplitFields" class="split-fields">
+                <label>💵 المبلغ كاش (خزينة)</label>
+                <input type="number" step="any" id="modalCashInput" autocomplete="off" oninput="window._syncSplit('cash')">
+                <label>🏦 المبلغ بنك</label>
+                <input type="number" step="any" id="modalBankAmountInput" autocomplete="off" oninput="window._syncSplit('bank')">
+                <label>🏦 الحساب البنكي</label>
+                <select id="modalSplitBankSelect"></select>
+                <div class="split-summary"><span>المجموع:</span><span id="modalSplitTotal">0</span></div>
+            </div>
         </div>
         <div class="modal-footer">
             <button id="modalCancelBtn" class="btn-sm" style="background:var(--border);color:var(--text-main);border:none;" onclick="window._closeModal?.(null)">إلغاء</button>
@@ -1949,10 +1976,21 @@
         const numInput = document.getElementById('modalNumberInput');
         const selectInput = document.getElementById('modalSelectInput');
         const accountRow = document.getElementById('modalAccountRow');
+        const splitToggle = document.getElementById('modalSplitToggle');
+        const isSplit = splitToggle && splitToggle.classList.contains('active');
         if (accountRow.style.display !== 'none') {
             const amount = parseFloat(numInput.value);
             const accountId = document.getElementById('modalAccountSelect').value;
-            _closeModal(amount ? { amount, accountId: accountId ? parseInt(accountId) : null } : null);
+            if (!amount) { _closeModal(null); return; }
+            if (isSplit) {
+                const cashAmount = parseFloat(document.getElementById('modalCashInput').value) || 0;
+                const bankAmount = parseFloat(document.getElementById('modalBankAmountInput').value) || 0;
+                const bankAccountId = document.getElementById('modalSplitBankSelect').value;
+                if (cashAmount <= 0 && bankAmount <= 0) { _closeModal(null); return; }
+                _closeModal({ amount, accountId: accountId ? parseInt(accountId) : null, cashAmount, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null });
+            } else {
+                _closeModal({ amount, accountId: accountId ? parseInt(accountId) : null });
+            }
         } else if (textInput.style.display !== 'none') _closeModal(textInput.value);
         else if (numInput.style.display !== 'none') _closeModal(parseFloat(numInput.value));
         else if (selectInput.style.display !== 'none') _closeModal(selectInput.value);
@@ -2022,6 +2060,44 @@
         });
     };
 
+    window._toggleSplit = function() {
+        const toggle = document.getElementById('modalSplitToggle');
+        const fields = document.getElementById('modalSplitFields');
+        const check = document.getElementById('modalSplitCheck');
+        const isActive = toggle.classList.toggle('active');
+        if (isActive) {
+            fields.classList.add('show');
+            check.textContent = '✓';
+            const total = parseFloat(document.getElementById('modalNumberInput').value) || 0;
+            document.getElementById('modalCashInput').value = total;
+            document.getElementById('modalBankAmountInput').value = 0;
+            document.getElementById('modalSplitTotal').textContent = total.toFixed(2) + ' ج';
+            const bankAccSel = document.getElementById('modalSplitBankSelect');
+            bankAccSel.innerHTML = accounts.filter(a => a.type === 'bank').map(a => '<option value="' + a.id + '">' + a.name + '</option>').join('');
+            document.getElementById('modalAccountRow').style.display = 'none';
+        } else {
+            fields.classList.remove('show');
+            check.textContent = '';
+            document.getElementById('modalAccountRow').style.display = '';
+        }
+    };
+
+    window._syncSplit = function(source) {
+        const total = parseFloat(document.getElementById('modalNumberInput').value) || 0;
+        const cashInput = document.getElementById('modalCashInput');
+        const bankInput = document.getElementById('modalBankAmountInput');
+        if (source === 'cash') {
+            const cash = parseFloat(cashInput.value) || 0;
+            bankInput.value = Math.max(total - cash, 0).toFixed(2);
+        } else {
+            const bank = parseFloat(bankInput.value) || 0;
+            cashInput.value = Math.max(total - bank, 0).toFixed(2);
+        }
+        const cash = parseFloat(cashInput.value) || 0;
+        const bank = parseFloat(bankInput.value) || 0;
+        document.getElementById('modalSplitTotal').textContent = (cash + bank).toFixed(2) + ' ج';
+    };
+
     window.showPaymentModal = function(message, defaultValue = '', title = 'إدخال') {
         return new Promise((resolve) => {
             _modalResolve = resolve;
@@ -2035,6 +2111,10 @@
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalNumberInput').value = defaultValue;
             document.getElementById('modalAccountRow').style.display = '';
+            document.getElementById('modalSplitToggle').style.display = '';
+            document.getElementById('modalSplitToggle').classList.remove('active');
+            document.getElementById('modalSplitFields').classList.remove('show');
+            document.getElementById('modalSplitCheck').textContent = '';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
@@ -4633,13 +4713,13 @@
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
             let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
-            transactions.push({
-                id: Date.now(), type: 'payment_in', amount: val,
-                merchantId: inst.merchantId, productId: inst.productId,
-                accountId: paymentAccountId || undefined,
-                notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString(),
-                instId: instId
-            });
+            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: instId, notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString() };
+            if (result.cashAmount > 0 || result.bankAmount > 0) {
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+                if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+            } else {
+                transactions.push({ id: Date.now(), type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
+            }
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
             showToast('تم تسجيل سداد القسط ' + slot.index + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
 
@@ -4666,13 +4746,13 @@
             inst.remainingBalance -= val;
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
             
-            transactions.push({
-                id: Date.now(), type: 'payment_in', amount: val,
-                merchantId: inst.merchantId, productId: inst.productId,
-                accountId: result.accountId || undefined,
-                notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString(),
-                instId: id
-            });
+            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString() };
+            if (result.cashAmount > 0 || result.bankAmount > 0) {
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+                if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+            } else {
+                transactions.push({ id: Date.now(), type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
+            }
             
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
             showToast('تم تسجيل السداد وإضافته للخزينة');
@@ -5136,14 +5216,15 @@
         let result = await showPaymentModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل من تاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
         let val = result.amount;
-        let transId = Date.now() + 1;
-        let pay = { id: Date.now(), transactionId: transId, merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
         merchantPayments.push(pay);
-        transactions.push({
-            id: transId, type: 'payment_in', amount: val,
-            merchantId, accountId: result.accountId || undefined,
-            notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString()
-        });
+        let transBase = { merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString() };
+        if (result.cashAmount > 0 || result.bankAmount > 0) {
+            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+            if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+        } else {
+            transactions.push({ id: Date.now() + 1, type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
+        }
         saveData(); renderMerchantSales(); renderTransactions();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
@@ -5474,11 +5555,13 @@
             accountId: result.accountId || undefined
         };
         merchantPurchases.push(purchase);
-        transactions.push({
-            id: transId, type: 'merchant_purchase', amount: val,
-            merchantId, accountId: result.accountId || undefined,
-            notes: 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + qty, date: new Date().toISOString()
-        });
+        let transBase = { merchantId, notes: 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + qty, date: new Date().toISOString() };
+        if (result.cashAmount > 0 || result.bankAmount > 0) {
+            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_purchase', amount: result.cashAmount, ...transBase });
+            if (result.bankAmount > 0) transactions.push({ id: transId + 2, type: 'merchant_purchase', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+        } else {
+            transactions.push({ id: transId, type: 'merchant_purchase', amount: val, accountId: result.accountId || undefined, ...transBase });
+        }
         saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
         showToast('✅ تم شراء ' + qty + '× ' + prodName + ' من ' + m.name + ' بقيمة ' + val.toFixed(2) + ' ج');
     };
@@ -5490,14 +5573,15 @@
         let result = await showPaymentModal('دفعة إلى ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', '', '💸 دفعة لتاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
         let val = result.amount;
-        let transId = Date.now() + 1;
-        let pay = { id: Date.now(), transactionId: transId, merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
         merchantPaymentsOut.push(pay);
-        transactions.push({
-            id: transId, type: 'payment_out', amount: val,
-            merchantId, accountId: result.accountId || undefined,
-            notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString()
-        });
+        let transBase = { merchantId, notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString() };
+        if (result.cashAmount > 0 || result.bankAmount > 0) {
+            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_out', amount: result.cashAmount, ...transBase });
+            if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_out', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+        } else {
+            transactions.push({ id: Date.now() + 1, type: 'payment_out', amount: val, accountId: result.accountId || undefined, ...transBase });
+        }
         saveData(); renderMerchantSales(); renderTransactions();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم دفع ' + val.toFixed(2) + ' ج إلى ' + m.name);
@@ -5669,11 +5753,13 @@
             notes: notes?.trim() || ''
         };
         merchantSales.push(sale);
-        transactions.push({
-            id: transId, type: 'merchant_sale', amount: actualTotal,
-            merchantId, accountId: result.accountId || undefined,
-            notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString()
-        });
+        let transBase = { merchantId, notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString() };
+        if (result.cashAmount > 0 || result.bankAmount > 0) {
+            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_sale', amount: result.cashAmount, ...transBase });
+            if (result.bankAmount > 0) transactions.push({ id: transId + 2, type: 'merchant_sale', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+        } else {
+            transactions.push({ id: transId, type: 'merchant_sale', amount: actualTotal, accountId: result.accountId || undefined, ...transBase });
+        }
         p.stock -= qty;
         saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
         showToast('✅ تم بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + ' بقيمة ' + actualTotal.toFixed(2) + ' ج');
@@ -5950,15 +6036,15 @@
             }
             let sign = type === 'deposit' ? 1 : -1;
             p.balance += sign * val;
-            transactions.push({
-                id: Date.now(),
-                type: type === 'deposit' ? 'partner_deposit' : 'partner_withdrawal',
-                amount: val,
-                notes: (type === 'deposit' ? '💵 إيداع من ' : '💰 سحب من ') + p.name + (p.notes ? ' (' + p.notes + ')' : ''),
-                partnerId: p.id,
-                accountId: result.accountId || undefined,
-                date: new Date().toISOString()
-            });
+            let transType = type === 'deposit' ? 'partner_deposit' : 'partner_withdrawal';
+            let transNotes = (type === 'deposit' ? '💵 إيداع من ' : '💰 سحب من ') + p.name + (p.notes ? ' (' + p.notes + ')' : '');
+            let transBase = { type: transType, partnerId: p.id, notes: transNotes, date: new Date().toISOString() };
+            if (result.cashAmount > 0 || result.bankAmount > 0) {
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), amount: result.cashAmount, ...transBase });
+                if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+            } else {
+                transactions.push({ id: Date.now(), amount: val, accountId: result.accountId || undefined, ...transBase });
+            }
             saveData(); renderPartners();
             showToast('✅ تم تسجيل ' + label + ' بقيمة ' + val.toFixed(2) + ' ج');
         } catch (err) {
