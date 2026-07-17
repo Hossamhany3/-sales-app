@@ -5395,19 +5395,22 @@
         html += '<div class="card" style="margin-bottom:14px;">';
         html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">💰 المدفوعات (' + (payments.length + paymentsOut.length) + ')</h3>';
         let allPmts = [];
-        payments.forEach(p => allPmts.push({ date: p.date, desc: p.notes || 'دفعة من تاجر', amount: p.amount, dir: 'in' }));
-        paymentsOut.forEach(p => allPmts.push({ date: p.date, desc: p.notes || 'دفعة لتاجر', amount: p.amount, dir: 'out' }));
+        payments.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة من تاجر', amount: p.amount, dir: 'in' }));
+        paymentsOut.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة لتاجر', amount: p.amount, dir: 'out' }));
         allPmts.sort((a, b) => b.date.localeCompare(a.date));
         if (allPmts.length === 0) {
             html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مدفوعات</div>';
         } else {
             html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
-            html += '<thead><tr><th>البيان</th><th>المبلغ</th><th>النوع</th><th>التاريخ</th></tr></thead><tbody>';
+            html += '<thead><tr><th>البيان</th><th>المبلغ</th><th>النوع</th><th>التاريخ</th><th>إجراءات</th></tr></thead><tbody>';
             allPmts.forEach(p => {
                 let d = new Date(p.date).toLocaleDateString('ar-EG');
                 let typeLabel = p.dir === 'in' ? '🧾 دفعة منه' : '💸 دفعة له';
                 let color = p.dir === 'in' ? 'var(--success)' : 'var(--danger)';
-                html += '<tr><td>' + p.desc + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td></tr>';
+                let editFn = p.dir === 'in' ? 'editMerchantPayment' : 'editMerchantPaymentOut';
+                let deleteFn = p.dir === 'in' ? 'deleteMerchantPayment' : 'deleteMerchantPaymentOut';
+                html += '<tr><td>' + p.desc + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td>';
+                html += '<td><button class="btn-sm btn-outline" onclick="' + editFn + '(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="' + deleteFn + '(' + p.id + ')">🗑️</button></td></tr>';
             });
             html += '</tbody></table>';
         }
@@ -5498,6 +5501,76 @@
         saveData(); renderMerchantSales(); renderTransactions();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم دفع ' + val.toFixed(2) + ' ج إلى ' + m.name);
+    };
+
+    window.editMerchantPayment = async (id) => {
+        try {
+            let pay = merchantPayments.find(p => p.id == id);
+            if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let m = merchants.find(x => x.id == pay.merchantId);
+            let newAmount = await showNumberPromptModal('✏️ تعديل دفعة من ' + (m ? m.name : 'تاجر') + '\nالمبلغ الحالي: ' + pay.amount.toFixed(2) + ' ج', pay.amount, 'تعديل المبلغ');
+            if (newAmount === null || isNaN(newAmount) || newAmount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            pay.amount = newAmount;
+            let trans = transactions.find(t => t.id == pay.transactionId);
+            if (trans) trans.amount = newAmount;
+            saveData(); renderMerchantSales(); renderTransactions();
+            if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
+            showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.deleteMerchantPayment = async (id) => {
+        try {
+            let pay = merchantPayments.find(p => p.id == id);
+            if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let m = merchants.find(x => x.id == pay.merchantId);
+            let ok = await showConfirmModal('حذف دفعة من ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
+            if (!ok) return;
+            if (pay.transactionId) transactions = transactions.filter(t => t.id != pay.transactionId);
+            merchantPayments = merchantPayments.filter(p => p.id != id);
+            saveData(); renderMerchantSales(); renderTransactions();
+            if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
+            showToast('تم حذف الدفعة');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.editMerchantPaymentOut = async (id) => {
+        try {
+            let pay = merchantPaymentsOut.find(p => p.id == id);
+            if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let m = merchants.find(x => x.id == pay.merchantId);
+            let newAmount = await showNumberPromptModal('✏️ تعديل دفعة إلى ' + (m ? m.name : 'تاجر') + '\nالمبلغ الحالي: ' + pay.amount.toFixed(2) + ' ج', pay.amount, 'تعديل المبلغ');
+            if (newAmount === null || isNaN(newAmount) || newAmount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            pay.amount = newAmount;
+            let trans = transactions.find(t => t.id == pay.transactionId);
+            if (trans) trans.amount = newAmount;
+            saveData(); renderMerchantSales(); renderTransactions();
+            if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
+            showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
+    window.deleteMerchantPaymentOut = async (id) => {
+        try {
+            let pay = merchantPaymentsOut.find(p => p.id == id);
+            if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let m = merchants.find(x => x.id == pay.merchantId);
+            let ok = await showConfirmModal('حذف دفعة إلى ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
+            if (!ok) return;
+            if (pay.transactionId) transactions = transactions.filter(t => t.id != pay.transactionId);
+            merchantPaymentsOut = merchantPaymentsOut.filter(p => p.id != id);
+            saveData(); renderMerchantSales(); renderTransactions();
+            if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
+            showToast('تم حذف الدفعة');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
     };
 
     window.deleteMerchantPurchase = async (id) => {
