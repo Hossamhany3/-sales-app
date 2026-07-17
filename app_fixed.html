@@ -5135,6 +5135,7 @@
         let bal = calcMerchantBalance(merchantId);
         let result = await showPaymentModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل من تاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
+        let val = result.amount;
         let transId = Date.now() + 1;
         let pay = { id: Date.now(), transactionId: transId, merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
         merchantPayments.push(pay);
