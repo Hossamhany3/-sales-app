@@ -4170,7 +4170,8 @@
             let ok = await showConfirmModal('حذف حركة "' + (t.notes || t.type || '') + '" بقيمة ' + (t.amount || 0).toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!ok) return;
             transactions = transactions.filter(x => x.id != id);
-            saveData(); renderTransactions(); renderDashboard();
+            saveData(); renderTransactions(); renderDashboard(); renderAccounts();
+            if (document.getElementById('merchantPage')?.classList.contains('active-page')) renderMerchantPage();
             showToast('تم حذف الحركة');
         } catch (err) {
             showError('حدث خطأ', err.message);
