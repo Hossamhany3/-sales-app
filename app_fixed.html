@@ -1906,6 +1906,8 @@
             <div id="modalSplitFields" class="split-fields">
                 <label>💵 المبلغ كاش (خزينة)</label>
                 <input type="number" step="any" id="modalCashInput" autocomplete="off" oninput="window._syncSplit('cash')">
+                <label>💵 الحساب المحصّل (كاش)</label>
+                <select id="modalSplitCashSelect"></select>
                 <label>🏦 المبلغ بنك</label>
                 <input type="number" step="any" id="modalBankAmountInput" autocomplete="off" oninput="window._syncSplit('bank')">
                 <label>🏦 الحساب البنكي / فودافون كاش</label>
@@ -1983,9 +1985,10 @@
             if (!amount) { _closeModal(null); return; }
             const cashAmount = parseFloat(document.getElementById('modalCashInput').value) || 0;
             const bankAmount = parseFloat(document.getElementById('modalBankAmountInput').value) || 0;
+            const cashAccountId = document.getElementById('modalSplitCashSelect').value;
             const bankAccountId = document.getElementById('modalSplitBankSelect').value;
             if (cashAmount <= 0 && bankAmount <= 0) { _closeModal(null); return; }
-            _closeModal({ amount, cashAmount, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null });
+            _closeModal({ amount, cashAmount, cashAccountId: cashAccountId ? parseInt(cashAccountId) : null, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null });
         } else if (accountRow.style.display !== 'none') {
             const amount = parseFloat(numInput.value);
             const accountId = document.getElementById('modalAccountSelect').value;
@@ -2071,8 +2074,10 @@
             document.getElementById('modalCashInput').value = total;
             document.getElementById('modalBankAmountInput').value = 0;
             document.getElementById('modalSplitTotal').textContent = total.toFixed(2) + ' ج';
+            const cashAccSel = document.getElementById('modalSplitCashSelect');
+            cashAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
             const bankAccSel = document.getElementById('modalSplitBankSelect');
-            bankAccSel.innerHTML = accounts.filter(a => a.type === 'bank' || a.type === 'vodafone').map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
+            bankAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'bank' || a.type === 'vodafone').map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
             document.getElementById('modalAccountRow').style.display = 'none';
         } else {
             fields.classList.remove('show');
@@ -4714,10 +4719,10 @@
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
             let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: instId, notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString() };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
-                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
             } else {
-                transactions.push({ id: Date.now(), type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
+                transactions.push({ id: Date.now(), type: 'payment_in', amount: val, accountId: paymentAccountId || undefined, ...transBase });
             }
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
             showToast('تم تسجيل سداد القسط ' + slot.index + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
@@ -4747,7 +4752,7 @@
             
             let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString() };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
-                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
             } else {
                 transactions.push({ id: Date.now(), type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
@@ -5102,6 +5107,8 @@
                 '<div id="arabonPaySplitRow" style="display:none;padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.02);margin-bottom:12px;">' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">💵 المبلغ كاش (خزينة)</label>' +
                 '<input type="number" step="any" id="arabonSplitCash" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="window._syncArabonSplit(\'cash\')">' +
+                '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">💵 الحساب المحصّل (كاش)</label>' +
+                '<select id="arabonSplitCashAccSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;">' + accounts.filter(ac => ac.type === 'cash').map(ac => '<option value="' + ac.id + '">💵 ' + ac.name + '</option>').join('') + '</select>' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">🏦 المبلغ بنك / فودافون</label>' +
                 '<input type="number" step="any" id="arabonSplitBank" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="window._syncArabonSplit(\'bank\')">' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">🏦 الحساب البنكي / فودافون كاش</label>' +
@@ -5235,11 +5242,12 @@
                     let cashAmt = parseFloat(document.getElementById('arabonSplitCash')?.value) || 0;
                     let bankAmt = parseFloat(document.getElementById('arabonSplitBank')?.value) || 0;
                     let splitAccId = document.getElementById('arabonSplitAccSelect')?.value;
+                    let splitCashAccId = document.getElementById('arabonSplitCashAccSelect')?.value;
                     if (cashAmt <= 0 && bankAmt <= 0) { showToast('أدخل مبلغ صحيح', 'error'); return; }
                     if (cashAmt > 0) {
                         transactions.push({
                             id: Date.now(), type: 'payment_in', amount: cashAmt,
-                            productId: a.productId, merchantId: a.merchantId,
+                            productId: a.productId, merchantId: a.merchantId, accountId: splitCashAccId ? parseInt(splitCashAccId) : undefined,
                             notes: 'سداد جزئي عربون (كاش) | ' + (a.deviceName || ''),
                             date: new Date().toISOString(), arabonId: a.id
                         });
@@ -5366,7 +5374,7 @@
         merchantPayments.push(pay);
         let transBase = { merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, ...transBase });
+            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
             if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
         } else {
             transactions.push({ id: Date.now() + 1, type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
@@ -5703,7 +5711,7 @@
         merchantPurchases.push(purchase);
         let transBase = { merchantId, notes: 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + qty, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_purchase', amount: result.cashAmount, ...transBase });
+            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_purchase', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
             if (result.bankAmount > 0) transactions.push({ id: transId + 2, type: 'merchant_purchase', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
         } else {
             transactions.push({ id: transId, type: 'merchant_purchase', amount: val, accountId: result.accountId || undefined, ...transBase });
@@ -5723,7 +5731,7 @@
         merchantPaymentsOut.push(pay);
         let transBase = { merchantId, notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_out', amount: result.cashAmount, ...transBase });
+            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_out', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
             if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_out', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
         } else {
             transactions.push({ id: Date.now() + 1, type: 'payment_out', amount: val, accountId: result.accountId || undefined, ...transBase });
@@ -5901,7 +5909,7 @@
         merchantSales.push(sale);
         let transBase = { merchantId, notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_sale', amount: result.cashAmount, ...transBase });
+            if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_sale', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
             if (result.bankAmount > 0) transactions.push({ id: transId + 2, type: 'merchant_sale', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
         } else {
             transactions.push({ id: transId, type: 'merchant_sale', amount: actualTotal, accountId: result.accountId || undefined, ...transBase });
@@ -6186,7 +6194,7 @@
             let transNotes = (type === 'deposit' ? '💵 إيداع من ' : '💰 سحب من ') + p.name + (p.notes ? ' (' + p.notes + ')' : '');
             let transBase = { type: transType, partnerId: p.id, notes: transNotes, date: new Date().toISOString() };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
-                if (result.cashAmount > 0) transactions.push({ id: Date.now(), amount: result.cashAmount, ...transBase });
+                if (result.cashAmount > 0) transactions.push({ id: Date.now(), amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
             } else {
                 transactions.push({ id: Date.now(), amount: val, accountId: result.accountId || undefined, ...transBase });
