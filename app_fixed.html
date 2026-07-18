@@ -5370,15 +5370,15 @@
         let result = await showPaymentModal('المبلغ المدفوع من ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', Math.max(bal.balance, 0).toString(), '💰 تحصيل من تاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
         let val = result.amount;
-        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name };
-        merchantPayments.push(pay);
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة من ' + m.name, transactionIds: [] };
         let transBase = { merchantId, notes: 'دفعة من تاجر: ' + m.name, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
-            if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+            if (result.cashAmount > 0) { let tid = Date.now(); transactions.push({ id: tid, type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase }); pay.transactionIds.push(tid); }
+            if (result.bankAmount > 0) { let tid = Date.now() + 2; transactions.push({ id: tid, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase }); pay.transactionIds.push(tid); }
         } else {
-            transactions.push({ id: Date.now() + 1, type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase });
+            let tid = Date.now() + 1; transactions.push({ id: tid, type: 'payment_in', amount: val, accountId: result.accountId || undefined, ...transBase }); pay.transactionIds.push(tid);
         }
+        merchantPayments.push(pay);
         saveData(); renderMerchantSales(); renderTransactions();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم تسجيل ' + val.toFixed(2) + ' ج من ' + m.name);
@@ -5727,15 +5727,15 @@
         let result = await showPaymentModal('دفعة إلى ' + m.name + '\nالمتبقي: ' + bal.balance.toFixed(2) + ' ج', '', '💸 دفعة لتاجر');
         if (!result || isNaN(result.amount) || result.amount <= 0) return;
         let val = result.amount;
-        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined };
-        merchantPaymentsOut.push(pay);
+        let pay = { id: Date.now(), merchantId, amount: val, date: new Date().toISOString(), notes: 'دفعة إلى ' + m.name, accountId: result.accountId || undefined, transactionIds: [] };
         let transBase = { merchantId, notes: 'دفعة إلى تاجر: ' + m.name, date: new Date().toISOString() };
         if (result.cashAmount > 0 || result.bankAmount > 0) {
-            if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_out', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
-            if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_out', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
+            if (result.cashAmount > 0) { let tid = Date.now(); transactions.push({ id: tid, type: 'payment_out', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase }); pay.transactionIds.push(tid); }
+            if (result.bankAmount > 0) { let tid = Date.now() + 2; transactions.push({ id: tid, type: 'payment_out', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase }); pay.transactionIds.push(tid); }
         } else {
-            transactions.push({ id: Date.now() + 1, type: 'payment_out', amount: val, accountId: result.accountId || undefined, ...transBase });
+            let tid = Date.now() + 1; transactions.push({ id: tid, type: 'payment_out', amount: val, accountId: result.accountId || undefined, ...transBase }); pay.transactionIds.push(tid);
         }
+        merchantPaymentsOut.push(pay);
         saveData(); renderMerchantSales(); renderTransactions();
         if (document.getElementById('merchantPage').classList.contains('active-page') && window.currentMerchantId == merchantId) renderMerchantPage();
         showToast('✅ تم دفع ' + val.toFixed(2) + ' ج إلى ' + m.name);
@@ -5748,9 +5748,19 @@
             let m = merchants.find(x => x.id == pay.merchantId);
             let newAmount = await showNumberPromptModal('✏️ تعديل دفعة من ' + (m ? m.name : 'تاجر') + '\nالمبلغ الحالي: ' + pay.amount.toFixed(2) + ' ج', pay.amount, 'تعديل المبلغ');
             if (newAmount === null || isNaN(newAmount) || newAmount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            let oldAmount = pay.amount;
             pay.amount = newAmount;
-            let trans = transactions.find(t => t.id == pay.transactionId);
-            if (trans) trans.amount = newAmount;
+            let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+            if (tids.length === 1) {
+                let trans = transactions.find(t => t.id == tids[0]);
+                if (trans) trans.amount = newAmount;
+            } else if (tids.length > 1) {
+                let ratio = newAmount / oldAmount;
+                tids.forEach(tid => {
+                    let trans = transactions.find(t => t.id == tid);
+                    if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
+                });
+            }
             saveData(); renderMerchantSales(); renderTransactions();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
@@ -5766,9 +5776,10 @@
             let m = merchants.find(x => x.id == pay.merchantId);
             let ok = await showConfirmModal('حذف دفعة من ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!ok) return;
-            if (pay.transactionId) transactions = transactions.filter(t => t.id != pay.transactionId);
+            let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+            if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
             merchantPayments = merchantPayments.filter(p => p.id != id);
-            saveData(); renderMerchantSales(); renderTransactions();
+            saveData(); renderMerchantSales(); renderTransactions(); renderAccounts();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('تم حذف الدفعة');
         } catch (err) {
@@ -5783,9 +5794,19 @@
             let m = merchants.find(x => x.id == pay.merchantId);
             let newAmount = await showNumberPromptModal('✏️ تعديل دفعة إلى ' + (m ? m.name : 'تاجر') + '\nالمبلغ الحالي: ' + pay.amount.toFixed(2) + ' ج', pay.amount, 'تعديل المبلغ');
             if (newAmount === null || isNaN(newAmount) || newAmount <= 0) { showToast('مبلغ غير صالح', 'error'); return; }
+            let oldAmount = pay.amount;
             pay.amount = newAmount;
-            let trans = transactions.find(t => t.id == pay.transactionId);
-            if (trans) trans.amount = newAmount;
+            let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+            if (tids.length === 1) {
+                let trans = transactions.find(t => t.id == tids[0]);
+                if (trans) trans.amount = newAmount;
+            } else if (tids.length > 1) {
+                let ratio = newAmount / oldAmount;
+                tids.forEach(tid => {
+                    let trans = transactions.find(t => t.id == tid);
+                    if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
+                });
+            }
             saveData(); renderMerchantSales(); renderTransactions();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
@@ -5801,9 +5822,10 @@
             let m = merchants.find(x => x.id == pay.merchantId);
             let ok = await showConfirmModal('حذف دفعة إلى ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!ok) return;
-            if (pay.transactionId) transactions = transactions.filter(t => t.id != pay.transactionId);
+            let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+            if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
             merchantPaymentsOut = merchantPaymentsOut.filter(p => p.id != id);
-            saveData(); renderMerchantSales(); renderTransactions();
+            saveData(); renderMerchantSales(); renderTransactions(); renderAccounts();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('تم حذف الدفعة');
         } catch (err) {
