@@ -1629,7 +1629,7 @@
                 <div id="tabChart" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📈 الإيرادات vs المصروفات (آخر 6 أشهر)</h3>
                     <div class="chart-container">
-                        <canvas id="chartCanvas" height="200"></canvas>
+                        <canvas id="reportChartCanvas" height="200"></canvas>
                         <div class="chart-legend">
                             <span><span class="dot" style="background:var(--success)"></span> الإيرادات</span>
                             <span><span class="dot" style="background:var(--danger)"></span> المصروفات</span>
@@ -2660,8 +2660,28 @@
     }
 
     // ====== الرسم البياني ======
-    function drawChart() {
-        const canvas = document.getElementById('chartCanvas');
+    function fillRoundRect(ctx, x, y, w, h, r) {
+        if (typeof ctx.roundRect === 'function') {
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+            ctx.fill();
+        } else {
+            ctx.fillRect(x, y, w, h);
+        }
+    }
+
+    function drawChart(canvasId) {
+        let canvas;
+        if (canvasId) {
+            canvas = document.getElementById(canvasId);
+        } else {
+            const reportsTab = document.getElementById('tabChart');
+            if (reportsTab && reportsTab.style.display !== 'none' && document.getElementById('reportChartCanvas')) {
+                canvas = document.getElementById('reportChartCanvas');
+            } else {
+                canvas = document.getElementById('chartCanvas');
+            }
+        }
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
@@ -2716,16 +2736,12 @@
             // income bar
             const ih = (income[i] / maxVal) * chartH;
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--success').trim() || '#10b981';
-            ctx.beginPath();
-            ctx.roundRect(x - barW - 2, top + chartH - ih, barW, ih, [4,4,0,0]);
-            ctx.fill();
+            fillRoundRect(ctx, x - barW - 2, top + chartH - ih, barW, ih, [4,4,0,0]);
 
             // expense bar
             const eh = (expense[i] / maxVal) * chartH;
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--danger').trim() || '#ef4444';
-            ctx.beginPath();
-            ctx.roundRect(x + 2, top + chartH - eh, barW, eh, [4,4,0,0]);
-            ctx.fill();
+            fillRoundRect(ctx, x + 2, top + chartH - eh, barW, eh, [4,4,0,0]);
 
             // label
             ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#94a3b8';
@@ -3018,12 +3034,24 @@
         const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
 
         let countedArabonIds = new Set();
+        let countedMerchantSaleIds = new Set();
         filteredTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') {
+            if (t.type === 'sell_cash' || t.type === 'sell') {
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
                 let prod = products.find(p => p.id == t.productId);
                 if (prod) cogs += prod.costPrice + (prod.expenses || 0);
+            }
+            if (t.type === 'merchant_sale') {
+                revenue += t.amount;
+                totalDiscounts += t.discount || 0;
+                // التكلفة تُحسب مرة واحدة للبيع حتى لو تم التقسيم على أكثر من حركة
+                let ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMerchantSaleIds.has(s.id));
+                if (ms) {
+                    countedMerchantSaleIds.add(ms.id);
+                    let prod = products.find(p => p.name === ms.deviceName);
+                    if (prod) cogs += (prod.costPrice + (prod.expenses || 0)) * (ms.quantity || 1);
+                }
             }
             if (t.type === 'payment_in' && t.arabonId && !t.instId && !countedArabonIds.has(t.arabonId)) {
                 countedArabonIds.add(t.arabonId);
@@ -3040,6 +3068,11 @@
         });
 
         filteredInst.forEach(inst => {
+            // تخطي الأقساط الناتجة عن تحويل عربون (إيرادها محسوب بالفعل ضمن إيراد العربون)
+            if (arabonSales.some(a => a.instId == inst.id)) {
+                interestProfit += (inst.totalAfterInterest - inst.purchasePrice);
+                return;
+            }
             revenue += inst.purchasePrice;
             totalDiscounts += inst.discount || 0;
             let prod = products.find(p => p.id == inst.productId);
@@ -3257,7 +3290,7 @@
         if (tab) { tab.style.display = 'block'; }
         const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
         if (btn) btn.classList.add('active');
-        if (tabId === 'tabChart') { setTimeout(() => { drawChart(); drawExpensePie(); }, 100); }
+        if (tabId === 'tabChart') { setTimeout(() => { drawChart('reportChartCanvas'); drawExpensePie(); }, 100); }
         if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
         if (tabId === 'tabDaily') { setTimeout(() => renderDailySummary(), 50); }
         if (tabId === 'tabProdProfit') { setTimeout(() => renderProductProfit(), 50); }
