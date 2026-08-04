@@ -1080,7 +1080,12 @@
         <div id="products" class="page">
             <h2>📦 إدارة الأصناف</h2>
             <div class="card">
-                <form id="productForm">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleProductForm()">
+                    <span style="font-size:1.3rem;">🛠️</span>
+                    <strong style="flex:1;">إضافة / تعديل صنف</strong>
+                    <span id="productToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="productForm" style="display:none;">
                     <input type="hidden" id="productId">
                     <div class="form-group">
                         <label>اسم الجهاز / الصنف</label>
@@ -1234,9 +1239,13 @@
         </div>
 
         <div id="installments" class="page">
-            <h2>إنشاء عقد تقسيط جديد</h2>
             <div class="card">
-                <form id="installmentForm">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleInstallmentForm()">
+                    <span style="font-size:1.3rem;">📝</span>
+                    <strong style="flex:1;">إنشاء عقد تقسيط جديد</strong>
+                    <span id="instToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="installmentForm" style="display:none;">
                     <div class="form-group">
                         <label>اسم العميل</label>
                         <div style="display:flex; gap:8px;">
@@ -1311,8 +1320,12 @@
         <div id="arabonSales" class="page">
             <h2>🤝 مبيعات العربون</h2>
             <div class="card">
-                <h3 style="margin-bottom:12px;">📝 إنشاء عقد بيع بالعربون</h3>
-                <form id="arabonForm">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleArabonForm()">
+                    <span style="font-size:1.3rem;">📝</span>
+                    <strong style="flex:1;">إنشاء / تعديل عقد بيع بالعربون</strong>
+                    <span id="arabonToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="arabonForm" style="display:none;">
                     <input type="hidden" id="arabonId">
                     <div class="grid-2">
                         <div class="form-group">
@@ -1411,7 +1424,12 @@
         <div id="partners" class="page">
             <h2>🤝 الشركاء والمستثمرون</h2>
             <div class="card">
-                <form id="partnerForm">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="togglePartnerForm()">
+                    <span style="font-size:1.3rem;">🤝</span>
+                    <strong style="flex:1;">إضافة شريك جديد</strong>
+                    <span id="partnerToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="partnerForm" style="display:none;">
                     <input type="hidden" id="partnerId">
                     <div class="grid-2">
                         <div class="form-group">
@@ -1449,7 +1467,12 @@
         <div id="accounts" class="page">
             <h2>🏦 الحسابات البنكية ومحافظ الدفع</h2>
             <div class="card">
-                <form id="accountForm">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:pointer;" onclick="toggleAccountForm()">
+                    <span style="font-size:1.3rem;">🏦</span>
+                    <strong style="flex:1;">إضافة / تعديل حساب</strong>
+                    <span id="accountToggleIcon" style="color:var(--text-muted);">▼</span>
+                </div>
+                <form id="accountForm" style="display:none;">
                     <input type="hidden" id="accountId">
                     <div class="grid-2">
                         <div class="form-group">
@@ -3756,6 +3779,7 @@
             }
             saveData(); renderProducts(); renderTransactions(); renderAccounts(); renderDashboard(); refreshSelectors();
             e.target.reset(); document.getElementById('productId').value = ''; calcProfitMargin();
+            setFormVisible('productForm', 'productToggleIcon', false);
         } catch (err) {
             showError('حدث خطأ أثناء حفظ الصنف', err.message);
         }
@@ -3848,6 +3872,7 @@
             if (accSel) accSel.value = p.accountId || '';
             calcProfitMargin();
             switchPage('products');
+            setFormVisible('productForm', 'productToggleIcon', true);
         }
     };
 
@@ -4031,6 +4056,20 @@
         form.style.display = isHidden ? 'block' : 'none';
         if (icon) icon.textContent = isHidden ? '▲' : '▼';
     };
+
+    function setFormVisible(formId, iconId, visible) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        form.style.display = visible ? 'block' : 'none';
+        const icon = document.getElementById(iconId);
+        if (icon) icon.textContent = visible ? '▲' : '▼';
+    }
+
+    window.toggleProductForm = function() { setFormVisible('productForm', 'productToggleIcon', document.getElementById('productForm').style.display === 'none'); };
+    window.toggleInstallmentForm = function() { setFormVisible('installmentForm', 'instToggleIcon', document.getElementById('installmentForm').style.display === 'none'); };
+    window.toggleArabonForm = function() { setFormVisible('arabonForm', 'arabonToggleIcon', document.getElementById('arabonForm').style.display === 'none'); };
+    window.togglePartnerForm = function() { setFormVisible('partnerForm', 'partnerToggleIcon', document.getElementById('partnerForm').style.display === 'none'); };
+    window.toggleAccountForm = function() { setFormVisible('accountForm', 'accountToggleIcon', document.getElementById('accountForm').style.display === 'none'); };
 
     document.getElementById('expenseForm').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -4365,6 +4404,7 @@
 
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard();
             e.target.reset(); updateInstallmentCalc(); (function() { let d = new Date(); d.setMonth(d.getMonth() + 1); document.getElementById('firstDueDate').valueAsDate = d; })();
+            setFormVisible('installmentForm', 'instToggleIcon', false);
             showToast('تم اعتماد العقد بنجاح');
         } catch (err) {
             showError('حدث خطأ أثناء إنشاء العقد', err.message);
@@ -4864,6 +4904,7 @@
             saveData(); renderArabonSales(); renderTransactions(); renderProducts(); renderInstallments(); renderDashboard(); renderAccounts(); refreshSelectors();
             e.target.reset(); document.getElementById('arabonId').value = '';
             document.getElementById('arabonRemaining').value = '';
+            setFormVisible('arabonForm', 'arabonToggleIcon', false);
         } catch (err) {
             showError('حدث خطأ أثناء حفظ العقد', err.message);
         }
@@ -5304,6 +5345,7 @@
         calcArabonRemaining();
         if (a.accountId) document.getElementById('arabonAccountId').value = a.accountId;
         switchPage('arabonSales');
+        setFormVisible('arabonForm', 'arabonToggleIcon', true);
         showToast('✏️ جاري التعديل — عدّل واحفظ');
     };
 
@@ -6481,6 +6523,7 @@
             document.getElementById('partnerForm').reset();
             document.getElementById('partnerId').value = '';
             saveData(); renderPartners();
+            setFormVisible('partnerForm', 'partnerToggleIcon', false);
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -6654,6 +6697,7 @@
         document.getElementById('accountBalance').value = a.balance || 0;
         document.getElementById('accountNotes').value = a.notes || '';
         document.querySelector('#accountForm button[type="submit"]').textContent = '💾 تحديث الحساب';
+        setFormVisible('accountForm', 'accountToggleIcon', true);
     };
 
     window.deleteAccount = async (id) => {
@@ -6700,6 +6744,7 @@
             document.getElementById('accountForm').reset();
             document.getElementById('accountId').value = '';
             document.querySelector('#accountForm button[type="submit"]').textContent = '💾 إضافة الحساب';
+            setFormVisible('accountForm', 'accountToggleIcon', false);
             saveData(); renderAccounts(); refreshSelectors();
             showToast('✅ تم ' + (id ? 'تحديث' : 'إضافة') + ' الحساب ' + name);
         } catch (err) {
