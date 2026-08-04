@@ -1982,6 +1982,10 @@
                 <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:4px;">🏦 الحساب البنكي</label>
                 <select id="modalAccountSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"></select>
             </div>
+            <div id="modalDateRow" style="display:none;margin-top:6px;">
+                <label style="font-size:0.82rem;color:var(--text-muted);display:block;margin-bottom:4px;">📅 تاريخ الدفع الفعلي</label>
+                <input type="date" id="modalDateInput" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);">
+            </div>
             <div id="modalSplitToggle" class="split-toggle" onclick="window._toggleSplit()" style="display:none;">
                 <div class="split-check" id="modalSplitCheck">✓</div>
                 <span>💰💵 تقسيم كاش + بنك</span>
@@ -2070,12 +2074,14 @@
             const bankAmount = parseFloat(document.getElementById('modalBankAmountInput').value) || 0;
             const cashAccountId = document.getElementById('modalSplitCashSelect').value;
             const bankAccountId = document.getElementById('modalSplitBankSelect').value;
+            const payDate = document.getElementById('modalDateInput') ? document.getElementById('modalDateInput').value || null : null;
             if (cashAmount <= 0 && bankAmount <= 0) { _closeModal(null); return; }
-            _closeModal({ amount, cashAmount, cashAccountId: cashAccountId ? parseInt(cashAccountId) : null, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null });
+            _closeModal({ amount, cashAmount, cashAccountId: cashAccountId ? parseInt(cashAccountId) : null, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null, date: payDate });
         } else if (accountRow.style.display !== 'none') {
             const amount = parseFloat(numInput.value);
             const accountId = document.getElementById('modalAccountSelect').value;
-            _closeModal(amount ? { amount, accountId: accountId ? parseInt(accountId) : null } : null);
+            const payDate = document.getElementById('modalDateInput') ? document.getElementById('modalDateInput').value || null : null;
+            _closeModal(amount ? { amount, accountId: accountId ? parseInt(accountId) : null, date: payDate } : null);
         } else if (textInput.style.display !== 'none') _closeModal(textInput.value);
         else if (numInput.style.display !== 'none') _closeModal(parseFloat(numInput.value));
         else if (selectInput.style.display !== 'none') _closeModal(selectInput.value);
@@ -2185,7 +2191,7 @@
         document.getElementById('modalSplitTotal').textContent = (cash + bank).toFixed(2) + ' ج';
     };
 
-    window.showPaymentModal = function(message, defaultValue = '', title = 'إدخال') {
+    window.showPaymentModal = function(message, defaultValue = '', title = 'إدخال', options = {}) {
         return new Promise((resolve) => {
             _modalResolve = resolve;
             const accSel = document.getElementById('modalAccountSelect');
@@ -2198,6 +2204,15 @@
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalNumberInput').value = defaultValue;
             document.getElementById('modalAccountRow').style.display = '';
+            const dateRow = document.getElementById('modalDateRow');
+            if (dateRow) {
+                if (options.showDate) {
+                    dateRow.style.display = '';
+                    document.getElementById('modalDateInput').value = options.defaultDate || new Date().toISOString().split('T')[0];
+                } else {
+                    dateRow.style.display = 'none';
+                }
+            }
             document.getElementById('modalSplitToggle').style.display = '';
             document.getElementById('modalSplitToggle').classList.remove('active');
             document.getElementById('modalSplitFields').classList.remove('show');
@@ -3485,7 +3500,7 @@
             }
             let schedule = inst.schedule || getInstSchedule(inst);
             schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
+                rows.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -5042,6 +5057,17 @@
                 let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
                 let remaining = inst.monthlyAmount - slot.paidAmount;
                 let isOverdue = !slot.isPaid && new Date(slot.dueDate) < today;
+                let paidInfo = '';
+                if (slot.isPaid && slot.paidDate) {
+                    let dueD = new Date(slot.dueDate + 'T00:00:00');
+                    let paidD = new Date(slot.paidDate + 'T00:00:00');
+                    let delayDays = Math.round((paidD - dueD) / 86400000);
+                    let paidLabel = 'تم السداد: ' + new Date(slot.paidDate).toLocaleDateString('ar-EG');
+                    let delayLabel = delayDays > 0
+                        ? '<span style="color:#ef4444;font-weight:700;"> — متأخر ' + delayDays + ' يوم</span>'
+                        : (delayDays < 0 ? '<span style="color:#059669;font-weight:700;"> — قبل الموعد</span>' : '<span style="color:#059669;font-weight:700;"> — في الموعد</span>');
+                    paidInfo = '<div class="schedule-row"><span class="schedule-label">تاريخ السداد:</span><span style="font-weight:700;color:var(--text-main);">' + paidLabel + delayLabel + '</span></div>';
+                }
                 return '' +
                 '<div class="schedule-item ' + (slot.isPaid ? 'paid-slot' : '') + '">' +
                     '<div class="schedule-item-header">' +
@@ -5056,6 +5082,7 @@
                         '<span class="schedule-label">المحصّل:</span>' +
                         '<span class="schedule-collected">' + (slot.paidAmount > 0 ? slot.paidAmount.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' ج.م' : ': ج.م') + '</span>' +
                     '</div>' +
+                    paidInfo +
                     (isOverdue ? '<div style="color:#ef4444;font-size:0.8rem;margin-bottom:6px;">⚠️ قسط متأخر</div>' : '') +
                     '<div class="schedule-actions">' +
                         '<button class="btn-whatsapp-sm" onclick="(() => { let isOverdue = ' + isOverdue + '; let tplKey = isOverdue ? \'late\' : \'reminder\'; sendScheduleWhatsApp(\'' + (m?.phone || '') + '\', tplKey, { name: \'' + (m?.name || 'العميل').replace(/'/g,'') + '\', device: \'' + deviceName.replace(/'/g,'') + '\', amount: \'' + inst.monthlyAmount.toFixed(2) + '\', index: \'' + slot.index + '\', date: \'' + dueDate + '\', remaining: \'' + inst.remainingBalance.toFixed(2) + '\' }); })()">📲</button>' +
@@ -5120,11 +5147,13 @@
         receiptData = data;
         const overlay = document.getElementById('receiptOverlay');
         const content = document.getElementById('receiptContent');
+        const payDate = data.date ? new Date(data.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
         content.innerHTML = '' +
-            '<div class="receipt-row"><span>التاريخ:</span><span>' + new Date().toLocaleDateString('ar-EG') + '</span></div>' +
+            '<div class="receipt-row"><span>التاريخ:</span><span>' + payDate + '</span></div>' +
             '<div class="receipt-row"><span>العميل:</span><span>' + (data.merchant || '—') + '</span></div>' +
             '<div class="receipt-row"><span>الجهاز:</span><span>' + (data.device || '—') + '</span></div>' +
             '<div class="receipt-row"><span>القسط رقم:</span><span>' + data.slot + '</span></div>' +
+            (data.delayDays > 0 ? '<div class="receipt-row"><span>التأخير:</span><span style="color:#ef4444;font-weight:700;">' + data.delayDays + ' يوم</span></div>' : '') +
             '<div class="receipt-row receipt-total"><span>المبلغ:</span><span>' + data.amount.toFixed(2) + ' ج.م</span></div>' +
             '<div style="text-align:center; margin-top:12px; font-size:0.8rem; color:var(--text-muted);">تم السداد — شكراً لتعاملكم</div>';
         overlay.classList.add('show');
@@ -5134,6 +5163,7 @@
         if (!receiptData) return;
         const w = window.open('', '', 'width=350,height=500');
         if (!w) { showToast('السماح بالنوافذ المنبثقة للطباعة', 'error'); return; }
+        const payDate = receiptData.date ? new Date(receiptData.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
         w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>إيصال سداد</title>' +
             '<style>body{font-family:sans-serif;padding:20px;text-align:center;}' +
             'h2{font-size:1.2rem;margin-bottom:4px;}' +
@@ -5141,10 +5171,11 @@
             '.total{border-top:2px solid #000;margin-top:8px;padding-top:8px;font-weight:bold;font-size:1.1rem;}' +
             '</style></head><body>' +
             '<h2>🧾 إيصال سداد قسط</h2>' +
-            '<p style="color:#666;font-size:0.85rem;">' + new Date().toLocaleString('ar-EG') + '</p>' +
+            '<p style="color:#666;font-size:0.85rem;">' + payDate + '</p>' +
             '<div class="row"><span>العميل:</span><span>' + receiptData.merchant + '</span></div>' +
             '<div class="row"><span>الجهاز:</span><span>' + receiptData.device + '</span></div>' +
             '<div class="row"><span>القسط رقم:</span><span>' + receiptData.slot + '</span></div>' +
+            (receiptData.delayDays > 0 ? '<div class="row"><span>التأخير:</span><span style="color:#dc2626;font-weight:700;">' + receiptData.delayDays + ' يوم</span></div>' : '') +
             '<div class="row total"><span>المبلغ:</span><span>' + receiptData.amount.toFixed(2) + ' ج.م</span></div>' +
             '<p style="margin-top:20px;color:#999;font-size:0.8rem;">تم السداد — شكراً لتعاملكم معنا 🙏</p>' +
             '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
@@ -5167,18 +5198,23 @@
             let slot = inst.schedule[slotIdx];
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let remaining = parseFloat((inst.monthlyAmount - slot.paidAmount).toFixed(2));
-            let result = await showPaymentModal('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م', remaining.toFixed(2), '💵 تحصيل القسط');
+            let result = await showPaymentModal('القسط رقم ' + slot.index + '\nالمستحق: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي: ' + remaining.toFixed(2) + ' ج.م\nتاريخ الاستحقاق: ' + slot.dueDate, remaining.toFixed(2), '💵 تحصيل القسط', { showDate: true, defaultDate: new Date().toISOString().split('T')[0] });
             if (!result || isNaN(result.amount)) return;
             let val = Math.min(result.amount, remaining);
             let paymentAccountId = result.accountId;
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
+            let payDate = (result.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+            let nowTime = new Date();
+            let timeStr = [nowTime.getHours(), nowTime.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
+            let transDateISO = new Date(payDate + 'T' + timeStr + ':00').toISOString();
             slot.paidAmount = parseFloat((slot.paidAmount + val).toFixed(2));
+            slot.paidDate = payDate;
             if (slot.paidAmount >= inst.monthlyAmount - 0.01) { slot.isPaid = true; slot.paidAmount = inst.monthlyAmount; }
             inst.remainingBalance = parseFloat(Math.max(inst.remainingBalance - val, 0).toFixed(2));
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
             let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
-            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: instId, notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: new Date().toISOString() };
+            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: instId, notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: transDateISO };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
                 if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
@@ -5189,7 +5225,10 @@
             showToast('تم تسجيل سداد القسط ' + slot.index + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
 
             // عرض إيصال
-            showReceipt({ merchant: mName, device: pName, slot: slot.index, amount: val });
+            let dueD = new Date(slot.dueDate + 'T00:00:00');
+            let paidD = new Date(payDate + 'T00:00:00');
+            let delayDays = Math.round((paidD - dueD) / 86400000);
+            showReceipt({ merchant: mName, device: pName, slot: slot.index, amount: val, date: payDate, delayDays: delayDays > 0 ? delayDays : 0 });
 
             setTimeout(() => {
                 let el = document.getElementById('schedule-' + instId);
@@ -5204,14 +5243,18 @@
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) return;
-            let result = await showPaymentModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل');
+            let result = await showPaymentModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل', { showDate: true, defaultDate: new Date().toISOString().split('T')[0] });
             if (!result || isNaN(result.amount)) return;
             let val = result.amount;
             if(val > inst.remainingBalance) val = inst.remainingBalance;
+            let payDate = (result.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+            let nowTime = new Date();
+            let timeStr = [nowTime.getHours(), nowTime.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
+            let transDateISO = new Date(payDate + 'T' + timeStr + ':00').toISOString();
             inst.remainingBalance -= val;
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
             
-            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد #' + inst.id, date: new Date().toISOString() };
+            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد #' + inst.id, date: transDateISO };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
                 if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
@@ -5823,7 +5866,7 @@
             }
             let schedule = inst.schedule || getInstSchedule(inst);
             schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
+                rows.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -7664,7 +7707,7 @@
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
                 allPayments.push({
-                    date: s.dueDate,
+                    date: s.paidDate || s.dueDate,
                     desc: 'قسط رقم ' + s.index + ' - ' + deviceName,
                     amount: s.paidAmount,
                     instId: inst.id
@@ -7797,7 +7840,7 @@
             schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
-                allPayments.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
+                allPayments.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
             });
         });
 
