@@ -3450,6 +3450,9 @@
             return p?.name || inst.deviceName || 'جهاز';
         };
 
+        // رأس المال الافتتاحي كأول بند في الكشف
+        if (openingCapital > 0) rows.push({ date: '1970-01-01', desc: 'رأس المال الافتتاحي (رأس مال المشروع)', debit: 0, credit: openingCapital });
+
         // 1) الحركات النقدية المستقلة (بدون ارتباط بعقد قسط/عربون/تاجر)
         transactions.forEach(t => {
             if (t.instId || t.arabonId || t.merchantId) return;
@@ -3522,6 +3525,16 @@
         return rows;
     }
 
+    // سيولة المال الموجود حالياً في الخزينة والحسابات البنكية (كل الفترات)
+    function getCashLiquidity() {
+        let cash = openingCapital;
+        transactions.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'merchant_purchase' || t.type === 'payment_out') cash -= t.amount;
+        });
+        return cash;
+    }
+
     function renderGeneralStatement() {
         let container = document.getElementById('statementContent');
         if (!container) return;
@@ -3553,12 +3566,15 @@
         }).join('');
 
         let finalBal = opening + totalCredit - totalDebit;
+        let liquidity = getCashLiquidity();
         let summaryHtml = '' +
         '<div class="customer-statement-summary">' +
+            '<div class="stat-card"><div class="stat-label">💼 رأس المال</div><div class="stat-value primary">' + openingCapital.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + opening.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">إجمالي المدين (منصرف)</div><div class="stat-value danger">' + totalDebit.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">إجمالي الدائن (وارد)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
-            '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">الرصيد الصافي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">🏦 السيولة النقدية (خزينة + بنوك)</div><div class="stat-value primary">' + liquidity.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
         '</div>';
 
@@ -3566,7 +3582,8 @@
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;width:100%;border-collapse:collapse;">' +
                 '<thead><tr style="border-bottom:2px solid var(--border);"><th style="padding:8px 6px;text-align:right;">التاريخ</th><th style="padding:8px 6px;text-align:right;">البيان</th><th style="padding:8px 6px;text-align:right;">مدين (منصرف)</th><th style="padding:8px 6px;text-align:right;">دائن (وارد)</th><th style="padding:8px 6px;text-align:right;">الرصيد</th></tr></thead><tbody>' +
                 rowsHtml +
-                '<tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(79,70,229,0.06);"><td colspan="2">الرصيد النهائي</td><td style="color:var(--danger);">' + totalDebit.toFixed(2) + ' ج</td><td style="color:var(--success);">' + totalCredit.toFixed(2) + ' ج</td><td style="color:' + (finalBal >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + finalBal.toFixed(2) + ' ج</td></tr>' +
+                '<tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(79,70,229,0.06);"><td colspan="2">الرصيد النهائي (الصافي)</td><td style="color:var(--danger);">' + totalDebit.toFixed(2) + ' ج</td><td style="color:var(--success);">' + totalCredit.toFixed(2) + ' ج</td><td style="color:' + (finalBal >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + finalBal.toFixed(2) + ' ج</td></tr>' +
+                '<tr style="font-weight:700;background:rgba(5,150,105,0.08);border-top:2px solid var(--success);"><td colspan="4">🏦 السيولة النقدية (خزينة + حسابات بنكية)</td><td style="color:var(--primary);">' + liquidity.toFixed(2) + ' ج</td></tr>' +
                 '</tbody></table>'
             : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات في هذه الفترة</div>';
 
@@ -3595,6 +3612,7 @@
             return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
         }).join('');
         let finalBal = opening + totalCredit - totalDebit;
+        let liquidity = getCashLiquidity();
 
         let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
         let htmlContent = '' +
@@ -3604,15 +3622,20 @@
                 '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات | ' + rangeLabel + '</p>' +
             '</div>' +
             '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💼 رأس المال</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + openingCapital.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الافتتاحي</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + opening.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المدين</div><div style="font-size:1.15rem;font-weight:800;color:#ef4444;">' + totalDebit.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
-                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الحالي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الصافي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">🏦 السيولة النقدية (خزينة + بنوك)</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + liquidity.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
             '</div>' +
             '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
                 '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (منصرف)</th><th style="padding:10px 8px;text-align:right;">دائن (وارد)</th><th style="padding:10px 8px;text-align:right;">الرصيد</th></tr></thead>' +
-                '<tbody>' + rowsHtml + '</tbody>' +
+                '<tbody>' + rowsHtml +
+                '<tr style="font-weight:700;background:#eef2ff;border-top:2px solid #4f46e5;"><td style="padding:10px 8px;" colspan="2">الرصيد النهائي (الصافي)</td><td style="padding:10px 8px;color:#ef4444;">' + totalDebit.toFixed(2) + ' ج</td><td style="padding:10px 8px;color:#059669;">' + totalCredit.toFixed(2) + ' ج</td><td style="padding:10px 8px;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</td></tr>' +
+                '<tr style="font-weight:700;background:#ecfdf5;border-top:2px solid #059669;"><td style="padding:10px 8px;" colspan="4">🏦 السيولة النقدية (خزينة + حسابات بنكية)</td><td style="padding:10px 8px;color:#4f46e5;">' + liquidity.toFixed(2) + ' ج</td></tr>' +
+                '</tbody>' +
             '</table>' +
             '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات</div>' +
         '</div>';
@@ -3652,6 +3675,11 @@
             running += (r.credit || 0) - (r.debit || 0);
             return [new Date(r.date).toLocaleDateString('ar-EG'), r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : '', running.toFixed(2)];
         });
+        let finalBal = running;
+        csvRows.push([]);
+        csvRows.push(['💼 رأس المال', '', '', '', openingCapital.toFixed(2)]);
+        csvRows.push(['الرصيد الصافي', '', '', '', finalBal.toFixed(2)]);
+        csvRows.push(['🏦 السيولة النقدية (خزينة + حسابات بنكية)', '', '', '', getCashLiquidity().toFixed(2)]);
         downloadCSV('كشف_الحساب_العام_' + Date.now() + '.csv', header, csvRows);
         showToast('تم تصدير CSV');
     }
