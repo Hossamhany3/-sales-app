@@ -1358,9 +1358,9 @@
                 <span class="search-icon">🔍</span>
                 <input type="text" id="searchInstallments" placeholder="بحث في العقود..." oninput="renderInstallments()">
                 <select id="instFilter" onchange="renderInstallments()" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);">
-                    <option value="all">📋 الكل</option>
-                    <option value="active">🟡 نشط</option>
-                    <option value="paid">✅ مسدد</option>
+                    <option value="active" selected>🟡 العقود النشطة</option>
+                    <option value="all">📋 الكل (تشمل المغلقة)</option>
+                    <option value="paid">✅ المسددة / المغلقة</option>
                 </select>
             </div>
             <div id="installmentsList"></div>
@@ -2492,7 +2492,22 @@
         // ترحيل: أرشفة الأصناف اللي رصيدها صفر
         products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
 
+        ensureContractNumbers();
         migrateTransactionNotes();
+    }
+
+    function getNextContractNo() {
+        return installments.reduce((m, i) => Math.max(m, i.contractNo || 0), 0) + 1;
+    }
+
+    function ensureContractNumbers() {
+        let changed = false;
+        let maxNo = installments.reduce((m, i) => Math.max(m, i.contractNo || 0), 0);
+        installments.filter(i => !i.contractNo).sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0)).forEach(i => {
+            i.contractNo = ++maxNo;
+            changed = true;
+        });
+        if (changed) localStorage.setItem('installments', JSON.stringify(installments));
     }
 
     function migrateTransactionNotes() {
@@ -4817,7 +4832,7 @@
             let discount = p.discount || 0;
 
             let newInst = {
-                id: instId, merchantId: parseInt(mId), productId: parseInt(pId), deviceName: p.name,
+                id: instId, contractNo: getNextContractNo(), merchantId: parseInt(mId), productId: parseInt(pId), deviceName: p.name,
                 purchasePrice: price, paidUpfront: upfront,
                 interestRate: rate, totalAfterInterest: totalFinanced,
                 remainingBalance: totalFinanced, numInstallments: months,
@@ -4899,7 +4914,7 @@
 
             // Show custom modal
             document.getElementById('modalIcon').textContent = '✏️';
-            document.getElementById('modalTitle').textContent = 'تعديل العقد #' + inst.id;
+            document.getElementById('modalTitle').textContent = 'تعديل العقد رقم ' + (inst.contractNo || inst.id);
             document.getElementById('modalMessage').innerHTML = html;
             document.getElementById('modalInput').style.display = 'none';
             document.getElementById('modalNumberInput').style.display = 'none';
@@ -4976,7 +4991,7 @@
                     saved = true;
                     newResolve(true);
                     oldResolve?.(true);
-                    showToast('✅ تم تعديل العقد #' + inst.id);
+                    showToast('✅ تم تعديل العقد رقم ' + (inst.contractNo || inst.id));
                 } catch (err) {
                     showError('خطأ في الحفظ', err.message);
                 }
@@ -4997,14 +5012,14 @@
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
-            let ok = await showConfirmModal('حذف عقد تقسيط #' + id + '\nالعميل: ' + (m?.name || '') + '\nالجهاز: ' + (inst.deviceName || '') + '\nالمتبقي: ' + (inst.remainingBalance || 0).toFixed(2) + ' ج\n\nسيتم إعادة المخزون.', '⚠️ تأكيد الحذف');
+            let ok = await showConfirmModal('حذف عقد رقم ' + (inst.contractNo || id) + '\nالعميل: ' + (m?.name || '') + '\nالجهاز: ' + (inst.deviceName || '') + '\nالمتبقي: ' + (inst.remainingBalance || 0).toFixed(2) + ' ج\n\nسيتم إعادة المخزون.', '⚠️ تأكيد الحذف');
             if (!ok) return;
             let p = products.find(x => x.id == inst.productId);
             if (p) { p.stock = (p.stock || 0) + 1; }
             transactions = transactions.filter(t => t.instId != id);
             installments = installments.filter(i => i.id != id);
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard(); refreshSelectors();
-            showToast('✅ تم حذف العقد #' + id);
+            showToast('✅ تم حذف العقد رقم ' + (inst.contractNo || id));
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -5036,7 +5051,8 @@
         }
 
         if (filtered.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : 'لا توجد عقود') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أنشئ عقد تقسيط جديد من الفورم أعلاه') + '</div></div>';
+            let emptyText = filterVal === 'active' ? 'لا توجد عقود نشطة' : (filterVal === 'paid' ? 'لا توجد عقود مسددة' : 'لا توجد عقود');
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">' + (term ? 'لا توجد نتائج للبحث' : emptyText) + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أنشئ عقد تقسيط جديد من الفورم أعلاه') + '</div></div>';
             return;
         }
 
@@ -5049,9 +5065,11 @@
             let today = new Date(); today.setHours(0,0,0,0);
             let nextDue = schedule.find(s => !s.isPaid);
             let isLate = nextDue && new Date(nextDue.dueDate) < today;
-            let statusBadge = isLate
-                ? '<span class="badge badge-danger">⚠️ متأخر</span>'
-                : '<span class="badge badge-success">✅ منتظم</span>';
+            let statusBadge = inst.isPaid
+                ? '<span class="badge badge-success">✅ مغلق / مسدد</span>'
+                : (isLate
+                    ? '<span class="badge badge-danger">⚠️ متأخر</span>'
+                    : '<span class="badge badge-success">✅ منتظم</span>');
 
             let scheduleHtml = schedule.map((slot, idx) => {
                 let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
@@ -5096,7 +5114,7 @@
             return '' +
             '<div class="card">' +
                 '<div class="flex-between" style="padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--border);">' +
-                    '<div><strong style="font-size:1.05rem;">👤 ' + (m?.name || 'عميل') + '</strong> <span style="color:var(--text-muted); font-size:0.85rem;">' + inst.id + '</span></div>' +
+                    '<div><strong style="font-size:1.05rem;">👤 ' + (m?.name || 'عميل') + '</strong> <span style="color:var(--text-muted); font-size:0.85rem;">عقد رقم ' + (inst.contractNo || inst.id) + '</span></div>' +
                     '<div>' + statusBadge + '</div>' +
                 '</div>' +
                 '<div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">' +
@@ -5254,7 +5272,7 @@
             inst.remainingBalance -= val;
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
             
-            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد #' + inst.id, date: transDateISO };
+            let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: id, notes: 'سداد قسط من عقد رقم ' + (inst.contractNo || inst.id), date: transDateISO };
             if (result.cashAmount > 0 || result.bankAmount > 0) {
                 if (result.cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
                 if (result.bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
@@ -5716,7 +5734,7 @@
                     });
                     let instId = Date.now() + 10;
                     let newInst = {
-                        id: instId, merchantId: a.merchantId, productId: a.productId, deviceName: a.deviceName,
+                        id: instId, contractNo: getNextContractNo(), merchantId: a.merchantId, productId: a.productId, deviceName: a.deviceName,
                         purchasePrice: payAmt, paidUpfront: 0, interestRate: rate,
                         totalAfterInterest: totalFinanced, remainingBalance: totalFinanced,
                         numInstallments: months, monthlyAmount: monthly,
@@ -7754,7 +7772,7 @@
                     '<span>' + statusBadge + '</span>' +
                 '</div>' +
                 '<div class="contract-info">' +
-                    '<div class="info-row"><span>عقد رقم</span><span>' + inst.id + '</span></div>' +
+                    '<div class="info-row"><span>عقد رقم</span><span>' + (inst.contractNo || inst.id) + '</span></div>' +
                     '<div class="info-row"><span>سعر الكاش</span><span>' + (inst.purchasePrice || 0).toLocaleString() + ' ج</span></div>' +
                     '<div class="info-row"><span>المقدم</span><span>' + (inst.paidUpfront || 0).toLocaleString() + ' ج</span></div>' +
                     '<div class="info-row"><span>نسبة الفائدة</span><span>' + (inst.interestRate || 0) + '%</span></div>' +
