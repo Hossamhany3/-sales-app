@@ -4449,7 +4449,7 @@
                 interestRate: rate, totalAfterInterest: totalFinanced,
                 remainingBalance: totalFinanced, numInstallments: months,
                 monthlyAmount: monthly, firstDueDate: document.getElementById('firstDueDate').value,
-                isPaid: false, schedule, discount: discount
+                isPaid: false, schedule, discount: discount, date: new Date().toISOString()
             };
             installments.push(newInst);
 
@@ -5319,7 +5319,7 @@
                         purchasePrice: payAmt, paidUpfront: 0, interestRate: rate,
                         totalAfterInterest: totalFinanced, remainingBalance: totalFinanced,
                         numInstallments: months, monthlyAmount: monthly,
-                        firstDueDate: firstDate, isPaid: false, schedule, discount: 0
+                        firstDueDate: firstDate, isPaid: false, schedule, discount: 0, date: new Date().toISOString()
                     };
                     installments.push(newInst);
                     if (accId) {
@@ -5439,6 +5439,228 @@
         let totalPaymentsOut = merchantPaymentsOut.filter(p => p.merchantId == merchantId).reduce((sum, p) => sum + (p.amount || 0), 0);
         return { totalSales, totalPayments, totalPurchases, totalPaymentsOut, balance: totalSales + totalPaymentsOut - totalPayments - totalPurchases };
     }
+
+    // ====== كشف حساب شامل للعميل/التاجر ======
+    function buildComprehensiveRows(merchantId) {
+        let rows = [];
+        const devName = (inst) => {
+            let p = products.find(x => x.id == inst.productId);
+            return p?.name || inst.deviceName || 'جهاز';
+        };
+
+        // 1) عقود التقسيط
+        installments.filter(i => i.merchantId == merchantId).forEach(inst => {
+            let dev = devName(inst);
+            let convArabon = arabonSales.find(a => a.instId == inst.id);
+            if (convArabon) {
+                // عربون محوّل: الإيراد محسوب ضمن العربون، تضاف الفائدة فقط
+                let interest = (inst.totalAfterInterest || 0) - (inst.purchasePrice || 0);
+                if (interest > 0) rows.push({ date: inst.date || inst.firstDueDate || convArabon.date, desc: 'فوائد تحويل عربون إلى أقساط - ' + dev, debit: interest, credit: 0 });
+            } else {
+                let upTxn = transactions.find(t => t.instId == inst.id && t.type === 'payment_in' && (t.amount || 0) > 0);
+                let cDate = (upTxn && upTxn.date) || inst.date || inst.firstDueDate || new Date().toISOString();
+                let total = (inst.totalAfterInterest || 0) + (inst.paidUpfront || 0);
+                rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev, debit: total, credit: 0 });
+                if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev, debit: 0, credit: inst.paidUpfront });
+            }
+            let schedule = inst.schedule || getInstSchedule(inst);
+            schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
+                rows.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
+            });
+        });
+
+        // 2) عقود العربون (الدفعات من حركات payment_in وترتبط بالعربون)
+        arabonSales.filter(a => a.merchantId == merchantId).forEach(a => {
+            let dev = a.deviceName || 'جهاز';
+            rows.push({ date: a.date, desc: 'عقد عربون - ' + dev, debit: a.sellPrice || 0, credit: 0 });
+            transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in' && (t.amount || 0) > 0).forEach(t => {
+                rows.push({ date: t.date, desc: (t.notes || 'دفعة عربون - ') + dev, debit: 0, credit: t.amount });
+            });
+        });
+
+        // 3) مبيعات التجار
+        merchantSales.filter(s => s.merchantId == merchantId).forEach(s => {
+            let qty = s.quantity || 1;
+            rows.push({ date: s.date, desc: 'بيع لتاجر - ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : ''), debit: (s.sellPrice || 0) * qty, credit: 0 });
+        });
+
+        // 4) شراء من تاجر
+        merchantPurchases.filter(p => p.merchantId == merchantId).forEach(p => {
+            let qty = p.quantity || 1;
+            rows.push({ date: p.date, desc: 'شراء من تاجر - ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : ''), debit: 0, credit: (p.costPrice || 0) * qty });
+        });
+
+        // 5) دفعات منه
+        merchantPayments.filter(p => p.merchantId == merchantId).forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة من تاجر', debit: 0, credit: p.amount });
+        });
+
+        // 6) دفعات له
+        merchantPaymentsOut.filter(p => p.merchantId == merchantId).forEach(p => {
+            rows.push({ date: p.date, desc: p.notes || 'دفعة لتاجر', debit: p.amount, credit: 0 });
+        });
+
+        rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        return rows;
+    }
+
+    window.showComprehensiveStatement = (merchantId) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('العميل غير موجود', 'error'); return; }
+        let allRows = buildComprehensiveRows(merchantId);
+
+        let overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'comprehensiveStatementOverlay';
+        overlay.innerHTML = '' +
+        '<div class="customer-statement-modal" style="max-width:860px;">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">📄 كشف حساب شامل: ' + m.name + '</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;">📞 ' + (m.phone || '—') + '</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printComprehensiveStatement(' + merchantId + ', document.getElementById(\'csFrom\').value, document.getElementById(\'csTo\').value)">🖨️ طباعة</button>' +
+                    '<button onclick="document.getElementById(\'comprehensiveStatementOverlay\').remove()">✕ إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;">' +
+                    '<label style="font-size:0.85rem;font-weight:700;">من</label>' +
+                    '<input type="date" id="csFrom" onchange="renderComprehensiveRows(' + merchantId + ')">' +
+                    '<label style="font-size:0.85rem;font-weight:700;">إلى</label>' +
+                    '<input type="date" id="csTo" onchange="renderComprehensiveRows(' + merchantId + ')">' +
+                    '<span style="font-size:0.8rem;color:var(--text-muted);">' + allRows.length + ' حركة إجمالاً</span>' +
+                '</div>' +
+                '<div id="csContent"></div>' +
+            '</div>' +
+        '</div>';
+
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        renderComprehensiveRows(merchantId);
+    };
+
+    window.renderComprehensiveRows = (merchantId) => {
+        let from = document.getElementById('csFrom')?.value;
+        let to = document.getElementById('csTo')?.value;
+        let container = document.getElementById('csContent');
+        if (!container) return;
+        let allRows = buildComprehensiveRows(merchantId);
+
+        let fromDate = from ? new Date(from + 'T00:00:00') : null;
+        let toDate = to ? new Date(to + 'T23:59:59') : null;
+        const inR = (r) => {
+            let d = new Date(r.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        };
+        let opening = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.debit || 0) - (r.credit || 0), 0) : 0;
+        let rows = allRows.filter(inR);
+        let totalDebit = rows.reduce((s, r) => s + (r.debit || 0), 0);
+        let totalCredit = rows.reduce((s, r) => s + (r.credit || 0), 0);
+        let running = opening;
+        let rowsHtml = rows.map(r => {
+            running += (r.debit || 0) - (r.credit || 0);
+            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let balColor = running >= 0 ? 'var(--danger)' : 'var(--success)';
+            return '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
+                '<td style="padding:8px 6px;">' + r.desc + '</td>' +
+                '<td style="padding:8px 6px;color:var(--danger);font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
+                '<td style="padding:8px 6px;color:var(--success);font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td>' +
+                '<td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td>' +
+            '</tr>';
+        }).join('');
+
+        let finalBal = opening + totalDebit - totalCredit;
+        let summaryHtml = '' +
+        '<div class="customer-statement-summary">' +
+            '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + opening.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">إجمالي المدين (عليه)</div><div class="stat-value danger">' + totalDebit.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">إجمالي الدائن (منه)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (finalBal >= 0 ? 'danger' : 'success') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
+        '</div>';
+
+        let tableHtml = rows.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
+                '<thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (منه)</th><th>الرصيد</th></tr></thead><tbody>' +
+                rowsHtml +
+                '<tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(79,70,229,0.06);"><td colspan="2">الرصيد النهائي</td><td style="color:var(--danger);">' + totalDebit.toFixed(2) + ' ج</td><td style="color:var(--success);">' + totalCredit.toFixed(2) + ' ج</td><td style="color:' + (finalBal >= 0 ? 'var(--danger)' : 'var(--success)') + ';">' + finalBal.toFixed(2) + ' ج</td></tr>' +
+                '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات في هذه الفترة</div>';
+
+        container.innerHTML = summaryHtml + '<h4 style="margin:14px 0 10px 0;font-size:0.95rem;">📄 سجل الحركات (' + rows.length + ')</h4>' + tableHtml;
+    };
+
+    window.printComprehensiveStatement = (merchantId, from, to) => {
+        let m = merchants.find(x => x.id == merchantId);
+        if (!m) { showToast('العميل غير موجود', 'error'); return; }
+        let allRows = buildComprehensiveRows(merchantId);
+
+        let fromDate = from ? new Date(from + 'T00:00:00') : null;
+        let toDate = to ? new Date(to + 'T23:59:59') : null;
+        const inR = (r) => {
+            let d = new Date(r.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        };
+        let opening = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.debit || 0) - (r.credit || 0), 0) : 0;
+        let rows = allRows.filter(inR);
+        let totalDebit = rows.reduce((s, r) => s + (r.debit || 0), 0);
+        let totalCredit = rows.reduce((s, r) => s + (r.credit || 0), 0);
+        let running = opening;
+        let rowsHtml = rows.map(r => {
+            running += (r.debit || 0) - (r.credit || 0);
+            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let balColor = running >= 0 ? '#ef4444' : '#059669';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
+        }).join('');
+        let finalBal = opening + totalDebit - totalCredit;
+
+        let rangeLabel = (from || to) ? ('من ' + (from || 'البداية') + ' إلى ' + (to || 'النهاية')) : 'كل الفترات';
+        let htmlContent = '' +
+        '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:900px;margin:auto;box-sizing:border-box;">' +
+            '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
+                '<h1 style="color:#4f46e5;font-size:1.6rem;margin:0 0 4px 0;display:flex;align-items:center;justify-content:center;gap:8px;">📄 كشف حساب شامل</h1>' +
+                '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات والتقسيط | ' + rangeLabel + '</p>' +
+            '</div>' +
+            '<div style="background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:20px;">' +
+                '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
+                    '<tr><td style="padding:6px 4px;"><strong>اسم العميل:</strong> ' + m.name + '</td><td style="padding:6px 4px;"><strong>رقم الهاتف:</strong> ' + (m.phone || '—') + '</td></tr>' +
+                '</table>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الافتتاحي</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + opening.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المدين</div><div style="font-size:1.15rem;font-weight:800;color:#ef4444;">' + totalDebit.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الحالي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#ef4444' : '#059669') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (عليه)</th><th style="padding:10px 8px;text-align:right;">دائن (منه)</th><th style="padding:10px 8px;text-align:right;">الرصيد</th></tr></thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+            '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات والتقسيط</div>' +
+        '</div>';
+
+        let printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+        printWindow.document.write('<!DOCTYPE html>\n' +
+            '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>كشف حساب شامل - ' + m.name + '</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;}' +
+            '@media print{body{background:white}.no-print{display:none!important}@page{margin:0.8cm;size:A4}}' +
+            '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+            '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+            '.content-wrap{padding-top:56px;}' +
+            '</style></head><body>' +
+            '<div class="print-bar no-print"><span style="display:flex;align-items:center;gap:6px;">📄 كشف حساب شامل — ' + m.name + '</span><button onclick="window.print()" style="display:flex;align-items:center;gap:6px;">🖨️ طباعة / حفظ PDF</button></div>' +
+            '<div class="content-wrap">' + htmlContent + '</div>' +
+            '<script>window.onafterprint = () => window.close();<\\/script>' +
+            '</body></html>');
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
+    };
 
     function getMerchantDebtSummary() {
         let summary = {};
@@ -5669,6 +5891,7 @@
         html += '<div style="font-size:0.85rem;color:var(--text-muted);">' + (m.phone || '') + (m.address ? ' | ' + m.address : '') + '</div></div>';
         html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
         html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
+        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
         html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
         html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
         html += '</div></div>';
@@ -6179,7 +6402,10 @@
             html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
             html += '<div><div style="font-weight:700;font-size:1rem;color:var(--primary);">' + s.name + '</div>';
             html += '<div style="font-size:0.82rem;color:var(--text-muted);">' + (s.phone || '') + '</div></div>';
+            html += '<div style="display:flex;align-items:center;gap:10px;">';
+            html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
             html += '<div style="font-weight:700;font-size:1.1rem;color:' + (b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)')) + ';">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
+            html += '</div>';
             html += '</div></div>';
         });
         container.innerHTML = html;
