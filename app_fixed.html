@@ -5568,8 +5568,9 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove(); });
     };
 
     window.printArabonStatement = (arabonId) => {
@@ -5952,8 +5953,9 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove(); });
         renderComprehensiveRows(merchantId);
     };
 
@@ -6198,9 +6200,10 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
         });
     };
 
@@ -7109,9 +7112,10 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
         });
     };
 
@@ -7524,9 +7528,10 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
         });
     };
 
@@ -7833,9 +7838,10 @@
             '</div>' +
         '</div>';
 
+        const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
         });
     };
 
