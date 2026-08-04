@@ -1168,7 +1168,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>🏦 حساب البنك (لعملية الشراء)</label>
+                        <label>🏦 حساب الاستلام الافتراضي (يُستعمل في البيع والشراء)</label>
                         <select id="prodAccountId"><option value="">بدون حساب</option></select>
                     </div>
                     <div class="form-group">
@@ -4265,22 +4265,76 @@
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
             if (p.stock <= 0) { showToast('الرصيد صفر!', 'error'); return; }
-            p.stock -= 1;
-            if (p.stock <= 0) p.archived = true;
-            let mId = document.getElementById('transMerchantId') ? document.getElementById('transMerchantId').value : '';
-            transactions.push({
-                id: Date.now(), type: 'sell_cash', amount: p.sellPrice,
-                productId: p.id, merchantId: mId ? parseInt(mId) : null,
-                accountId: p.accountId || undefined,
-                notes: 'بيع نقدي | ' + p.name, discount: p.discount || 0,
-                date: new Date().toISOString()
+
+            let sellTotal = p.sellPrice;
+            let sellQty = 1;
+            let accOpts = '<option value="">💵 الخزينة</option>' + accounts.map(a => '<option value="' + a.id + '" ' + (a.id == p.accountId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+
+            document.getElementById('modalIcon').textContent = '💵';
+            document.getElementById('modalTitle').textContent = 'بيع من المخزن';
+            document.getElementById('modalMessage').innerHTML = '' +
+                '<div style="margin-bottom:10px;font-size:0.9rem;color:var(--text-main);">📦 <strong>' + p.name + '</strong></div>' +
+                '<div style="margin-bottom:12px;display:flex;gap:10px;">' +
+                    '<div style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--card-bg);"><div style="font-size:0.75rem;color:var(--text-muted);">الرصيد المتاح</div><div style="font-weight:800;color:var(--primary);">' + p.stock + ' قطعة</div></div>' +
+                    '<div style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--card-bg);"><div style="font-size:0.75rem;color:var(--text-muted);">سعر القطعة</div><div style="font-weight:800;color:var(--success);">' + p.sellPrice.toFixed(2) + ' ج</div></div>' +
+                '</div>' +
+                '<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">🔢 الكمية (1 - ' + p.stock + '):</label><input type="number" id="sellQty" value="1" min="1" max="' + p.stock + '" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"></div>' +
+                '<div style="margin-bottom:12px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">🏦 حساب الاستلام:</label><select id="sellAccount" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);">' + accOpts + '</select></div>' +
+                '<div style="margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;padding:10px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);border-radius:8px;"><span style="font-weight:700;font-size:0.85rem;">💰 الإجمالي:</span><span id="sellTotal" style="font-weight:800;color:var(--primary);font-size:1.05rem;">' + sellTotal.toFixed(2) + ' ج</span></div>';
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
+            document.getElementById('modalSplitToggle').style.display = 'none';
+            document.getElementById('modalSplitFields').classList.remove('show');
+            document.getElementById('modalConfirmBtn').textContent = '💵 تأكيد البيع';
+            document.getElementById('modalCancelBtn').style.display = '';
+            document.getElementById('modalOverlay').classList.add('show');
+
+            const qtyInput = document.getElementById('sellQty');
+            const totalSpan = document.getElementById('sellTotal');
+            const updateTotal = () => {
+                sellQty = parseInt(qtyInput.value) || 1;
+                sellTotal = sellQty * p.sellPrice;
+                totalSpan.textContent = sellTotal.toFixed(2) + ' ج';
+            };
+            qtyInput.addEventListener('input', updateTotal);
+            qtyInput.focus(); qtyInput.select();
+
+            let saved = false;
+            let oldResolve = _modalResolve;
+            let newResolve = null;
+            _modalResolve = (value) => {
+                if (value === null) { newResolve(false); oldResolve?.(null); return; }
+                let qty = parseInt(qtyInput.value) || 0;
+                if (qty < 1 || qty > p.stock) { showToast('الكمية غير صحيحة (1 - ' + p.stock + ')', 'error'); return; }
+                let accId = document.getElementById('sellAccount').value;
+                let mId = document.getElementById('transMerchantId') ? document.getElementById('transMerchantId').value : '';
+                p.stock -= qty;
+                if (p.stock <= 0) p.archived = true;
+                for (let i = 0; i < qty; i++) {
+                    transactions.push({
+                        id: Date.now() + i, type: 'sell_cash', amount: p.sellPrice,
+                        productId: p.id, merchantId: mId ? parseInt(mId) : null,
+                        accountId: accId ? parseInt(accId) : undefined,
+                        notes: 'بيع نقدي | ' + p.name, discount: p.discount || 0,
+                        date: new Date().toISOString()
+                    });
+                    stockMovements.push({
+                        date: new Date().toISOString(), productId: p.id, productName: p.name,
+                        type: 'out', qty: 1, ref: 'بيع نقدي', notes: p.imei ? 'IMEI: ' + p.imei : ''
+                    });
+                }
+                saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
+                document.getElementById('modalOverlay').classList.remove('show');
+                saved = true;
+                newResolve(true);
+                oldResolve?.(true);
+                showToast('💵 تم بيع ' + qty + '× ' + p.name + ' — ' + sellTotal.toFixed(2) + ' ج');
+            };
+            new Promise((resolve) => { newResolve = resolve; }).then(() => {
+                if (!saved) _modalResolve = oldResolve;
             });
-            stockMovements.push({
-                date: new Date().toISOString(), productId: p.id, productName: p.name,
-                type: 'out', qty: 1, ref: 'بيع نقدي', notes: p.imei ? 'IMEI: ' + p.imei : ''
-            });
-            saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
-            showToast('💵 تم بيع ' + p.name + ' — ' + p.sellPrice + ' ج');
         } catch (err) { showError('خطأ', err.message); }
     };
 
