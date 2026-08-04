@@ -941,11 +941,60 @@
     #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
     #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
     #mpContent .mp-sticky > div:last-child button { font-size: 0.75rem; padding: 6px 10px; min-height: 36px; flex: 1; text-align: center; }
+    /* ترويسة كشوف الحساب المنبثقة: تترتب عموديًا على الشاشات الصغيرة */
+    .customer-statement-header { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
+    .customer-statement-header .header-actions { justify-content: stretch; }
+    .customer-statement-header .header-actions button { flex: 1; text-align: center; }
+    .customer-statement-modal { border-radius: 16px; }
 }
 
 @media (min-width: 640px) {
     .show-mobile { display: none !important; }
 }
+
+/* ===== تحسينات شاشات الهاتف (اندرويد) ===== */
+/* شريط تبويبات التقارير قابل للتمرير أفقيًا بدل الالتفاف لعدة أسطر */
+@media (max-width: 640px) {
+    .report-tabs {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-right: -12px;
+        margin-left: -12px;
+        padding: 4px 12px 10px;
+    }
+    .report-tabs::-webkit-scrollbar { display: none; }
+    .report-tabs .tab-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: 0.78rem;
+    }
+
+    /* جداول كشف الحساب العام والكشوفات: تمرير أفقي سلس + خط أصغر */
+    #tabStatement #statementContent { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #tabStatement #statementContent > .customer-statement-summary { flex-wrap: wrap; }
+    #tabStatement #statementContent .customer-statement-summary .stat-card { min-width: calc(50% - 6px); padding: 8px 10px; }
+    #tabStatement #statementContent .customer-statement-summary .stat-card .stat-value { font-size: 1rem; }
+    #tabStatement #statementContent .customer-statement-summary .stat-card .stat-label { font-size: 0.7rem; }
+    #tabStatement #statementContent .merchant-statement-table { min-width: 520px; }
+    #tabStatement #statementContent table th,
+    #tabStatement #statementContent table td { font-size: 0.78rem; padding: 6px 8px; white-space: nowrap; }
+
+    /* كشوف الحساب داخل النوافذ المنبثقة */
+    .customer-statement-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .customer-statement-body .merchant-statement-table { min-width: 520px; }
+    .customer-statement-body table th,
+    .customer-statement-body table td { font-size: 0.78rem; padding: 6px 8px; white-space: nowrap; }
+
+    /* المنطقة الآمنة السفلية لأجهزة أندرويد ذات شريط التنقل */
+    .container { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+    .content { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+}
+
+/* جداول كشوف الحساب داخل النوافذ: منع الخروج عن الشاشة في كل الأحجام */
+.customer-statement-body { overflow-x: auto; }
     </style>
 </head>
 <body>
@@ -1524,7 +1573,7 @@
                 </div>
 
                 <!-- قائمة تبويب -->
-                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+                <div class="report-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
                     <button class="tab-btn active" data-tab="tabPnl" onclick="switchReportTab('tabPnl')">📊 قائمة الدخل</button>
                     <button class="tab-btn" data-tab="tabBalance" onclick="switchReportTab('tabBalance')">🏦 المركز المالي</button>
                     <button class="tab-btn" data-tab="tabDebt" onclick="switchReportTab('tabDebt')">📋 تحليل المديونية</button>
