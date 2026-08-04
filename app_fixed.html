@@ -3383,17 +3383,38 @@
     // ====== 📦 أرباح الأصناف ======
     function renderProductProfit() {
         const range = getDateRange();
-        const filteredTrans = transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell'));
         const prodMap = {};
-        filteredTrans.forEach(t => {
-            if (!t.productId) return;
-            if (!prodMap[t.productId]) {
-                const p = products.find(x => x.id == t.productId);
-                prodMap[t.productId] = { name: p ? p.name : 'حذف', cost: p ? p.costPrice + (p.expenses || 0) : 0, qty: 0, revenue: 0 };
-            }
-            prodMap[t.productId].qty += 1;
-            prodMap[t.productId].revenue += t.amount;
+        function addSale(productId, name, qty, revenue) {
+            let p = productId ? products.find(x => x.id == productId) : null;
+            if (!p && name) p = products.find(x => x.name === name);
+            const key = p ? p.id : 'n:' + (name || 'حذف');
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
+            prodMap[key].qty += qty || 1;
+            prodMap[key].revenue += revenue;
+        }
+
+        // 1) مبيعات نقدية
+        transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
+            if (t.productId) addSale(t.productId, null, 1, t.amount);
         });
+
+        // 2) عقود التقسيط (تخطي المحوّل من عربون لتجنب الازدواجية)
+        installments.filter(i => inRange(i.firstDueDate || i.date, range) && !arabonSales.some(a => a.instId == i.id)).forEach(inst => {
+            if (inst.productId) addSale(inst.productId, null, 1, inst.purchasePrice);
+        });
+
+        // 3) مبيعات العربون
+        arabonSales.filter(a => inRange(a.date, range)).forEach(a => {
+            if (a.productId) addSale(a.productId, null, 1, a.sellPrice);
+        });
+
+        // 4) مبيعات التجار (التكلفة تُحسب مرة واحدة حتى مع التقسيم)
+        const countedMs = new Set();
+        transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
+            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            if (ms) { countedMs.add(ms.id); addSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
+        });
+
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
         const totalRev = sorted.reduce((s, e) => s + e[1].revenue, 0);
         const totalCost = sorted.reduce((s, e) => s + (e[1].cost * e[1].qty), 0);
@@ -3414,7 +3435,8 @@
                     '<span style="color:' + (profit >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">📈 ربح: ' + profit.toFixed(2) + ' ج (' + margin + '%)</span>' +
                 '</div></div>';
         });
-        document.getElementById('prodProfitContent').innerHTML = html || '<div class="empty-state">لا توجد مبيعات في هذه الفترة</div>';
+        if (sorted.length === 0) html = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">لا توجد مبيعات في هذه الفترة</div></div>';
+        document.getElementById('prodProfitContent').innerHTML = html;
     }
 
     // ====== 📊 مقارنة شهرية ======
