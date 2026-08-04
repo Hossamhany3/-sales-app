@@ -3398,9 +3398,16 @@
             if (t.productId) addSale(t.productId, null, 1, t.amount);
         });
 
-        // 2) عقود التقسيط (تخطي المحوّل من عربون لتجنب الازدواجية)
-        installments.filter(i => inRange(i.firstDueDate || i.date, range) && !arabonSales.some(a => a.instId == i.id)).forEach(inst => {
-            if (inst.productId) addSale(inst.productId, null, 1, inst.purchasePrice);
+        // 2) عقود التقسيط (تشمل ربح الفوائد)
+        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+            if (!inst.productId) return;
+            if (arabonSales.some(a => a.instId == inst.id)) {
+                // محوّل من عربون: الإيراد محسوب ضمن العربون، تضاف الفائدة فقط
+                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
+            } else {
+                // ربح التقسيط الكامل = سعر البيع + الفائدة (مع إضافة المقدم)
+                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+            }
         });
 
         // 3) مبيعات العربون
