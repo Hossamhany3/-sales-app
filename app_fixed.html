@@ -1533,6 +1533,7 @@
                     <button class="tab-btn" data-tab="tabProdProfit" onclick="switchReportTab('tabProdProfit')">📦 أرباح الأصناف</button>
                     <button class="tab-btn" data-tab="tabCompare" onclick="switchReportTab('tabCompare')">📊 مقارنة</button>
                     <button class="tab-btn" data-tab="tabStockMov" onclick="switchReportTab('tabStockMov')">📋 حركة المخزون</button>
+                    <button class="tab-btn" data-tab="tabStatement" onclick="switchReportTab('tabStatement')">📋 كشف الحساب العام</button>
                 </div>
 
                 <!-- P&L -->
@@ -1681,6 +1682,16 @@
                 <div id="tabStockMov" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📋 حركة المخزون</h3>
                     <div id="stockMovContent"></div>
+                </div>
+
+                <!-- 📋 كشف الحساب العام -->
+                <div id="tabStatement" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📋 كشف الحساب العام</h3>
+                    <div id="statementContent"></div>
+                    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                        <button onclick="printGeneralStatement()" class="btn-outline" style="flex:1;">🖨️ طباعة كشف الحساب</button>
+                        <button onclick="exportGeneralStatementCSV()" class="btn-outline" style="flex:1;">📎 CSV الحركات</button>
+                    </div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -3296,6 +3307,7 @@
         if (tabId === 'tabProdProfit') { setTimeout(() => renderProductProfit(), 50); }
         if (tabId === 'tabCompare') { setTimeout(() => { populateCompareMonths(); renderComparison(); }, 50); }
         if (tabId === 'tabStockMov') { setTimeout(() => renderStockMovements(), 50); }
+        if (tabId === 'tabStatement') { setTimeout(() => renderGeneralStatement(), 50); }
     }
 
     // ====== 📅 التقرير اليومي ======
@@ -3376,8 +3388,223 @@
             '<div class="row" style="font-size:1.15rem;border-top:2px solid #4f46e5;margin-top:8px;color:#4f46e5;font-weight:800;"><span>🏦 الخزينة</span><span>' + cash.toFixed(2) + ' ج</span></div>' +
             '<div class="footer">نظام إدارة المبيعات والتقسيط</div>' +
             '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
-        w.document.close();
-        setTimeout(() => w.print(), 300);
+            w.document.close();
+            setTimeout(() => w.print(), 300);
+    }
+
+    // ====== 📋 كشف الحساب العام ======
+    function buildGeneralStatementRows() {
+        let rows = [];
+        const custName = (id) => merchants.find(x => x.id == id)?.name || 'عميل';
+        const devName = (inst) => {
+            let p = products.find(x => x.id == inst.productId);
+            return p?.name || inst.deviceName || 'جهاز';
+        };
+
+        // 1) الحركات النقدية المستقلة (بدون ارتباط بعقد قسط/عربون/تاجر)
+        transactions.forEach(t => {
+            if (t.instId || t.arabonId || t.merchantId) return;
+            if (t.type === 'sell_cash' || t.type === 'sell') {
+                rows.push({ date: t.date, desc: 'بيع نقدي | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'expense') {
+                rows.push({ date: t.date, desc: 'مصروف | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            } else if (t.type === 'purchase') {
+                rows.push({ date: t.date, desc: 'مشتريات | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            } else if (t.type === 'partner_deposit') {
+                rows.push({ date: t.date, desc: 'إيداع شريك | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'partner_withdrawal') {
+                rows.push({ date: t.date, desc: 'سحب شريك | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            }
+        });
+
+        // 2) عقود التقسيط
+        installments.forEach(inst => {
+            let dev = devName(inst);
+            let cust = custName(inst.merchantId);
+            let cDate = inst.date || inst.firstDueDate || new Date().toISOString();
+            let convArabon = arabonSales.find(a => a.instId == inst.id);
+            if (convArabon) {
+                let interest = (inst.totalAfterInterest || 0) - (inst.purchasePrice || 0);
+                if (interest > 0) rows.push({ date: cDate, desc: 'فوائد تحويل عربون إلى أقساط - ' + dev + ' - ' + cust, debit: interest, credit: 0 });
+            } else {
+                let total = (inst.totalAfterInterest || 0) + (inst.paidUpfront || 0);
+                rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev + ' - ' + cust, debit: total, credit: 0 });
+                if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev + ' - ' + cust, debit: 0, credit: inst.paidUpfront });
+            }
+            let schedule = inst.schedule || getInstSchedule(inst);
+            schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
+                rows.push({ date: s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
+            });
+        });
+
+        // 3) عقود العربون + دفعاتها
+        arabonSales.forEach(a => {
+            let dev = a.deviceName || 'جهاز';
+            let cust = custName(a.merchantId);
+            rows.push({ date: a.date, desc: 'عقد عربون - ' + dev + ' - ' + cust, debit: a.sellPrice || 0, credit: 0 });
+            transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in' && (t.amount || 0) > 0).forEach(t => {
+                rows.push({ date: t.date, desc: (t.notes ? t.notes : 'دفعة عربون - ' + dev + ' - ' + cust), debit: 0, credit: t.amount });
+            });
+        });
+
+        // 4) مبيعات التجار
+        merchantSales.forEach(s => {
+            let qty = s.quantity || 1;
+            rows.push({ date: s.date, desc: 'بيع لتاجر - ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + ' - ' + custName(s.merchantId), debit: (s.sellPrice || 0) * qty, credit: 0 });
+        });
+
+        // 5) شراء من التجار
+        merchantPurchases.forEach(p => {
+            let qty = p.quantity || 1;
+            rows.push({ date: p.date, desc: 'شراء من تاجر - ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : '') + ' - ' + custName(p.merchantId), debit: 0, credit: (p.costPrice || 0) * qty });
+        });
+
+        // 6) دفعات من التجار
+        merchantPayments.forEach(p => {
+            rows.push({ date: p.date, desc: 'دفعة من تاجر - ' + (p.notes || '') + ' - ' + custName(p.merchantId), debit: 0, credit: p.amount || 0 });
+        });
+
+        // 7) دفعات للتجار
+        merchantPaymentsOut.forEach(p => {
+            rows.push({ date: p.date, desc: 'دفعة لتاجر - ' + (p.notes || '') + ' - ' + custName(p.merchantId), debit: p.amount || 0, credit: 0 });
+        });
+
+        rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        return rows;
+    }
+
+    function renderGeneralStatement() {
+        let container = document.getElementById('statementContent');
+        if (!container) return;
+        let range = getDateRange();
+        let allRows = buildGeneralStatementRows();
+        let fromDate = range.from, toDate = range.to;
+        const inR = (r) => {
+            let d = new Date(r.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        };
+        let opening = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.credit || 0) - (r.debit || 0), 0) : 0;
+        let rows = allRows.filter(inR);
+        let totalDebit = rows.reduce((s, r) => s + (r.debit || 0), 0);
+        let totalCredit = rows.reduce((s, r) => s + (r.credit || 0), 0);
+        let running = opening;
+        let rowsHtml = rows.map(r => {
+            running += (r.credit || 0) - (r.debit || 0);
+            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let balColor = running >= 0 ? 'var(--success)' : 'var(--danger)';
+            return '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
+                '<td style="padding:8px 6px;">' + r.desc + '</td>' +
+                '<td style="padding:8px 6px;color:var(--danger);font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
+                '<td style="padding:8px 6px;color:var(--success);font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td>' +
+                '<td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td>' +
+            '</tr>';
+        }).join('');
+
+        let finalBal = opening + totalCredit - totalDebit;
+        let summaryHtml = '' +
+        '<div class="customer-statement-summary">' +
+            '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + opening.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">إجمالي المدين (منصرف)</div><div class="stat-value danger">' + totalDebit.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">إجمالي الدائن (وارد)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
+        '</div>';
+
+        let tableHtml = rows.length > 0
+            ? '<table class="merchant-statement-table" style="font-size:0.85rem;width:100%;border-collapse:collapse;">' +
+                '<thead><tr style="border-bottom:2px solid var(--border);"><th style="padding:8px 6px;text-align:right;">التاريخ</th><th style="padding:8px 6px;text-align:right;">البيان</th><th style="padding:8px 6px;text-align:right;">مدين (منصرف)</th><th style="padding:8px 6px;text-align:right;">دائن (وارد)</th><th style="padding:8px 6px;text-align:right;">الرصيد</th></tr></thead><tbody>' +
+                rowsHtml +
+                '<tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(79,70,229,0.06);"><td colspan="2">الرصيد النهائي</td><td style="color:var(--danger);">' + totalDebit.toFixed(2) + ' ج</td><td style="color:var(--success);">' + totalCredit.toFixed(2) + ' ج</td><td style="color:' + (finalBal >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + finalBal.toFixed(2) + ' ج</td></tr>' +
+                '</tbody></table>'
+            : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات في هذه الفترة</div>';
+
+        container.innerHTML = summaryHtml + tableHtml;
+    }
+
+    function printGeneralStatement() {
+        let allRows = buildGeneralStatementRows();
+        let range = getDateRange();
+        let fromDate = range.from, toDate = range.to;
+        const inR = (r) => {
+            let d = new Date(r.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        };
+        let opening = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.credit || 0) - (r.debit || 0), 0) : 0;
+        let rows = allRows.filter(inR);
+        let totalDebit = rows.reduce((s, r) => s + (r.debit || 0), 0);
+        let totalCredit = rows.reduce((s, r) => s + (r.credit || 0), 0);
+        let running = opening;
+        let rowsHtml = rows.map(r => {
+            running += (r.credit || 0) - (r.debit || 0);
+            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let balColor = running >= 0 ? '#059669' : '#ef4444';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
+        }).join('');
+        let finalBal = opening + totalCredit - totalDebit;
+
+        let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
+        let htmlContent = '' +
+        '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:900px;margin:auto;box-sizing:border-box;">' +
+            '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
+                '<h1 style="color:#4f46e5;font-size:1.6rem;margin:0 0 4px 0;display:flex;align-items:center;justify-content:center;gap:8px;">📋 كشف الحساب العام</h1>' +
+                '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات | ' + rangeLabel + '</p>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الافتتاحي</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + opening.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المدين</div><div style="font-size:1.15rem;font-weight:800;color:#ef4444;">' + totalDebit.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الحالي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (منصرف)</th><th style="padding:10px 8px;text-align:right;">دائن (وارد)</th><th style="padding:10px 8px;text-align:right;">الرصيد</th></tr></thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>' +
+            '<div style="text-align:center;margin-top:20px;padding-top:12px;border-top:1px solid #cbd5e1;color:#94a3b8;font-size:0.82rem;">تم إنشاء هذا الكشف آلياً — نظام إدارة المبيعات</div>' +
+        '</div>';
+
+        let printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return; }
+        printWindow.document.write('<!DOCTYPE html>\n' +
+            '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>كشف الحساب العام</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;}' +
+            '@media print{body{background:white}.no-print{display:none!important}@page{margin:0.8cm;size:A4}}' +
+            '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+            '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+            '.content-wrap{padding-top:56px;}' +
+            '</style></head><body>' +
+            '<div class="print-bar no-print"><span style="display:flex;align-items:center;gap:6px;">📋 كشف الحساب العام</span><button onclick="window.print()" style="display:flex;align-items:center;gap:6px;">🖨️ طباعة / حفظ PDF</button></div>' +
+            '<div class="content-wrap">' + htmlContent + '</div>' +
+            '<script>window.onafterprint = () => window.close();<\\/script>' +
+            '</body></html>');
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
+    }
+
+    function exportGeneralStatementCSV() {
+        let allRows = buildGeneralStatementRows();
+        let range = getDateRange();
+        let fromDate = range.from, toDate = range.to;
+        const inR = (r) => {
+            let d = new Date(r.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate && d > toDate) return false;
+            return true;
+        };
+        let rows = allRows.filter(inR);
+        let header = ['التاريخ', 'البيان', 'مدين (منصرف)', 'دائن (وارد)', 'الرصيد'];
+        let running = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.credit || 0) - (r.debit || 0), 0) : 0;
+        let csvRows = rows.map(r => {
+            running += (r.credit || 0) - (r.debit || 0);
+            return [new Date(r.date).toLocaleDateString('ar-EG'), r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : '', running.toFixed(2)];
+        });
+        downloadCSV('كشف_الحساب_العام_' + Date.now() + '.csv', header, csvRows);
+        showToast('تم تصدير CSV');
     }
 
     // ====== 📦 أرباح الأصناف ======
