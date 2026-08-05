@@ -5206,20 +5206,19 @@
 
             return '' +
             '<div class="card">' +
-                '<div class="flex-between" style="padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--border);">' +
-                    '<div><strong style="font-size:1.05rem;">👤 ' + (m?.name || 'عميل') + '</strong> <span style="color:var(--text-muted); font-size:0.85rem;">عقد رقم ' + (inst.contractNo || inst.id) + '</span></div>' +
-                    '<div>' + statusBadge + '</div>' +
-                '</div>' +
-                '<div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">' +
-                    '<span style="font-size:1.8rem;">📱</span>' +
-                    '<div style="flex:1;">' +
-                        '<div style="font-weight:700; font-size:0.95rem;">' + deviceName + '</div>' +
-                        '<div style="font-size:0.8rem; color:var(--text-muted);">قسط: ' + inst.monthlyAmount.toLocaleString() + ' ج/شهر | ' + inst.numInstallments + ' شهور</div>' +
+                '<div style="display:flex; align-items:flex-start; gap:8px; padding-bottom:10px; margin-bottom:8px; border-bottom:1px solid var(--border);">' +
+                    '<div style="flex:1; min-width:0; font-weight:700; font-size:0.95rem; line-height:1.8;">' +
+                        '👤 ' + (m?.name || 'عميل') +
+                        '<span style="font-weight:600; color:var(--text-muted);">' +
+                            ' · 📋 عقد ' + (inst.contractNo || inst.id) +
+                            ' · 📱 ' + deviceName +
+                            ' · ' + inst.numInstallments + ' شهر × ' + inst.monthlyAmount.toLocaleString() + ' ج' +
+                            ' · مقدم ' + inst.paidUpfront.toLocaleString() + ' ج' +
+                            ' · متبقي <strong style="color:var(--danger);">' + inst.remainingBalance.toLocaleString() + ' ج</strong>' +
+                            ' · ' + paidCount + '/' + inst.numInstallments + ' مسدد' +
+                        '</span>' +
                     '</div>' +
-                '</div>' +
-                '<div style="display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:8px;">' +
-                    '<span><span style="color:var(--text-muted);">مقدم:</span> ' + inst.paidUpfront.toLocaleString() + ' ج</span>' +
-                    '<span><span style="color:var(--text-muted);">متبقي:</span> <strong style="color:var(--danger);">' + inst.remainingBalance.toLocaleString() + ' ج</strong></span>' +
+                    '<div style="flex-shrink:0;">' + statusBadge + '</div>' +
                 '</div>' +
                 /* شريط التقدم */
                 '<div style="background:#f1f5f9; border-radius:50px; height:8px; margin:8px 0 4px; overflow:hidden;">' +
