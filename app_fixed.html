@@ -219,7 +219,7 @@
         input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
         input[readonly] { background: var(--primary-light); color: var(--primary); font-weight: bold; border-color: #c7d2fe; }
         
-        button { background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 0.95rem; transition: all var(--transition); min-height: 44px; }
+        button { background: var(--primary); color: white; border: none; font-weight: 700; cursor: pointer; padding: 12px 18px; border-radius: var(--radius-sm); font-size: 0.95rem; transition: all var(--transition); min-height: 44px; touch-action: manipulation; }
         button:hover { background: var(--primary-hover); transform: translateY(-1px); }
         button[type="submit"] { width: 100%; margin-top: 6px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
         .btn-sm { padding: 8px 14px; font-size: 0.85rem; width: auto; border-radius: 8px; box-shadow: none; min-height: 36px; }
@@ -5570,7 +5570,7 @@
 
         const openedAt = Date.now();
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove(); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
     };
 
     window.printArabonStatement = (arabonId) => {
@@ -5955,7 +5955,7 @@
 
         const openedAt = Date.now();
         document.body.appendChild(overlay);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove(); });
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
         renderComprehensiveRows(merchantId);
     };
 
@@ -6203,7 +6203,7 @@
         const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove();
         });
     };
 
@@ -7115,7 +7115,7 @@
         const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove();
         });
     };
 
@@ -7531,7 +7531,7 @@
         const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove();
         });
     };
 
@@ -7841,7 +7841,7 @@
         const openedAt = Date.now();
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && Date.now() - openedAt > 400) overlay.remove();
+            if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove();
         });
     };
 
