@@ -1510,7 +1510,7 @@
 
         <div id="merchantPage" class="page">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-                <button class="btn-sm btn-outline" onclick="switchPage('merchantSales')">🔙 رجوع</button>
+                <button class="btn-sm btn-outline" onclick="goBackFromMerchant()">🔙 رجوع</button>
                 <h2 style="margin:0;" id="mpMerchantName">🏪 صفحة التاجر</h2>
             </div>
             <div id="mpContent"></div>
@@ -6521,9 +6521,18 @@
     window.currentMerchantId = null;
 
     window.showMerchantPage = (merchantId) => {
+        window._merchantBackPage = document.querySelector('.page.active-page')?.id || 'merchantSales';
         window.currentMerchantId = merchantId;
         switchPage('merchantPage');
         renderMerchantPage();
+    };
+
+    window.goBackFromMerchant = () => {
+        let back = window._merchantBackPage;
+        if (back !== 'installments' && back !== 'merchantSales') back = 'merchantSales';
+        switchPage(back);
+        if (back === 'merchantSales') renderMerchantSales();
+        if (back === 'installments') renderInstallments();
     };
 
     window.renderMerchantPage = () => {
