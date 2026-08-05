@@ -586,8 +586,7 @@
 
 /* ===== بطاقة عقد التقسيط ===== */
 .inst-avatar { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800; color:#fff; flex-shrink:0; background:linear-gradient(135deg,#4f46e5,#7c3aed); box-shadow:0 3px 8px rgba(79,70,229,0.25); }
-.inst-name { font-weight:800; font-size:1rem; line-height:1.4; cursor:pointer; color:var(--text-main); }
-.inst-name:hover { color:var(--primary); }
+.inst-name { font-weight:800; font-size:1rem; line-height:1.4; color:var(--text-main); }
 .inst-sub { font-size:0.8rem; color:var(--text-muted); margin-top:2px; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
 .inst-chips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0 8px; }
 .inst-chip { background:var(--secondary); border:1px solid var(--border); border-radius:10px; padding:8px 10px; text-align:center; }
@@ -616,6 +615,21 @@
 .inst-panel-actions .btn-sm { flex:1; }
 .inst-pay-info { display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
 .inst-pay-info b { color:var(--text-main); }
+
+.inst-details-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.inst-details-item { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:8px 10px; }
+.inst-details-label { font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px; }
+.inst-details-value { font-size:0.88rem; font-weight:700; color:var(--text-main); }
+.inst-details-value.danger { color:var(--danger); }
+.inst-details-customer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+.inst-details-list { margin-top:10px; }
+.inst-details-list-title { font-size:0.82rem; font-weight:800; color:var(--text-muted); margin-bottom:6px; }
+.inst-details-pay-row { display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; padding:6px 8px; background:var(--card-bg); border:1px solid var(--border); border-radius:8px; margin-bottom:5px; }
+.inst-details-pay-row b { color:var(--success); }
+
+@media (max-width:600px) {
+    .inst-details-grid { grid-template-columns:1fr; }
+}
 
 @media (max-width:600px) {
     .inst-chips { grid-template-columns:repeat(2,1fr); }
@@ -5017,6 +5031,54 @@
 
     // ====== تعديل عقد التقسيط ======
     // ====== لوحة تعديل داخلية في البطاقة ======
+    window.toggleInstDetails = (id) => {
+        try {
+            let inst = installments.find(i => i.id == id);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            let panel = document.getElementById('detailsPanel-' + id);
+            let editPanel = document.getElementById('editPanel-' + id);
+            let payPanel = document.getElementById('payPanel-' + id);
+            if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+            document.querySelectorAll('.inst-panel.open').forEach(el => el.classList.remove('open'));
+
+            let m = merchants.find(x => x.id == inst.merchantId);
+            let schedule = getInstSchedule(inst);
+            let paidCount = schedule.filter(s => s.isPaid).length;
+            let nextDue = schedule.find(s => !s.isPaid);
+            let deviceName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'غير محدد';
+
+            let html = '<div class="inst-panel-title">📄 تفاصيل العقد رقم ' + (inst.contractNo || inst.id) + '</div>';
+            html += '<div class="inst-details-customer"><span>👤 <b>' + (m?.name || 'عميل') + '</b></span><span>📞 ' + (m?.phone || '—') + '</span></div>';
+            html += '<div class="inst-details-grid">';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📱 الجهاز</span><span class="inst-details-value">' + deviceName + '</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + inst.purchasePrice.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + inst.paidUpfront.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📊 نسبة الفائدة</span><span class="inst-details-value">' + inst.interestRate + '%</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📅 عدد الشهور</span><span class="inst-details-value">' + inst.numInstallments + ' شهر</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💳 القسط الشهري</span><span class="inst-details-value">' + inst.monthlyAmount.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">🧮 الإجمالي بعد الفائدة</span><span class="inst-details-value">' + inst.totalAfterInterest.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">⚠️ المتبقي</span><span class="inst-details-value danger">' + inst.remainingBalance.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📆 تاريخ أول قسط</span><span class="inst-details-value">' + (inst.firstDueDate ? new Date(inst.firstDueDate).toLocaleDateString('ar-EG') : '—') + '</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">✅ الأقساط المسددة</span><span class="inst-details-value">' + paidCount + '/' + inst.numInstallments + '</span></div>';
+            html += '</div>';
+
+            let paidSlots = schedule.filter(s => s.isPaid);
+            if (paidSlots.length > 0) {
+                html += '<div class="inst-details-list"><div class="inst-details-list-title">💳 سجل السداد</div>';
+                paidSlots.forEach(s => {
+                    let payDate = s.paidDate ? new Date(s.paidDate).toLocaleDateString('ar-EG') : '—';
+                    html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString() + ' ج</b></div>';
+                });
+                html += '</div>';
+            }
+
+            panel.innerHTML = html;
+            panel.classList.add('open');
+        } catch (err) {
+            showError('حدث خطأ', err.message);
+        }
+    };
+
     window.toggleInstEdit = (id) => {
         try {
             let inst = installments.find(i => i.id == id);
@@ -5252,7 +5314,7 @@
                 '<div style="display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid var(--border);">' +
                     '<div class="inst-avatar">' + initials + '</div>' +
                     '<div style="flex:1; min-width:0;">' +
-                        '<div class="inst-name" onclick="showMerchantPage(' + inst.merchantId + ')" title="افتح صفحة العميل">' + (m?.name || 'عميل') + ' <span style="font-size:0.8rem; color:var(--primary); font-weight:600;">←</span></div>' +
+                        '<div class="inst-name">' + (m?.name || 'عميل') + '</div>' +
                         '<div class="inst-sub"><span>📋 عقد ' + (inst.contractNo || inst.id) + '</span><span>·</span><span>📱 ' + deviceName + '</span></div>' +
                     '</div>' +
                     '<div style="flex-shrink:0;">' + statusBadge + '</div>' +
@@ -5273,12 +5335,15 @@
                 /* شريط الأزرار */
                 '<div class="inst-actionbar">' +
                     (nextUnpaidIdx >= 0 ? '<button class="btn-sm btn-success wide" onclick="openSlotPay(' + inst.id + ', ' + nextUnpaidIdx + ')">💵 تحصيل</button>' : '') +
+                    '<button class="btn-sm btn-outline" onclick="toggleInstDetails(' + inst.id + ')">📄 التفاصيل</button>' +
                     '<button class="btn-sm btn-outline" onclick="sendPlanAsPDF(' + inst.id + ')">📋 PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="showCustomerInstallmentStatement(' + inst.merchantId + ')">📊 كشف</button>' +
                     '<button class="btn-sm btn-outline" onclick="toggleInstEdit(' + inst.id + ')">✏️ تعديل</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
                     '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️</button>' +
                 '</div>' +
+                /* لوحة التفاصيل الداخلية */
+                '<div class="inst-panel" id="detailsPanel-' + inst.id + '"></div>' +
                 /* لوحة التعديل الداخلية */
                 '<div class="inst-panel" id="editPanel-' + inst.id + '"></div>' +
                 /* لوحة السداد الداخلية */
