@@ -4697,12 +4697,72 @@
         }
     };
 
+    window._openTransDet = window._openTransDet || new Set();
+
+    const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
+    const isIncomeTransType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale','transfer_in'].includes(type);
+
+    window.toggleTransDetails = (id) => {
+        const el = document.getElementById('transDetails-' + id);
+        if (!el) return;
+        const open = el.classList.toggle('open');
+        if (open) window._openTransDet.add(id); else window._openTransDet.delete(id);
+    };
+
+    function buildTransDetails(t) {
+        let p = products.find(x => x.id == t.productId);
+        let m = merchants.find(x => x.id == t.merchantId);
+        let pr = partners.find(x => x.id == t.partnerId);
+        let a = accounts.find(x => x.id == t.accountId);
+        let inst = installments.find(i => i.id == t.instId);
+        let arabon = arabonSales.find(x => x.id == t.arabonId);
+        let sale = merchantSales.find(s => s.transactionId == t.id || (s.transactionId && s.transactionId + 2 == t.id));
+        let toAcc = t.toAccountId ? accounts.find(x => x.id == t.toAccountId) : null;
+        let fromAcc = t.fromAccountId ? accounts.find(x => x.id == t.fromAccountId) : null;
+        let accLabel = (x) => x ? (x.type === 'bank' ? '🏦' : x.type === 'vodafone' ? '📱' : '💵') + ' ' + x.name : null;
+
+        let rows = [];
+        rows.push(['📋 نوع الحركة', transTypeMap[t.type] || t.type]);
+        rows.push(['📅 التاريخ', new Date(t.date).toLocaleString('ar-EG', { dateStyle: 'full', timeStyle: 'short' })]);
+        rows.push(['💰 المبلغ', (isIncomeTransType(t.type) ? '+' : '-') + t.amount.toLocaleString() + ' ج']);
+
+        if (sale) {
+            rows.push(['📦 الصنف', sale.deviceName || '—']);
+            rows.push(['🔢 الكمية', sale.quantity || 1]);
+            rows.push(['🏷️ سعر الوحدة', (sale.sellPrice || 0).toLocaleString() + ' ج']);
+            rows.push(['🧮 إجمالي البند', ((sale.sellPrice || 0) * (sale.quantity || 1)).toLocaleString() + ' ج']);
+        } else if (p) {
+            let qty = 1;
+            let mQ = t.notes && t.notes.match(/×\s*(\d+)/);
+            if (mQ) qty = parseInt(mQ[1]);
+            let unit = qty > 0 ? t.amount / qty : t.amount;
+            rows.push(['📦 الصنف', p.name]);
+            rows.push(['🔢 الكمية', qty]);
+            rows.push(['🏷️ سعر الوحدة', unit.toLocaleString() + ' ج']);
+            rows.push(['🧮 إجمالي البند', t.amount.toLocaleString() + ' ج']);
+        }
+
+        if (m) rows.push(['👤 التاجر/العميل', m.name + (m.phone ? ' (📞 ' + m.phone + ')' : '')]);
+        if (pr) rows.push(['🤝 الشريك', pr.name]);
+        if (a) rows.push(['💳 الحساب', accLabel(a)]);
+        if (toAcc) rows.push(['🏦 إلى الحساب', accLabel(toAcc)]);
+        if (fromAcc) rows.push(['🏦 من الحساب', accLabel(fromAcc)]);
+        if (inst) rows.push(['📝 عقد تقسيط', 'رقم ' + (inst.contractNo || inst.id) + ' — ' + (inst.deviceName || '') + (inst.remainingBalance != null ? ' (متبقي ' + inst.remainingBalance.toLocaleString() + ' ج)' : '')]);
+        if (arabon) rows.push(['🔖 عربون', arabon.deviceName || 'عربون رقم ' + arabon.id]);
+        if (t.notes) rows.push(['📝 ملاحظات', t.notes]);
+
+        if (rows.length === 0) rows.push(['📝 ملاحظات', '—']);
+        return '<div style="font-size:0.85rem;">' + rows.map(r =>
+            '<div class="schedule-row"><span class="schedule-label">' + r[0] + '</span><span class="td-value">' + r[1] + '</span></div>'
+        ).join('') + '</div>';
+    }
+
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
-        const typeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
+        const typeMap = transTypeMap;
         const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸', 'transfer_in':'🔄', 'transfer_out':'🔄' };
 
-        const isIncomeType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale','transfer_in'].includes(type);
+        const isIncomeType = isIncomeTransType;
 
         // حساب الرصيد
         let netBalance = 0;
