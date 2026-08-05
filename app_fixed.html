@@ -3496,6 +3496,14 @@
                 rows.push({ date: t.date, desc: 'إيداع شريك | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
             } else if (t.type === 'partner_withdrawal') {
                 rows.push({ date: t.date, desc: 'سحب شريك | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            } else if (t.type === 'transfer_out') {
+                rows.push({ date: t.date, desc: 'تحويل بين حسابات (خارج من حساب) | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            } else if (t.type === 'transfer_in') {
+                rows.push({ date: t.date, desc: 'تحويل بين حسابات (وارد لحساب) | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'payment_in') {
+                rows.push({ date: t.date, desc: 'وارد نقدي | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'payment_out') {
+                rows.push({ date: t.date, desc: 'منصرف نقدي | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
             }
         });
 
@@ -3559,8 +3567,8 @@
     function getCashLiquidity() {
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'merchant_purchase' || t.type === 'payment_out') cash -= t.amount;
+            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
+            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'payment_out') cash -= t.amount;
         });
         return cash;
     }
@@ -3597,6 +3605,7 @@
 
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
+        let recon = finalBal - liquidity;
         let summaryHtml = '' +
         '<div class="customer-statement-summary">' +
             '<div class="stat-card"><div class="stat-label">💼 رأس المال</div><div class="stat-value primary">' + openingCapital.toFixed(2) + ' ج</div></div>' +
@@ -3605,7 +3614,12 @@
             '<div class="stat-card"><div class="stat-label">إجمالي الدائن (وارد)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">الرصيد الصافي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">🏦 السيولة النقدية (خزينة + بنوك)</div><div class="stat-value primary">' + liquidity.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">💳 المبالغ المعلقة (صافي)</div><div class="stat-value ' + (recon >= 0 ? 'success' : 'danger') + '">' + recon.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? 'rgba(5,150,105,0.10)' : 'rgba(220,38,38,0.08)') + ';border:1px solid ' + (recon >= -0.01 ? 'rgba(5,150,105,0.40)' : 'rgba(220,38,38,0.35)') + ';font-weight:700;font-size:0.88rem;color:var(--text);">' +
+            '⚖️ موازنة الحسابات: السيولة النقدية (' + liquidity.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = الرصيد الصافي (' + finalBal.toFixed(2) + ' ج)' +
+            (recon >= -0.01 ? ' ✅' : ' ⚠️') +
         '</div>';
 
         let tableHtml = rows.length > 0
@@ -3643,6 +3657,7 @@
         }).join('');
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
+        let recon = finalBal - liquidity;
 
         let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
         let htmlContent = '' +
@@ -3658,7 +3673,12 @@
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الصافي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">🏦 السيولة النقدية (خزينة + بنوك)</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + liquidity.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💳 المبالغ المعلقة (صافي)</div><div style="font-size:1.15rem;font-weight:800;color:' + (recon >= 0 ? '#059669' : '#ef4444') + ';">' + recon.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (recon >= -0.01 ? '#059669' : '#ef4444') + ';font-weight:700;font-size:0.9rem;color:#0f172a;">' +
+                '⚖️ موازنة الحسابات: السيولة النقدية (' + liquidity.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = الرصيد الصافي (' + finalBal.toFixed(2) + ' ج)' +
+                (recon >= -0.01 ? ' ✅' : ' ⚠️') +
             '</div>' +
             '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
                 '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (منصرف)</th><th style="padding:10px 8px;text-align:right;">دائن (وارد)</th><th style="padding:10px 8px;text-align:right;">الرصيد</th></tr></thead>' +
@@ -3710,6 +3730,7 @@
         csvRows.push(['💼 رأس المال', '', '', '', openingCapital.toFixed(2)]);
         csvRows.push(['الرصيد الصافي', '', '', '', finalBal.toFixed(2)]);
         csvRows.push(['🏦 السيولة النقدية (خزينة + حسابات بنكية)', '', '', '', getCashLiquidity().toFixed(2)]);
+        csvRows.push(['💳 المبالغ المعلقة (صافي = الرصيد الصافي - السيولة)', '', '', '', (finalBal - getCashLiquidity()).toFixed(2)]);
         downloadCSV('كشف_الحساب_العام_' + Date.now() + '.csv', header, csvRows);
         showToast('تم تصدير CSV');
     }
@@ -6992,7 +7013,8 @@
             let ok2 = await showConfirmModal('حذف الشريك "' + p.name + '"؟', '🗑️ تأكيد الحذف');
             if (!ok2) return;
             partners = partners.filter(x => x.id != id);
-            saveData(); renderPartners();
+            transactions = transactions.filter(t => t.partnerId != id);
+            saveData(); renderPartners(); renderTransactions(); renderDashboard();
             showToast('تم حذف الشريك');
         } catch (err) {
             showError('حدث خطأ', err.message);
