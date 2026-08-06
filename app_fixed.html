@@ -1925,6 +1925,26 @@
                             <button id="driveUploadBtn" class="btn-sm btn-outline" style="flex:1;" disabled>⬆️ رفع نسخة إلى Drive</button>
                             <button id="driveDownloadBtn" class="btn-sm btn-outline" style="flex:1;" disabled>⬇️ استرجاع من Drive</button>
                         </div>
+                        <div id="driveHelp" style="margin-top:10px; font-size:0.8rem; color:var(--text-muted); background:var(--background); border:1px solid var(--border); border-radius:8px; padding:10px;">
+                            <div id="driveEnvMsg">...</div>
+                            <div id="driveOAuthInfo" style="margin-top:8px;">
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                                    <span>🔗 رابط إعادة التوجيه (redirect URI) المطلوب تسجيله في Google Cloud:</span>
+                                    <button id="driveCopyUriBtn" class="btn-sm" style="min-height:28px; padding:3px 10px; font-size:0.72rem;">📋 نسخ</button>
+                                </div>
+                                <code id="driveRedirectUri" style="display:block; direction:ltr; text-align:left; word-break:break-all; margin-top:4px; font-size:0.72rem; background:var(--card-bg); border-radius:6px; padding:6px 8px; color:var(--text-main);"></code>
+                                <details style="margin-top:8px;">
+                                    <summary style="cursor:pointer; color:var(--primary); font-weight:700;">🛠️ خطوات إصلاح الربط</summary>
+                                    <ol style="margin:6px 0 0 18px; line-height:1.9;">
+                                        <li>افتح التطبيق من الإنترنت (GitHub Pages) وليس كملف محلي — الربط لا يعمل من <code>file://</code>.</li>
+                                        <li>ادخل إلى <b>Google Cloud Console</b> وافتح مشروع OAuth المرتبط بهذا Client ID.</li>
+                                        <li>من Credentials — اختر Client ID الحالي وأضف <b>رابط إعادة التوجيه</b> أعلاه بالضبط.</li>
+                                        <li>من OAuth consent screen — إذا كان في وضع Testing أضف بريدك كـ Test user، أو انقل التطبيق إلى Production.</li>
+                                        <li>ثم اضغط زر «🔗 ربط بحساب Google» مرة أخرى.</li>
+                                    </ol>
+                                </details>
+                            </div>
+                        </div>
                     </div>
                 </details>
 
@@ -1935,6 +1955,10 @@
                         <input type="checkbox" id="autoBackupToggle" style="opacity:0; width:0; height:0;">
                         <span style="position:absolute; cursor:pointer; inset:0; background:#cbd5e1; border-radius:26px; transition:0.3s;" id="autoBackupSlider"></span>
                     </label>
+                </div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                    <span id="autoBackupLastInfo" style="font-size:0.82rem; color:var(--text-muted);">لا توجد نسخة تلقائية محفوظة بعد</span>
+                    <button id="restoreAutoBackupBtn" class="btn-sm btn-outline" style="min-height:34px;">♻️ استرجاع آخر نسخة تلقائية</button>
                 </div>
                 <div style="background:#f1f5f9; border-radius:10px; padding:14px; border:1px solid var(--border);">
                     <div class="flex-between" style="margin-bottom:4px;">
@@ -3024,6 +3048,60 @@
         const slider = document.getElementById('autoBackupSlider');
         slider.style.background = this.checked ? 'var(--success)' : '#cbd5e1';
         startAutoBackup();
+    });
+
+    function updateAutoBackupInfo() {
+        const el = document.getElementById('autoBackupLastInfo');
+        if (!el) return;
+        try {
+            const raw = localStorage.getItem('autoBackup_last');
+            if (raw) {
+                const d = JSON.parse(raw);
+                el.textContent = '📅 آخر نسخة تلقائية: ' + (d.date ? new Date(d.date).toLocaleString('ar-EG') : 'موجودة');
+            } else {
+                el.textContent = 'لا توجد نسخة تلقائية محفوظة بعد';
+            }
+        } catch (e) {
+            el.textContent = 'لا توجد نسخة تلقائية محفوظة بعد';
+        }
+    }
+
+    document.getElementById('restoreAutoBackupBtn')?.addEventListener('click', async () => {
+        const raw = localStorage.getItem('autoBackup_last');
+        if (!raw) { showToast('لا توجد نسخة تلقائية محفوظة', 'error'); return; }
+        let ok = await showConfirmModal('استرجاع آخر نسخة تلقائية سيحل محل جميع البيانات الحالية.\nهل تريد المتابعة؟', '⚠️ تنبيه');
+        if (!ok) return;
+        try {
+            const data = JSON.parse(raw);
+            if (!data.products || !data.merchants || !data.transactions || !data.installments) {
+                showToast('النسخة التلقائية غير صالحة', 'error');
+                return;
+            }
+            products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
+            products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
+            merchants = data.merchants || [];
+            transactions = data.transactions || [];
+            installments = data.installments || [];
+            msgTemplates = data.msgTemplates || msgTemplates;
+            merchantSales = data.merchantSales || [];
+            merchantPayments = data.merchantPayments || [];
+            merchantPurchases = data.merchantPurchases || [];
+            merchantPaymentsOut = data.merchantPaymentsOut || [];
+            partners = data.partners || [];
+            accounts = data.accounts || [];
+            stockMovements = data.stockMovements || [];
+            arabonSales = data.arabonSales || [];
+            if (data.openingCapital !== undefined) {
+                openingCapital = data.openingCapital;
+                localStorage.setItem('openingCapital', String(openingCapital));
+            }
+            await saveData();
+            refreshSelectors();
+            renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderArabonSales(); renderDashboard(); initSettingsPage();
+            showToast('✅ تم استرجاع البيانات من النسخة التلقائية');
+        } catch (err) {
+            showError('فشل الاسترجاع', err.message);
+        }
     });
 
     const notifToggle = document.getElementById('notifToggle');
@@ -4513,6 +4591,7 @@
         document.getElementById('msgLate').value = msgTemplates.late || '';
         updateMsgPreview();
         updateStorageInfo();
+        updateAutoBackupInfo();
         document.getElementById('capitalInput').value = openingCapital;
         document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
         applyTheme(); // تحديث أزرار المظهر
@@ -8512,6 +8591,8 @@
                     merchantPaymentsOut = data.merchantPaymentsOut || [];
                     partners = data.partners || [];
                     accounts = data.accounts || [];
+                    stockMovements = data.stockMovements || [];
+                    arabonSales = data.arabonSales || [];
                     if (data.openingCapital !== undefined) {
                         openingCapital = data.openingCapital;
                         localStorage.setItem('openingCapital', String(openingCapital));
@@ -8593,10 +8674,15 @@
         }
     }
 
+    function getDriveRedirectUri() {
+        return window.location.origin + window.location.pathname;
+    }
+
     function handleDriveCallback() {
         // Check if we have a token in URL hash (implicit flow)
         const hash = window.location.hash;
-        if (hash && hash.includes('access_token')) {
+        if (!hash) return;
+        if (hash.includes('access_token')) {
             const params = new URLSearchParams(hash.substring(1));
             const token = params.get('access_token');
             if (token) {
@@ -8606,11 +8692,61 @@
                 updateDriveUI();
                 showToast('✅ تم ربط حساب Google بنجاح');
             }
+        } else if (hash.includes('error')) {
+            const params = new URLSearchParams(hash.substring(1));
+            const errCode = params.get('error') || 'خطأ';
+            const errDesc = params.get('error_description') || '';
+            window.location.hash = '';
+            let msg;
+            if (errCode === 'access_denied') {
+                msg = 'تم رفض الوصول — اسمح بالوصول من صفحة Google للربط';
+            } else if (errCode === 'redirect_uri_mismatch') {
+                msg = 'رابط إعادة التوجيه غير مسجل في Google Cloud — انسخ الرابط أدناه وأضفه في إعدادات OAuth ثم أعد الربط';
+            } else if (errCode === 'invalid_client') {
+                msg = 'معرّف التطبيق (Client ID) غير صحيح أو غير موجود في Google Cloud';
+            } else {
+                msg = 'فشل ربط Google: ' + errCode;
+            }
+            const status = document.getElementById('driveStatus');
+            if (status) {
+                status.innerHTML = '❌ ' + msg;
+                status.style.color = 'var(--danger)';
+            }
+            showError('فشل الربط بحساب Google', errDesc || errCode);
         }
     }
 
+    function driveEnvCheck() {
+        const envEl = document.getElementById('driveEnvMsg');
+        const oauthInfo = document.getElementById('driveOAuthInfo');
+        const uriEl = document.getElementById('driveRedirectUri');
+        if (!envEl) return;
+        const protocol = window.location.protocol;
+        const uri = getDriveRedirectUri();
+        if (uriEl) uriEl.textContent = uri;
+        let ok = true;
+        let msg;
+        if (protocol === 'file:') {
+            ok = false;
+            msg = '⚠️ التطبيق مفتوح كملف محلي — الربط بحساب Google لا يعمل هنا.<br>افتح النسخة المستضافة على الإنترنت (GitHub Pages) ثم أعد المحاولة.';
+        } else if (protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            ok = false;
+            msg = '⚠️ الربط بحساب Google يتطلب HTTPS — افتح النسخة المستضافة على الإنترنت ثم أعد المحاولة.';
+        } else {
+            msg = '✅ البيئة مناسبة للربط. إذا ظهر خطأ redirect_uri_mismatch فتأكد من تسجيل الرابط أدناه في Google Cloud Console.';
+        }
+        envEl.innerHTML = msg;
+        envEl.style.color = ok ? 'var(--text-muted)' : 'var(--danger)';
+        if (oauthInfo) oauthInfo.style.display = ok ? '' : 'none';
+        return ok;
+    }
+
     document.getElementById('driveLoginBtn')?.addEventListener('click', () => {
-        const redirectUri = window.location.origin + window.location.pathname;
+        if (window.location.protocol === 'file:') {
+            showError('الربط بجوجل لا يعمل من ملف محلي', 'افتح النسخة المستضافة على الإنترنت (GitHub Pages)');
+            return;
+        }
+        const redirectUri = getDriveRedirectUri();
         const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
             '?client_id=' + DRIVE_CLIENT_ID +
             '&redirect_uri=' + encodeURIComponent(redirectUri) +
@@ -8618,6 +8754,22 @@
             '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
             '&prompt=consent';
         window.location.href = authUrl;
+    });
+
+    document.getElementById('driveCopyUriBtn')?.addEventListener('click', () => {
+        const uri = getDriveRedirectUri();
+        const done = () => showToast('تم نسخ رابط إعادة التوجيه');
+        const fail = () => showToast('تعذر النسخ تلقائيًا — انسخه يدويًا من الصندوق', 'error');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(uri).then(done, fail);
+        } else {
+            const tmp = document.createElement('textarea');
+            tmp.value = uri;
+            document.body.appendChild(tmp);
+            tmp.select();
+            try { document.execCommand('copy'); done(); } catch (e) { fail(); }
+            document.body.removeChild(tmp);
+        }
     });
 
     document.getElementById('driveLogoutBtn')?.addEventListener('click', () => {
@@ -8741,13 +8893,15 @@
             merchantPaymentsOut = data.merchantPaymentsOut || [];
             partners = data.partners || [];
             accounts = data.accounts || [];
+            stockMovements = data.stockMovements || [];
+            arabonSales = data.arabonSales || [];
             if (data.openingCapital !== undefined) {
                 openingCapital = data.openingCapital;
                 localStorage.setItem('openingCapital', String(openingCapital));
             }
             await saveData();
             refreshSelectors();
-            renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderDashboard(); initSettingsPage();
+            renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderArabonSales(); renderDashboard(); initSettingsPage();
             showToast('✅ تم استرجاع البيانات من Google Drive');
 
             btn.disabled = false;
@@ -8762,7 +8916,11 @@
 
     // فحص callback في كل تحميل
     setTimeout(handleDriveCallback, 100);
-    setTimeout(updateDriveUI, 300);
+    setTimeout(() => {
+        updateDriveUI();
+        driveEnvCheck();
+        updateAutoBackupInfo();
+    }, 300);
 
     function switchPage(pageId) {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
