@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sales-mgmt-v4';
+const CACHE_NAME = 'sales-mgmt-v5';
 const STATIC_ASSETS = [
     'app_fixed.html',
     'manifest.json',
