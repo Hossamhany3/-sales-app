@@ -639,10 +639,10 @@
     .inst-chip-label { font-size:0.66rem; }
     .inst-chip-value { font-size:0.8rem; }
     .inst-nextdue { font-size:0.76rem; padding:7px 10px; }
-    .inst-actionbar { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:6px; padding-bottom:2px; margin:2px 0 6px; }
+    .inst-actionbar { flex-wrap:wrap; gap:6px; padding-bottom:2px; margin:2px 0 6px; }
     .inst-actionbar::-webkit-scrollbar { display:none; }
-    .inst-actionbar .btn-sm { flex:0 0 auto; min-width:66px; padding:5px 8px; min-height:32px; font-size:0.74rem; white-space:nowrap; }
-    .inst-actionbar .btn-sm.wide { flex:0 0 auto; }
+    .inst-actionbar .btn-sm { flex:1 1 auto; min-width:66px; padding:5px 8px; min-height:32px; font-size:0.74rem; white-space:nowrap; }
+    .inst-actionbar .btn-sm.wide { flex:1.6; }
     .inst-actionbar .btn-sm:last-child { min-width:34px; padding:5px; }
     .inst-panel-actions .btn-sm { min-height:36px; padding:8px 10px; font-size:0.8rem; }
     .schedule-actions { gap:6px; margin-top:8px; }
@@ -5434,7 +5434,7 @@
                     '<button class="btn-sm btn-outline" onclick="showCustomerInstallmentStatement(' + inst.merchantId + ')">📊 كشف</button>' +
                     '<button class="btn-sm btn-outline" onclick="toggleInstEdit(' + inst.id + ')">✏️ تعديل</button>' +
                     '<button class="btn-sm btn-outline" onclick="rescheduleInstallment(' + inst.id + ')">🔄 إعادة جدولة</button>' +
-                    '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️</button>' +
+                    '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstallment(' + inst.id + ')">🗑️ حذف</button>' +
                 '</div>' +
                 /* لوحة التفاصيل الداخلية */
                 '<div class="inst-panel" id="detailsPanel-' + inst.id + '"></div>' +
