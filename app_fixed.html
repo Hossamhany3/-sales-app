@@ -8784,6 +8784,19 @@
         updateDriveUI();
     }
 
+    function driveRedirectFallback() {
+        const redirectUri = getDriveRedirectUri();
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+            '?client_id=' + encodeURIComponent(getDriveClientId()) +
+            '&redirect_uri=' + encodeURIComponent(redirectUri) +
+            '&response_type=token' +
+            '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
+            '&prompt=consent' +
+            '&access_type=online' +
+            '&include_granted_scopes=true';
+        window.location.href = authUrl;
+    }
+
     function googleDriveLogin() {
         if (window.location.protocol === 'file:') {
             showError('الربط بجوجل لا يعمل من ملف محلي', 'افتح النسخة المستضافة على الإنترنت (GitHub Pages)');
@@ -8814,7 +8827,13 @@
                         }
                     },
                     error_callback: (err) => {
-                        showError('فشل الربط بحساب Google', err && err.type ? err.type : 'تعذر فتح نافذة Google');
+                        const type = err && err.type ? err.type : '';
+                        if (type === 'popup_blocked' || type === 'popup_closed' || type === 'unexpected' || type === 'access_denied') {
+                            showToast('لم تفتح نافذة Google — تحويل إلى نمط إعادة التوجيه...');
+                            driveRedirectFallback();
+                        } else {
+                            showError('فشل الربط بحساب Google', type || 'تعذر فتح نافذة Google');
+                        }
                     }
                 });
                 client.requestAccessToken({ prompt: 'consent' });
@@ -8825,16 +8844,7 @@
             }
         }
         // Fallback: النمط القديم عبر إعادة التوجيه
-        const redirectUri = getDriveRedirectUri();
-        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-            '?client_id=' + encodeURIComponent(getDriveClientId()) +
-            '&redirect_uri=' + encodeURIComponent(redirectUri) +
-            '&response_type=token' +
-            '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
-            '&prompt=consent' +
-            '&access_type=online' +
-            '&include_granted_scopes=true';
-        window.location.href = authUrl;
+        driveRedirectFallback();
     }
 
     document.getElementById('driveLoginBtn')?.addEventListener('click', googleDriveLogin);
