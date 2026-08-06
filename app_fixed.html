@@ -1917,6 +1917,12 @@
                         <div id="driveStatus" style="font-size:0.85rem; color:var(--text-muted); padding:10px; background:var(--background); border-radius:8px; margin-bottom:10px;">
                             ⏹ غير متصل بحساب Google
                         </div>
+                        <div id="driveClientBox" style="background:var(--card-bg); border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px;">
+                            <div style="font-size:0.82rem; font-weight:700; margin-bottom:6px;">🆔 معرّف تطبيق OAuth (Client ID)</div>
+                            <input type="text" id="driveClientIdInput" dir="ltr" style="width:100%; text-align:left; font-size:0.78rem; padding:8px; border-radius:8px; border:1px solid var(--border); box-sizing:border-box; background:var(--card-bg); color:var(--text-main);" placeholder="الصق Client ID من Google Cloud">
+                            <button id="driveSaveClientIdBtn" class="btn-sm btn-success" style="width:100%; margin-top:8px; padding:9px;">💾 حفظ معرّف التطبيق</button>
+                            <div style="font-size:0.72rem; color:var(--text-muted); margin-top:6px; line-height:1.6;">إذا ظهر خطأ <code style="direction:ltr;">invalid_client</code> فالـ Client ID القديم محذوف/غير صحيح — أنشئ عميل OAuth جديد (Web application) في Google Cloud والصق الـ Client ID هنا.</div>
+                        </div>
                         <div style="display:flex; gap:8px; flex-wrap:wrap;">
                             <button id="driveLoginBtn" class="btn-sm btn-success" style="flex:1; min-width:100px;">🔗 ربط بحساب Google</button>
                             <button id="driveLogoutBtn" class="btn-sm" style="flex:1; min-width:100px; background:var(--danger-light);color:var(--danger);border:1px solid var(--border);display:none;">🚪 قطع الاتصال</button>
@@ -1937,8 +1943,9 @@
                                     <summary style="cursor:pointer; color:var(--primary); font-weight:700;">🛠️ خطوات إصلاح الربط</summary>
                                     <ol style="margin:6px 0 0 18px; line-height:1.9;">
                                         <li>افتح التطبيق من الإنترنت (GitHub Pages) وليس كملف محلي — الربط لا يعمل من <code>file://</code>.</li>
-                                        <li>ادخل إلى <b>Google Cloud Console</b> وافتح مشروع OAuth المرتبط بهذا Client ID.</li>
-                                        <li>من Credentials — اختر Client ID الحالي وأضف <b>رابط إعادة التوجيه</b> أعلاه بالضبط.</li>
+                                        <li>إذا ظهر خطأ <code style="direction:ltr;">invalid_client</code> فالـ Client ID الحالي محذوف/غير صحيح: ادخل إلى <b>Google Cloud Console</b> → <b>APIs & Services</b> → <b>Credentials</b> → <b>Create Credentials</b> → <b>OAuth client ID</b> → اختر <b>Web application</b>.</li>
+                                        <li>في خانة <b>Authorized redirect URIs</b> أضف <b>رابط إعادة التوجيه</b> أعلاه بالضبط.</li>
+                                        <li>انسخ الـ Client ID الجديد والصقه في خانة «🆔 معرّف تطبيق OAuth» أعلاه ثم اضغط «💾 حفظ».</li>
                                         <li>من OAuth consent screen — إذا كان في وضع Testing أضف بريدك كـ Test user، أو انقل التطبيق إلى Production.</li>
                                         <li>ثم اضغط زر «🔗 ربط بحساب Google» مرة أخرى.</li>
                                     </ol>
@@ -4594,6 +4601,8 @@
         updateAutoBackupInfo();
         document.getElementById('capitalInput').value = openingCapital;
         document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
+        const cidInput = document.getElementById('driveClientIdInput');
+        if (cidInput) cidInput.value = getDriveClientId();
         applyTheme(); // تحديث أزرار المظهر
     }
 
@@ -8645,7 +8654,11 @@
     });
 
     // ====== Google Drive — النسخ الاحتياطي السحابي ======
-    const DRIVE_CLIENT_ID = '1051687790420-3rfsf1tebrg6tt2b9n7pj7c7ho87ktkg.apps.googleusercontent.com';
+    const DEFAULT_DRIVE_CLIENT_ID = '1051687790420-3rfsf1tebrg6tt2b9n7pj7c7ho87ktkg.apps.googleusercontent.com';
+    function getDriveClientId() {
+        const stored = localStorage.getItem('driveClientId');
+        return stored && stored.trim() ? stored.trim() : DEFAULT_DRIVE_CLIENT_ID;
+    }
     const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
     let driveToken = localStorage.getItem('driveToken') || null;
     let driveFileId = localStorage.getItem('driveFileId') || null;
@@ -8717,7 +8730,9 @@
             } else if (errCode === 'redirect_uri_mismatch') {
                 msg = 'رابط إعادة التوجيه غير مسجل في Google Cloud — انسخ الرابط أدناه وأضفه في إعدادات OAuth ثم أعد الربط';
             } else if (errCode === 'invalid_client') {
-                msg = 'معرّف التطبيق (Client ID) غير صحيح أو غير موجود في Google Cloud';
+                msg = 'معرّف التطبيق (Client ID) غير صحيح أو محذوف — أنشئ عميل OAuth جديد من نوع Web application في Google Cloud والصق الـ Client ID في خانة 🆔 أعلاه';
+            } else if (errCode === 'invalid_request') {
+                msg = 'طلب الربط مرفوض من Google (النمط المستخدم لم يعد مدعوماً لهذا العميل) — أنشئ عميل OAuth جديد من نوع Web application في Google Cloud';
             } else {
                 msg = 'فشل ربط Google: ' + errCode;
             }
@@ -8762,7 +8777,7 @@
         }
         const redirectUri = getDriveRedirectUri();
         const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-            '?client_id=' + DRIVE_CLIENT_ID +
+            '?client_id=' + encodeURIComponent(getDriveClientId()) +
             '&redirect_uri=' + encodeURIComponent(redirectUri) +
             '&response_type=token' +
             '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
@@ -8770,6 +8785,27 @@
             '&access_type=online' +
             '&include_granted_scopes=true';
         window.location.href = authUrl;
+    });
+
+    document.getElementById('driveSaveClientIdBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('driveClientIdInput');
+        const val = (input?.value || '').trim();
+        if (!val) {
+            showToast('اكتب Client ID أولاً', 'error');
+            return;
+        }
+        localStorage.setItem('driveClientId', val);
+        if (input) input.value = val;
+        if (driveToken) {
+            driveToken = null;
+            driveFileId = null;
+            driveTokenExpiry = 0;
+            localStorage.removeItem('driveToken');
+            localStorage.removeItem('driveFileId');
+            localStorage.removeItem('driveTokenExpiry');
+            updateDriveUI();
+        }
+        showToast('تم حفظ معرّف التطبيق — اضغط 🔗 ربط بحساب Google');
     });
 
     document.getElementById('driveCopyUriBtn')?.addEventListener('click', () => {
