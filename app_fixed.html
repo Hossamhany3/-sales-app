@@ -8649,6 +8649,11 @@
     const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
     let driveToken = localStorage.getItem('driveToken') || null;
     let driveFileId = localStorage.getItem('driveFileId') || null;
+    let driveTokenExpiry = parseInt(localStorage.getItem('driveTokenExpiry') || '0', 10) || 0;
+
+    function driveTokenIsValid() {
+        return !!driveToken && (!driveTokenExpiry || Date.now() < driveTokenExpiry);
+    }
 
     function updateDriveUI() {
         const status = document.getElementById('driveStatus');
@@ -8657,17 +8662,24 @@
         const uploadBtn = document.getElementById('driveUploadBtn');
         const downloadBtn = document.getElementById('driveDownloadBtn');
         if (!status) return;
-        if (driveToken) {
+        if (driveToken && driveTokenIsValid()) {
             status.innerHTML = '✅ متصل بحساب Google — جاهز للنسخ الاحتياطي السحابي';
             status.style.color = 'var(--success)';
             if (loginBtn) loginBtn.style.display = 'none';
             if (logoutBtn) logoutBtn.style.display = '';
             if (uploadBtn) uploadBtn.disabled = false;
             if (downloadBtn) downloadBtn.disabled = false;
+        } else if (driveToken) {
+            status.innerHTML = '⏳ انتهت صلاحية الاتصال بحساب Google — أعد الربط (الرابط يتجدد كل ساعة)';
+            status.style.color = 'var(--accent)';
+            if (loginBtn) { loginBtn.style.display = ''; loginBtn.textContent = '🔗 إعادة الربط'; }
+            if (logoutBtn) logoutBtn.style.display = '';
+            if (uploadBtn) uploadBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
         } else {
             status.innerHTML = '⏹ غير متصل بحساب Google';
             status.style.color = 'var(--text-muted)';
-            if (loginBtn) loginBtn.style.display = '';
+            if (loginBtn) { loginBtn.style.display = ''; loginBtn.textContent = '🔗 ربط بحساب Google'; }
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (uploadBtn) uploadBtn.disabled = true;
             if (downloadBtn) downloadBtn.disabled = true;
@@ -8687,7 +8699,9 @@
             const token = params.get('access_token');
             if (token) {
                 driveToken = token;
+                driveTokenExpiry = Date.now() + 3600000;
                 localStorage.setItem('driveToken', token);
+                localStorage.setItem('driveTokenExpiry', String(driveTokenExpiry));
                 window.location.hash = '';
                 updateDriveUI();
                 showToast('✅ تم ربط حساب Google بنجاح');
@@ -8752,7 +8766,9 @@
             '&redirect_uri=' + encodeURIComponent(redirectUri) +
             '&response_type=token' +
             '&scope=' + encodeURIComponent(DRIVE_SCOPE) +
-            '&prompt=consent';
+            '&prompt=consent' +
+            '&access_type=online' +
+            '&include_granted_scopes=true';
         window.location.href = authUrl;
     });
 
@@ -8775,8 +8791,10 @@
     document.getElementById('driveLogoutBtn')?.addEventListener('click', () => {
         driveToken = null;
         driveFileId = null;
+        driveTokenExpiry = 0;
         localStorage.removeItem('driveToken');
         localStorage.removeItem('driveFileId');
+        localStorage.removeItem('driveTokenExpiry');
         updateDriveUI();
         showToast('تم قطع الاتصال بحساب Google');
     });
@@ -8792,7 +8810,9 @@
         });
         if (res.status === 401) {
             driveToken = null;
+            driveTokenExpiry = 0;
             localStorage.removeItem('driveToken');
+            localStorage.removeItem('driveTokenExpiry');
             updateDriveUI();
             throw new Error('انتهت صلاحية الاتصال — أعد الربط');
         }
@@ -8805,6 +8825,11 @@
 
     document.getElementById('driveUploadBtn')?.addEventListener('click', async () => {
         try {
+            if (!driveTokenIsValid()) {
+                updateDriveUI();
+                showError('انتهت صلاحية الاتصال', 'اضغط «🔗 إعادة الربط» ثم أعد الرفع');
+                return;
+            }
             const btn = document.getElementById('driveUploadBtn');
             btn.disabled = true;
             btn.textContent = '⏳ جاري الرفع...';
@@ -8863,6 +8888,11 @@
 
     document.getElementById('driveDownloadBtn')?.addEventListener('click', async () => {
         try {
+            if (!driveTokenIsValid()) {
+                updateDriveUI();
+                showError('انتهت صلاحية الاتصال', 'اضغط «🔗 إعادة الربط» ثم أعد الاسترجاع');
+                return;
+            }
             if (!driveFileId) {
                 showToast('لا توجد نسخة سابقة في Drive — ارفع نسخة أولاً', 'error');
                 return;
