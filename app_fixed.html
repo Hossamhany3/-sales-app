@@ -261,11 +261,11 @@
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
 
-        .schedule-toggle { background: var(--secondary); color: var(--text-muted); width: 100%; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; border-radius: 10px; padding: 10px; }
+        .schedule-toggle { background: var(--primary-light); color: var(--text-main); width: 100%; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; border-radius: 10px; padding: 10px; }
         .schedule-toggle:hover { background: var(--primary); color: white; }
         .schedule-wrapper { display: none; margin-top: 12px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
         .schedule-wrapper.open { display: block; }
-        .schedule-header { background: var(--secondary); color: var(--text-muted); padding: 10px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
+        .schedule-header { background: var(--primary-light); color: var(--text-main); padding: 10px 16px; font-size: 0.85rem; display: flex; justify-content: space-between; }
         .schedule-item { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 14px 16px; }
         .schedule-item:last-child { border-bottom: none; }
         .schedule-item.paid-slot { opacity: 0.6; }
@@ -589,15 +589,15 @@
 .inst-name { font-weight:800; font-size:1rem; line-height:1.4; color:var(--text-main); }
 .inst-sub { font-size:0.8rem; color:var(--text-muted); margin-top:2px; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
 .inst-chips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:10px 0 8px; }
-.inst-chip { background:var(--secondary); border:1px solid var(--border); border-radius:10px; padding:8px 10px; text-align:center; }
+.inst-chip { background:var(--primary-light); border:1px solid var(--border); border-radius:10px; padding:8px 10px; text-align:center; }
 .inst-chip-label { font-size:0.72rem; color:var(--text-muted); display:block; margin-bottom:3px; }
 .inst-chip-value { font-size:0.9rem; font-weight:800; color:var(--text-main); display:block; }
 .inst-chip-value.danger { color:var(--danger); }
 .inst-chip-value.success { color:var(--success); }
-.inst-nextdue { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.82rem; color:var(--text-muted); background:var(--secondary); border:1px solid var(--border); border-radius:10px; padding:8px 12px; margin-bottom:8px; }
+.inst-nextdue { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.82rem; color:var(--text-muted); background:var(--primary-light); border:1px solid var(--border); border-radius:10px; padding:8px 12px; margin-bottom:8px; }
 .inst-nextdue.late { background:var(--danger-light); border-color:var(--danger); color:var(--danger); }
 .inst-progress-wrap { display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
-.inst-progress { flex:1; background:#f1f5f9; border-radius:50px; height:10px; overflow:hidden; }
+.inst-progress { flex:1; background:var(--border); border-radius:50px; height:10px; overflow:hidden; }
 .inst-progress-bar { height:100%; border-radius:50px; transition:width 0.4s; background:var(--success); }
 .inst-progress-bar.late { background:var(--danger); }
 .inst-progress-bar.warn { background:#f59e0b; }
@@ -605,7 +605,7 @@
 .inst-actionbar { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 8px; }
 .inst-actionbar .btn-sm { flex:1; min-width:70px; padding:8px 6px; }
 .inst-actionbar .btn-sm.wide { flex:1.6; }
-.inst-panel { display:none; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; background:var(--secondary); }
+.inst-panel { display:none; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; background:var(--primary-light); }
 .inst-panel.open { display:block; animation:instFade 0.2s ease; }
 @keyframes instFade { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
 .inst-panel-title { font-weight:800; font-size:0.9rem; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
@@ -633,6 +633,21 @@
 
 @media (max-width:600px) {
     .inst-chips { grid-template-columns:repeat(2,1fr); }
+    .inst-avatar { width:38px; height:38px; font-size:1rem; }
+    .inst-name { font-size:0.95rem; }
+    .inst-chip { padding:6px 6px; }
+    .inst-chip-label { font-size:0.66rem; }
+    .inst-chip-value { font-size:0.8rem; }
+    .inst-nextdue { font-size:0.76rem; padding:7px 10px; }
+    .inst-actionbar { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:6px; padding-bottom:2px; margin:2px 0 6px; }
+    .inst-actionbar::-webkit-scrollbar { display:none; }
+    .inst-actionbar .btn-sm { flex:0 0 auto; min-width:66px; padding:5px 8px; min-height:32px; font-size:0.74rem; white-space:nowrap; }
+    .inst-actionbar .btn-sm.wide { flex:0 0 auto; }
+    .inst-actionbar .btn-sm:last-child { min-width:34px; padding:5px; }
+    .inst-panel-actions .btn-sm { min-height:36px; padding:8px 10px; font-size:0.8rem; }
+    .schedule-actions { gap:6px; margin-top:8px; }
+    .schedule-actions .btn-collect { padding:7px 8px; font-size:0.8rem; min-height:34px; }
+    .schedule-actions .btn-whatsapp-sm { padding:7px 10px; font-size:0.85rem; min-height:34px; }
 }
 
 /* ==============================
