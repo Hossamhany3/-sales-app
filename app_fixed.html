@@ -3808,26 +3808,32 @@
         });
         const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
         container.innerHTML =
-            '<table style="width:100%;border-collapse:collapse;font-size:0.85rem;">' +
-            '<thead><tr style="background:var(--bg);"><th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">🧑‍💼 الموظف</th>' +
-            '<th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">قاعدة العمولة</th>' +
-            '<th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">عدد العمليات</th>' +
-            '<th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">إجمالي المبيعات</th>' +
-            '<th style="padding:8px;text-align:right;border-bottom:1px solid var(--border);">العمولة المستحقة</th></tr></thead><tbody>' +
             rows.map(r => {
                 const baseLabel = r.emp.commissionType === 'percent' ? (r.emp.commissionValue || 0) + '%' :
                     r.emp.commissionType === 'fixed' ? (r.emp.commissionValue || 0) + ' ج/عملية' : '—';
-                return '<tr>' +
-                    '<td style="padding:8px;border-bottom:1px solid var(--border);">' + esc(r.emp.name) + '</td>' +
-                    '<td style="padding:8px;border-bottom:1px solid var(--border);color:var(--text-muted);">' + baseLabel + '</td>' +
-                    '<td style="padding:8px;border-bottom:1px solid var(--border);">' + r.count + '</td>' +
-                    '<td style="padding:8px;border-bottom:1px solid var(--border);">' + r.totalSales.toFixed(2) + ' ج</td>' +
-                    '<td style="padding:8px;border-bottom:1px solid var(--border);color:var(--success);font-weight:700;">' + r.commission.toFixed(2) + ' ج</td>' +
-                '</tr>';
+                return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card-bg);">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">' +
+                        '<strong style="font-size:0.95rem;">🧑‍💼 ' + esc(r.emp.name) + '</strong>' +
+                        '<span style="font-size:0.8rem;color:var(--text-muted);background:var(--bg);padding:3px 8px;border-radius:20px;">' + baseLabel + '</span>' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">' +
+                        '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
+                            '<div style="font-size:0.7rem;color:var(--text-muted);">عدد العمليات</div>' +
+                            '<div style="font-weight:700;font-size:0.95rem;">' + r.count + '</div>' +
+                        '</div>' +
+                        '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
+                            '<div style="font-size:0.7rem;color:var(--text-muted);">إجمالي المبيعات</div>' +
+                            '<div style="font-weight:700;font-size:0.95rem;">' + r.totalSales.toFixed(0) + ' ج</div>' +
+                        '</div>' +
+                        '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);">' +
+                            '<div style="font-size:0.7rem;color:var(--text-muted);">العمولة المستحقة</div>' +
+                            '<div style="font-weight:800;font-size:0.95rem;color:var(--success);">' + r.commission.toFixed(0) + ' ج</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
             }).join('') +
-            '</tbody></table>' +
-            '<div style="margin-top:12px;padding:10px;border-radius:8px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);display:flex;justify-content:space-between;font-weight:800;color:var(--primary);">' +
-                '<span>إجمالي العمولات المستحقة</span><span>' + totalCommission.toFixed(2) + ' ج</span>' +
+            '<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;color:var(--primary);font-size:0.95rem;">' +
+                '<span>إجمالي العمولات المستحقة</span><span style="white-space:nowrap;">' + totalCommission.toFixed(2) + ' ج</span>' +
             '</div>';
     }
 
