@@ -12,9 +12,7 @@
     <link rel="apple-touch-icon" href="icon-192.svg">
     <title>نظام إدارة المبيعات</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -1118,9 +1116,9 @@
         <button data-page="merchantSales">🏪 مبيعات التجار</button>
         <button data-page="partners">🤝 الشركاء والمستثمرون</button>
         <button data-page="accounts">🏦 الحسابات البنكية</button>
-        <button data-page="reports">📈 التقارير المحاسبية</button>
-        <button data-page="admin">🧑‍💼 الموظفون والتكاليف المتكررة</button>
-        <button data-page="settings">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
+        <button data-page="reports" class="admin-only-nav">📈 التقارير المحاسبية</button>
+        <button data-page="admin" class="admin-only-nav">🧑‍💼 الموظفون والتكاليف المتكررة</button>
+        <button data-page="settings" class="admin-only-nav">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
     </div>
     <div class="overlay" id="overlay"></div>
@@ -1684,6 +1682,7 @@
                     <button class="tab-btn" data-tab="tabStockMov" onclick="switchReportTab('tabStockMov')">📋 حركة المخزون</button>
                     <button class="tab-btn" data-tab="tabStatement" onclick="switchReportTab('tabStatement')">📋 كشف الحساب العام</button>
                     <button class="tab-btn" data-tab="tabCommissions" onclick="switchReportTab('tabCommissions')">🧑‍💼 تقرير العمولات</button>
+                    <button class="tab-btn" data-tab="tabAuditLog" onclick="switchReportTab('tabAuditLog')">📋 سجل التدقيق</button>
                 </div>
 
                 <!-- P&L -->
@@ -1853,6 +1852,27 @@
                     <div id="commissionsContent"></div>
                 </div>
 
+                <!-- سجل التدقيق -->
+                <div id="tabAuditLog" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:12px;">📋 سجل التدقيق (Audit Log)</h3>
+                    <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:12px;">تتبّع من قام بأي إجراء ومتى — يُحفظ مع النسخ الاحتياطي ومزامنة Drive تلقائياً.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <input type="text" id="auditLogSearch" placeholder="🔍 بحث..." style="flex:1;min-width:140px;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;" oninput="renderAuditLog()">
+                        <select id="auditLogFilter" style="padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;" onchange="renderAuditLog()">
+                            <option value="all">الكل</option>
+                            <option value="create">إضافة</option>
+                            <option value="update">تعديل</option>
+                            <option value="delete">حذف</option>
+                            <option value="payment">سداد/تحصيل</option>
+                            <option value="login">دخول/خروج</option>
+                            <option value="security">أمان</option>
+                            <option value="backup">نسخ/استرجاع</option>
+                        </select>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="exportAuditLogCSV()">📎 CSV</button>
+                    </div>
+                    <div id="auditLogContent"></div>
+                </div>
+
                 <!-- أزرار التصدير -->
                 <hr style="border:0;border-top:1px solid var(--border);margin:16px 0;">
                 <div class="grid-3" style="margin-top:12px;">
@@ -1873,6 +1893,16 @@
                         <input type="password" id="lockPasswordInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="أدخل 4-6 أرقام" style="flex:1; direction:ltr; text-align:center; letter-spacing:4px;">
                         <button id="setPasswordBtn" class="btn-sm btn-outline" style="width:auto; white-space:nowrap;">تعيين</button>
                     </div>
+                    <p style="color:var(--text-muted); font-size:0.75rem; margin-top:6px;">يُخزَّن الرمز مشفراً (SHA-256) ولا يمكن قراءته من أدوات المطور.</p>
+                </div>
+            </div>
+
+            <h2>🧑‍💼 جلسة الموظفين</h2>
+            <div class="card">
+                <div id="employeeSessionStatus" style="font-size:0.85rem; margin-bottom:10px;"></div>
+                <div style="display:flex; gap:8px;">
+                    <button id="employeeLoginBtn" class="btn-sm btn-outline" style="width:auto; white-space:nowrap;" onclick="openEmployeeLogin()">🔑 تسجيل دخول موظف</button>
+                    <button id="employeeLogoutBtn" class="btn-sm btn-outline" style="width:auto; white-space:nowrap; display:none;" onclick="logoutEmployee()">🚪 تسجيل خروج</button>
                 </div>
             </div>
 
@@ -2120,6 +2150,13 @@
                         <option value="fixed">مبلغ ثابت لكل عملية بيع</option>
                     </select>
                     <input type="number" step="any" id="empCommissionValue" placeholder="قيمة العمولة (نسبة % أو مبلغ ثابت)" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);margin-bottom:8px;">
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <select id="empRole" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);">
+                            <option value="employee">🧑‍💼 موظف عادي</option>
+                            <option value="admin">👑 مدير (صلاحيات كاملة)</option>
+                        </select>
+                        <input type="password" id="empPin" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="رمز PIN (4-6 أرقام، لصفحة تسجيل الدخول)" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);text-align:center;letter-spacing:2px;">
+                    </div>
                     <div style="display:flex; gap:8px;">
                         <button type="submit" class="btn btn-primary" style="flex:1;">💾 حفظ الموظف</button>
                         <button type="button" onclick="cancelEmployeeEdit()" class="btn" style="flex:1;">إلغاء</button>
@@ -2228,6 +2265,35 @@
 </div>
 
 <script>
+    // ════════════════════════════════════════════════════════════════
+    //  فهرس الصيانة — نظام إدارة المبيعات والتقسيط (ملف واحد)
+    //  ⚠️ عند تعديل أي قسم، حدِّث رقم السطر التقريبي هنا.
+    // ─────────────────────────────────────────────────────────────────
+    //  [1] إعدادات الواجهة والألوان والثيمات .................... HTML
+    //  [2] قواعد CSS العامة (تتبع بادئة var(--...) فقط) ......... HTML
+    //  [3] HTML: شاشة القفل، القائمة الجانبية، كل الصفحات ........ HTML
+    //  [4] IndexedDB + STORE_NAMES ..................... ~سطر 2504
+    //  [5] تشفير كلمة المرور SHA-256 ................... ~سطر 2648
+    //  [6] مصفوفات البيانات + safeParse + initializeData .. ~سطر 2689
+    //  [7] migrateNewFields + قفل الحماية + الإشعارات ..... ~سطر 2876
+    //  [8] saveData / updateStorageInfo ................. ~سطر 3390
+    //  [9] قائمة الدخل getFinancials + العمولات getCommissionEvents ~سطر 3570
+    //  [10] سجل التدقيق renderAuditLog / exportAuditLogCSV .. ~سطر 3860
+    //  [11] الماسح الضوئي startScanner .................. ~سطر 4738
+    //  [12] إدارة الأصناف (منتج/بيع/شراء/حذف) ........... ~سطر 4795
+    //  [13] نماذج الإيراد والمصروف ..................... ~سطر 5195
+    //  [14] صفحة الموظفين والتكاليف المتكررة (admin) ..... ~سطر 5280
+    //  [15] حذف الحركة + عروض الحركات .................. ~سطر 5618
+    //  [16] عقود التقسيط (إنشاء/تعديل/سداد/حذف) .......... ~سطر 5718
+    //  [17] مبيعات العربون ............................ ~سطر 6577
+    //  [18] مبيعات التجار ............................. ~سطر 7930
+    //  [19] الشراكات والحسابات والتحويلات ............... ~سطر 8400
+    //  [20] الطباعة والكشوف (window.print) .............. ~سطر 8720
+    //  [21] النسخ الاحتياطي والمشاركة ................... ~سطر 9570
+    //  [22] Google Drive (تسجيل دخول/مزامنة/استرجاع) ...... ~سطر 9830
+    //  [23] Service Worker + الإقلاع ................... ~سطر 10340
+    //  [24] الاختبار الذاتي ?selftest .................. ~سطر 10460
+    // ════════════════════════════════════════════════════════════════
     if (!CanvasRenderingContext2D.prototype.roundRect) {
         CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
             if (r instanceof Array) r = [r[0], r[1], r[2], r[3]];
@@ -2482,8 +2548,8 @@
     };
 
     const DB_NAME = 'SalesManagementDB';
-    const DB_VERSION = 5;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements', 'arabonSales', 'employees', 'recurringExpenses', 'expenseCategories'];
+    const DB_VERSION = 6;
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements', 'arabonSales', 'employees', 'recurringExpenses', 'auditLog', 'expenseCategories'];
 
     let db = null;
     let dbReady = null;
@@ -2595,12 +2661,13 @@
         else if (name === 'arabonSales') arabonSales = data;
         else if (name === 'employees') employees = data;
         else if (name === 'recurringExpenses') recurringExpenses = data;
+        else if (name === 'auditLog') auditLog = data;
         else if (name === 'expenseCategories') expenseCategories = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, employees, recurringExpenses, expenseCategories };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, employees, recurringExpenses, auditLog, expenseCategories };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -2642,6 +2709,28 @@
     const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'partner_deposit', 'merchant_sale', 'transfer_in'];
     const EXPENSE_TRANS_TYPES = ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out'];
 
+    // ====== تشفير كلمة المرور (SHA-256 + Salt) ======
+    const PASSWORD_SALT = 'sales-app-v1::';
+    function isHashedPassword(val) {
+        return !!val && /^[0-9a-f]{64}$/i.test(val);
+    }
+    async function hashPassword(pin) {
+        try {
+            if (!window.crypto || !crypto.subtle) return pin;
+            const data = new TextEncoder().encode(PASSWORD_SALT + String(pin));
+            const buf = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) { return pin; }
+    }
+    // ترحيل تلقائي: إن كان الرمز القديم نصاً عادياً يُشفَّر فوراً
+    (async function migrateLegacyPassword() {
+        const raw = localStorage.getItem('appPassword') || '';
+        if (raw && !isHashedPassword(raw)) {
+            appPassword = await hashPassword(raw);
+            localStorage.setItem('appPassword', appPassword);
+        }
+    })();
+
     let products = [];
     let merchants = [];
     let transactions = [];
@@ -2659,12 +2748,29 @@
     let arabonSales = [];
     let employees = [];
     let recurringExpenses = [];
+    let auditLog = [];
+    const AUDIT_LOG_MAX = 1000;
     const DEFAULT_EXPENSE_CATEGORIES = ['إيجار', 'رواتب', 'كهرباء', 'شحن/جمارك', 'صيانة', 'تسويق/إعلانات', 'أخرى'];
     let expenseCategories = safeParse(localStorage.getItem('expenseCategories'), []);
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
     const PAGE_SIZE = 20;
+
+    // ====== سجل التدقيق (Audit Log) ======
+    function logAudit(action, entity, ref, detail) {
+        try {
+            auditLog.push({
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                ts: new Date().toISOString(),
+                action: action || '',
+                entity: entity || '',
+                ref: ref != null ? String(ref) : '',
+                detail: detail || ''
+            });
+            if (auditLog.length > AUDIT_LOG_MAX) auditLog = auditLog.slice(-AUDIT_LOG_MAX);
+        } catch (e) { console.warn('audit log فشل', e); }
+    }
 
 
     let initDiags = [];
@@ -2695,6 +2801,8 @@
         arabonSales = safeParse(localStorage.getItem('arabonSales'), []);
         employees = safeParse(localStorage.getItem('employees'), []);
         recurringExpenses = safeParse(localStorage.getItem('recurringExpenses'), []);
+        auditLog = safeParse(localStorage.getItem('auditLog'), []);
+        if (!Array.isArray(auditLog)) auditLog = [];
         expenseCategories = safeParse(localStorage.getItem('expenseCategories'), []);
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
         if (!Array.isArray(products)) products = [];
@@ -2831,6 +2939,12 @@
             if (s.employeeId === undefined) { s.employeeId = null; changed = true; }
             return s;
         });
+        if (!Array.isArray(auditLog)) { auditLog = []; changed = true; }
+        employees = employees.map(em => {
+            if (em.role === undefined) { em.role = 'admin'; changed = true; }
+            if (em.pinHash === undefined) { em.pinHash = ''; changed = true; }
+            return em;
+        });
         if (changed) saveData();
     }
 
@@ -2856,10 +2970,11 @@
         document.getElementById('lockInput').focus();
     }
 
-    window.unlockApp = function() {
+    window.unlockApp = async function() {
         const input = document.getElementById('lockInput');
         const err = document.getElementById('lockError');
-        if (!appPassword || input.value === appPassword) {
+        const enteredHash = await hashPassword(input.value);
+        if (!appPassword || enteredHash === appPassword) {
             document.getElementById('lockScreen').classList.add('hidden');
             document.getElementById('appContainer').style.display = 'block';
             lockInputAttempts = 0;
@@ -2880,11 +2995,94 @@
         }
     };
 
-    window.resetPassword = function() {
+    window.resetPassword = async function() {
         appPassword = '';
         localStorage.removeItem('appPassword');
         location.reload();
     };
+
+    // ====== جلسة الموظفين (صلاحيات مدير / موظف) ======
+    let currentSession = null;
+    try {
+        const savedSession = localStorage.getItem('employeeSession');
+        if (savedSession) currentSession = JSON.parse(savedSession);
+    } catch (e) { currentSession = null; }
+
+    function isAdminSession() {
+        return !currentSession || currentSession.role === 'admin';
+    }
+    function requireAdmin() {
+        if (!isAdminSession()) {
+            showToast('هذه العملية متاحة للمدير فقط', 'error');
+            return false;
+        }
+        return true;
+    }
+    function sessionEmployeeId() {
+        return currentSession && currentSession.role !== 'admin' ? currentSession.employeeId : null;
+    }
+    window.openEmployeeLogin = function() {
+        if (!employees.length) { showToast('لا يوجد موظفون — أضف موظفاً من صفحة «🧑‍💼 الموظفون والتكاليف المتكررة» أولاً', 'error'); return; }
+        const opts = employees.map(em => '<option value="' + em.id + '">' + esc(em.name) + ' (' + (em.role === 'admin' ? '👑 مدير' : '🧑‍💼 موظف') + ')</option>').join('');
+        document.getElementById('modalIcon').textContent = '🔑';
+        document.getElementById('modalTitle').textContent = 'تسجيل دخول موظف';
+        document.getElementById('modalMessage').innerHTML =
+            '<div style="margin-bottom:10px;"><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">🧑‍💼 اختر الموظف:</label><select id="empLoginSelect" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;">' + opts + '</select></div>' +
+            '<div><label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">🔑 رمز PIN:</label><input type="password" id="empLoginPin" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;text-align:center;letter-spacing:2px;"></div>' +
+            '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:8px;">الموظف العادي يرى البيانات ويستخدم البيع والسداد دون صلاحيات الحذف أو النسخ أو الإعدادات.</div>';
+        document.getElementById('modalInput').style.display = 'none';
+        document.getElementById('modalNumberInput').style.display = 'none';
+        document.getElementById('modalSelectInput').style.display = 'none';
+        document.getElementById('modalAccountRow').style.display = 'none';
+        document.getElementById('modalConfirmBtn').textContent = '🔑 دخول';
+        document.getElementById('modalCancelBtn').style.display = '';
+        document.getElementById('modalOverlay').classList.add('show');
+
+        window._confirmModal = async function() {
+            const empId = parseInt(document.getElementById('empLoginSelect').value);
+            const pin = document.getElementById('empLoginPin').value;
+            const emp = employees.find(x => x.id == empId);
+            if (!emp) { showToast('اختر موظفاً صحيحاً', 'error'); return; }
+            if (!emp.pinHash) { showToast('هذا الموظف ليس له رمز PIN — اضبطه من إدارة الموظفين', 'error'); return; }
+            const enteredHash = await hashPassword(pin);
+            if (enteredHash !== emp.pinHash) { showToast('رمز PIN غير صحيح', 'error'); return; }
+            currentSession = { employeeId: emp.id, name: emp.name, role: emp.role || 'employee', ts: new Date().toISOString() };
+            localStorage.setItem('employeeSession', JSON.stringify(currentSession));
+            logAudit('login', 'موظف', emp.name, 'تسجيل دخول موظف (' + (emp.role || 'employee') + ')');
+            _closeModal(null);
+            applyPermissions();
+            showToast('✅ أهلاً ' + emp.name + (emp.role === 'admin' ? ' (مدير)' : ' (موظف)'));
+        };
+    };
+    window.logoutEmployee = function() {
+        currentSession = null;
+        localStorage.removeItem('employeeSession');
+        applyPermissions();
+        logAudit('login:logout', 'موظف', '', 'تسجيل خروج');
+        showToast('🚪 تم تسجيل الخروج — أنت الآن في وضع المدير الكامل');
+    };
+    function applyPermissions() {
+        const isEmployee = !isAdminSession();
+        // إخفاء عناصر المدير الحساسة
+        document.querySelectorAll('.admin-only').forEach(el => { el.style.display = isEmployee ? 'none' : ''; });
+        document.querySelectorAll('.admin-only-nav').forEach(el => { el.style.display = isEmployee ? 'none' : ''; });
+        // شريط الجلسة في الإعدادات
+        const statusEl = document.getElementById('employeeSessionStatus');
+        const loginBtn = document.getElementById('employeeLoginBtn');
+        const logoutBtn = document.getElementById('employeeLogoutBtn');
+        if (statusEl) {
+            statusEl.innerHTML = isAdminSession()
+                ? '👑 الوضع الحالي: <strong>مدير كامل</strong> — كل الصلاحيات متاحة.'
+                : '🧑‍💼 الوضع الحالي: <strong>' + esc(currentSession.name) + '</strong> (موظف) — بيانات الحذف والنسخ والإعدادات الحساسة مخفية.';
+        }
+        if (loginBtn) loginBtn.style.display = isEmployee ? 'none' : '';
+        if (logoutBtn) logoutBtn.style.display = isEmployee ? '' : 'none';
+        // منع الوصول لصفحات المدير عبر switchPage
+        const current = document.querySelector('.page.active-page');
+        if (isEmployee && current && current.id !== 'dashboard' && current.id !== 'products' && current.id !== 'transactions' && current.id !== 'installments' && current.id !== 'arabonSales' && current.id !== 'merchantSales' && current.id !== 'partners' && current.id !== 'accounts') {
+            switchPage('dashboard');
+        }
+    }
 
     // ====== إشعارات المتصفح (Browser Notifications) ======
     let notifTimer = null;
@@ -2985,14 +3183,15 @@
 
     // ====== تسجيل أحداث الدخول (ت شتغل مباشرة مش DOMContentLoaded) ======
     document.getElementById('lockInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') window.unlockApp(); });
-    document.getElementById('setPasswordBtn').addEventListener('click', () => {
+    document.getElementById('setPasswordBtn').addEventListener('click', async () => {
         const val = document.getElementById('lockPasswordInput').value.trim();
         if (val && (val.length < 4 || val.length > 6 || !/^\d+$/.test(val))) {
             showToast('يجب أن يكون الرمز 4-6 أرقام فقط', 'error'); return;
         }
-        appPassword = val;
-        localStorage.setItem('appPassword', val);
-        showToast(val ? 'تم تعيين رمز الدخول' : 'تم إزالة رمز الدخول');
+        appPassword = val ? await hashPassword(val) : '';
+        localStorage.setItem('appPassword', appPassword);
+        logAudit('security', 'كلمة المرور', '', val ? 'تعيين/تغيير رمز الدخول' : 'إزالة رمز الدخول');
+        showToast(val ? 'تم تعيين رمز الدخول (مُشفَّر SHA-256)' : 'تم إزالة رمز الدخول');
         document.getElementById('lockPasswordInput').value = '';
         checkAppLock();
     });
@@ -3283,6 +3482,7 @@
             arabonSales = data.arabonSales || [];
             employees = data.employees || [];
             recurringExpenses = data.recurringExpenses || [];
+            auditLog = data.auditLog || [];
             expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
             if (data.openingCapital !== undefined) {
                 openingCapital = data.openingCapital;
@@ -3293,6 +3493,7 @@
             refreshSelectors();
             renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderArabonSales(); renderDashboard(); initSettingsPage();
             showToast('✅ تم استرجاع البيانات من النسخة التلقائية');
+            logAudit('backup:restore', 'نسخة تلقائية', '', 'استرجاع البيانات من النسخة الاحتياطية التلقائية');
         } catch (err) {
             showError('فشل الاسترجاع', err.message);
         }
@@ -3348,6 +3549,7 @@
         lsSet('arabonSales', JSON.stringify(arabonSales));
         lsSet('employees', JSON.stringify(employees));
         lsSet('recurringExpenses', JSON.stringify(recurringExpenses));
+        lsSet('auditLog', JSON.stringify(auditLog));
         lsSet('expenseCategories', JSON.stringify(expenseCategories));
         lsSet('openingCapital', String(openingCapital));
         try { await saveAllToIDB(); } catch (e) { console.warn('saveAllToIDB فشل', e); }
@@ -3357,7 +3559,7 @@
     }
 
     function updateStorageInfo() {
-        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, arabonSales, employees, recurringExpenses, openingCapital });
+        const total = JSON.stringify({ products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, arabonSales, employees, recurringExpenses, auditLog, openingCapital });
         const sizeKB = (new Blob([total]).size / 1024).toFixed(1);
         document.getElementById('storageSize').textContent = sizeKB + ' KB';
         const pct = Math.min((parseFloat(sizeKB) / 5000) * 100, 100);
@@ -3783,7 +3985,65 @@
         if (tabId === 'tabStockMov') { setTimeout(() => renderStockMovements(), 50); }
         if (tabId === 'tabStatement') { setTimeout(() => renderGeneralStatement(), 50); }
         if (tabId === 'tabCommissions') { setTimeout(() => renderCommissions(), 50); }
+        if (tabId === 'tabAuditLog') { setTimeout(() => renderAuditLog(), 50); }
     }
+
+    // ====== سجل التدقيق (عرض + تصدير) ======
+    const AUDIT_ACTION_LABELS = {
+        create: '➕ إضافة', update: '✏️ تعديل', delete: '🗑️ حذف', payment: '💵 سداد/تحصيل',
+        login: '🔑 دخول/خروج', security: '🔒 أمان', backup: '💾 نسخ/استرجاع', system: '⚙️ نظام'
+    };
+    function auditActionLabel(action) {
+        const key = String(action || '').split(':')[0];
+        return AUDIT_ACTION_LABELS[key] || action || '';
+    }
+    function formatAuditTime(iso) {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+        } catch (e) { return iso || ''; }
+    }
+    window.renderAuditLog = function() {
+        const container = document.getElementById('auditLogContent');
+        if (!container) return;
+        const term = (document.getElementById('auditLogSearch')?.value || '').trim().toLowerCase();
+        const filter = document.getElementById('auditLogFilter')?.value || 'all';
+        let items = [...auditLog].sort((a, b) => b.ts.localeCompare(a.ts));
+        if (filter !== 'all') items = items.filter(x => (x.action || '').startsWith(filter));
+        if (term) {
+            items = items.filter(x => (x.entity + ' ' + x.ref + ' ' + x.detail).toLowerCase().includes(term));
+        }
+        if (!items.length) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد أحداث مسجلة بعد.</p>';
+            return;
+        }
+        container.innerHTML = items.map(x =>
+            '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;">' +
+            '<div class="flex-between" style="gap:8px;flex-wrap:wrap;">' +
+            '<span style="font-weight:600;font-size:0.85rem;">' + auditActionLabel(x.action) + ' <span style="color:var(--text-muted);font-weight:400;">' + (x.entity || '') + (x.ref ? ' • ' + x.ref : '') + '</span></span>' +
+            '<span style="color:var(--text-muted);font-size:0.75rem;">' + formatAuditTime(x.ts) + '</span>' +
+            '</div>' +
+            (x.detail ? '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:4px;">' + x.detail + '</div>' : '') +
+            '</div>'
+        ).join('');
+    };
+    window.exportAuditLogCSV = function() {
+        if (!auditLog.length) { showToast('لا توجد أحداث', 'error'); return; }
+        const BOM = '\uFEFF';
+        const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const rows = [['التاريخ', 'الإجراء', 'الكيان', 'المرجع', 'التفاصيل']];
+        auditLog.slice().sort((a, b) => b.ts.localeCompare(a.ts)).forEach(x => {
+            rows.push([formatAuditTime(x.ts), auditActionLabel(x.action), x.entity, x.ref, x.detail]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(esc).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'سجل_التدقيق_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير سجل التدقيق');
+    };
 
     function calcCommission(emp, profit) {
         if (!emp || emp.commissionType === 'none' || !profit) return 0;
@@ -4622,8 +4882,8 @@
                 showToast('❌ فشل تشغيل الكاميرا: ' + (err.message || ''), 'error');
             });
         } catch (e) {
-            el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--danger);font-size:0.9rem;">❌ المكتبة غير متاحة</div>';
-            showToast('❌ مكتبة المسح غير متاحة', 'error');
+            el.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--danger);font-size:0.9rem;">❌ مكتبة المسح غير متاحة<br><span style="font-size:0.8rem;">يبدو أنك غير متصل بالإنترنت — يمكنك إدخال رقم المنتج يدوياً في حقل IMEI.</span></div>';
+            showToast('❌ مكتبة المسح غير متاحة — أدخل الرقم يدوياً', 'error');
         }
     };
 
@@ -4707,6 +4967,7 @@
             saveData(); renderProducts(); renderTransactions(); renderAccounts(); renderDashboard(); refreshSelectors();
             e.target.reset(); document.getElementById('productId').value = ''; calcProfitMargin();
             setFormVisible('productForm', 'productToggleIcon', false);
+            logAudit(id ? 'update' : 'create', 'صنف', name, (id ? 'تعديل صنف' : 'إضافة صنف جديد') + ' — شراء: ' + cost + '، بيع: ' + sell + '، مخزون: ' + p.stock);
         } catch (err) {
             showError('حدث خطأ أثناء حفظ الصنف', err.message);
         }
@@ -4805,6 +5066,7 @@
 
     window.deleteProduct = async (id) => {
         try {
+            if (!requireAdmin()) return;
             if (transactions.some(t => t.productId == id) || installments.some(i => i.productId == id)) {
                 showToast('لا يمكن حذف الصنف لارتباطه بحركات مالية سابقة', 'error'); return;
             }
@@ -4812,6 +5074,7 @@
             if (!ok) return;
             products = products.filter(x => x.id != id);
             saveData(); renderProducts(); refreshSelectors(); renderDashboard();
+            logAudit('delete', 'صنف', id, 'حذف صنف من المخزون');
             showToast('تم الحذف');
         } catch (err) {
             showError('حدث خطأ أثناء الحذف', err.message);
@@ -4892,6 +5155,7 @@
                 saveData(); renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
                 document.getElementById('modalOverlay').classList.remove('show');
                 saved = true;
+                logAudit('create', 'بيع نقدي', p.name + ' ×' + qty, 'قيمة ' + (p.sellPrice * qty) + ' ج' + (empId ? ' — موظف: ' + empId : ''));
                 newResolve(true);
                 oldResolve?.(true);
                 showToast('💵 تم بيع ' + qty + '× ' + p.name + ' — ' + sellTotal.toFixed(2) + ' ج');
@@ -5077,6 +5341,7 @@
             let icon = document.getElementById('incomeToggleIcon');
             if (icon) icon.textContent = '▼';
             saveData(); renderTransactions(); renderDashboard();
+            logAudit('create', 'إيراد', name, amount + ' ج — التصنيف: ' + category);
             showToast('💰 تم تسجيل إيراد: ' + name + ' — ' + amount.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -5128,6 +5393,7 @@
             let icon = document.getElementById('expenseToggleIcon');
             if (icon) icon.textContent = '▼';
             saveData(); renderTransactions(); renderDashboard();
+            logAudit('create', 'مصروف', name, amount + ' ج — التصنيف: ' + category);
             showToast('📉 تم تسجيل مصروف: ' + name + ' — ' + amount.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -5154,7 +5420,7 @@
         renderRecurring();
     };
 
-    document.getElementById('employeeForm').addEventListener('submit', (e) => {
+    document.getElementById('employeeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
             const id = document.getElementById('empId').value;
@@ -5162,15 +5428,27 @@
             const phone = document.getElementById('empPhone').value.trim();
             const commissionType = document.getElementById('empCommissionType').value;
             const commissionValue = parseFloat(document.getElementById('empCommissionValue').value) || 0;
+            const role = document.getElementById('empRole').value;
+            const pinRaw = document.getElementById('empPin').value.trim();
             if (!name) { showToast('أدخل اسم الموظف', 'error'); return; }
+            let pinHash = null;
+            if (pinRaw) {
+                if (pinRaw.length < 4 || pinRaw.length > 6 || !/^\d+$/.test(pinRaw)) { showToast('رمز PIN يجب أن يكون 4-6 أرقام', 'error'); return; }
+                pinHash = await hashPassword(pinRaw);
+            }
             if (id) {
                 const emp = employees.find(x => x.id == id);
-                if (emp) Object.assign(emp, { name, phone, commissionType, commissionValue });
+                if (emp) {
+                    Object.assign(emp, { name, phone, commissionType, commissionValue, role: role || emp.role || 'employee' });
+                    if (pinHash) emp.pinHash = pinHash;
+                    else if (pinRaw === '') emp.pinHash = emp.pinHash || '';
+                }
             } else {
-                employees.push({ id: Date.now(), name, phone, commissionType, commissionValue, createdAt: new Date().toISOString() });
+                employees.push({ id: Date.now(), name, phone, commissionType, commissionValue, role: role || 'employee', pinHash: pinHash || '', createdAt: new Date().toISOString() });
             }
             cancelEmployeeEdit();
             saveData(); refreshSelectors(); renderDashboard();
+            logAudit(id ? 'update' : 'create', 'موظف', name, (id ? 'تعديل بيانات موظف' : 'إضافة موظف جديد') + ' — نوع العمولة: ' + commissionType);
             showToast('✅ تم حفظ الموظف: ' + name);
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -5185,6 +5463,10 @@
         document.getElementById('empPhone').value = emp.phone || '';
         document.getElementById('empCommissionType').value = emp.commissionType || 'none';
         document.getElementById('empCommissionValue').value = emp.commissionValue || '';
+        const roleSel = document.getElementById('empRole');
+        if (roleSel) roleSel.value = emp.role || 'employee';
+        const pinInput = document.getElementById('empPin');
+        if (pinInput) { pinInput.value = ''; pinInput.placeholder = emp.pinHash ? 'رمز PIN محفوظ — اتركه فارغاً للإبقاء عليه' : 'رمز PIN (4-6 أرقام، لصفحة تسجيل الدخول)'; }
         document.getElementById('employeeForm').style.display = 'block';
         document.getElementById('empToggleIcon').textContent = '▲';
         document.getElementById('empName').focus();
@@ -5193,10 +5475,12 @@
     window.deleteEmployee = async (id) => {
         const emp = employees.find(x => x.id == id);
         if (!emp) return;
+        if (!requireAdmin()) return;
         const ok = await showConfirmModal('حذف الموظف «' + emp.name + '»؟\nلن تُحذف الحركات المرتبطة به.', '🗑️ تأكيد الحذف');
         if (!ok) return;
         employees = employees.filter(x => x.id != id);
         saveData(); renderEmployees(); refreshSelectors();
+        logAudit('delete', 'موظف', emp.name, 'حذف موظف');
         showToast('✅ تم حذف الموظف');
     };
 
@@ -5210,9 +5494,11 @@
         list.innerHTML = employees.map(emp => {
             const commLabel = emp.commissionType === 'percent' ? 'نسبة ' + (emp.commissionValue || 0) + '% من المبيعات' :
                 emp.commissionType === 'fixed' ? 'مبلغ ثابت ' + (emp.commissionValue || 0) + ' ج لكل عملية' : 'بدون عمولة';
+            const roleLabel = (emp.role === 'admin') ? '<span class="badge" style="background:var(--accent);color:#fff;font-size:0.68rem;">👑 مدير</span>' : '<span class="badge" style="background:var(--primary-light);color:var(--primary);font-size:0.68rem;">🧑‍💼 موظف</span>';
+            const pinBadge = emp.pinHash ? '<span class="badge" style="background:var(--success-light);color:var(--success);font-size:0.68rem;">🔑 PIN</span>' : '';
             return '<div style="display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">' +
                 '<div style="flex:1;">' +
-                    '<div><strong>' + esc(emp.name) + '</strong></div>' +
+                    '<div><strong>' + esc(emp.name) + '</strong> ' + roleLabel + ' ' + pinBadge + '</div>' +
                     '<div style="color:var(--text-muted);font-size:0.8rem;">' + (emp.phone ? '📱 ' + esc(emp.phone) + ' • ' : '') + commLabel + '</div>' +
                 '</div>' +
                 '<button class="btn-sm" onclick="editEmployee(' + emp.id + ')">✏️</button>' +
@@ -5244,6 +5530,7 @@
             }
             cancelRecurringEdit();
             saveData(); renderRecurring(); renderDashboard();
+            logAudit(id ? 'update' : 'create', 'مصروف متكرر', name, (id ? 'تعديل' : 'إضافة') + ' مصروف متكرر بقيمة ' + rec.amount + ' ج (' + rec.frequency + ')');
             showToast('✅ تم حفظ المصروف المتكرر: ' + name);
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -5268,10 +5555,12 @@
     window.deleteRecurring = async (id) => {
         const rec = recurringExpenses.find(x => x.id == id);
         if (!rec) return;
+        if (!requireAdmin()) return;
         const ok = await showConfirmModal('حذف المصروف المتكرر «' + rec.name + '»؟', '🗑️ تأكيد الحذف');
         if (!ok) return;
         recurringExpenses = recurringExpenses.filter(x => x.id != id);
         saveData(); renderRecurring();
+        logAudit('delete', 'مصروف متكرر', rec.name, 'حذف مصروف متكرر');
         showToast('✅ تم حذف المصروف المتكرر');
     };
 
@@ -5304,6 +5593,7 @@
         expenseCategories.push(val);
         input.value = '';
         saveData(); renderExpenseCategories(); refreshSelectors();
+        logAudit('create', 'تصنيف مصروفات', val, 'إضافة تصنيف مصروفات');
         showToast('✅ تم إضافة التصنيف: ' + val);
     };
 
@@ -5316,6 +5606,7 @@
         transactions.forEach(t => { if (t.category === name) t.category = 'أخرى'; });
         recurringExpenses.forEach(r => { if (r.category === name) r.category = 'أخرى'; });
         saveData(); renderExpenseCategories(); renderTransactions(); renderDashboard();
+        logAudit('delete', 'تصنيف مصروفات', name, 'حذف تصنيف (' + used + ' حركة أُعيدت لأخرى)');
         showToast('✅ تم حذف التصنيف');
     };
 
@@ -5472,6 +5763,7 @@
 
     window.deleteTransaction = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
             let isLinked = installments.some(i => !i.isPaid && (i.id == t.instId ||
@@ -5483,6 +5775,7 @@
             transactions = transactions.filter(x => x.id != id);
             saveData(); renderTransactions(); renderDashboard(); renderAccounts();
             if (document.getElementById('merchantPage')?.classList.contains('active-page')) renderMerchantPage();
+            logAudit('delete', 'حركة مالية', id, (t.notes || '') + ' — ' + (t.amount || 0) + ' ج');
             showToast('تم حذف الحركة');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -5752,6 +6045,7 @@
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard();
             e.target.reset(); updateInstallmentCalc(); (function() { let d = new Date(); d.setMonth(d.getMonth() + 1); document.getElementById('firstDueDate').valueAsDate = d; })();
             setFormVisible('installmentForm', 'instToggleIcon', false);
+            logAudit('create', 'عقد تقسيط', instId + ' | ' + p.name, 'إجمالي بعد الفائدة: ' + totalFinanced + ' ج على ' + months + ' شهر');
             showToast('تم اعتماد العقد بنجاح');
         } catch (err) {
             showError('حدث خطأ أثناء إنشاء العقد', err.message);
@@ -5951,6 +6245,7 @@
 
     window.deleteInstallment = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
@@ -5961,6 +6256,7 @@
             transactions = transactions.filter(t => t.instId != id);
             installments = installments.filter(i => i.id != id);
             saveData(); renderInstallments(); renderTransactions(); renderProducts(); renderDashboard(); refreshSelectors();
+            logAudit('delete', 'عقد تقسيط', id, 'حذف عقد ' + (inst.contractNo || id) + ' وإعادة المخزون');
             showToast('✅ تم حذف العقد رقم ' + (inst.contractNo || id));
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -6303,6 +6599,7 @@
             }
 
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
+            logAudit('payment', 'سداد قسط', instId + ' | ' + slot.index, val + ' ج — ' + pName + ' (' + mName + ')');
             showToast('تم تسجيل سداد القسط ' + slot.index + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
 
             // عرض إيصال
@@ -6344,6 +6641,7 @@
             }
             
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
+            logAudit('payment', 'سداد قسط', inst.id, val + ' ج — عقد ' + (inst.contractNo || inst.id));
             showToast('تم تسجيل السداد وإضافته للخزينة');
         } catch (err) {
             showError('حدث خطأ أثناء تسجيل السداد', err.message);
@@ -6401,6 +6699,7 @@
             if (editId) {
                 let a = arabonSales.find(x => x.id == editId);
                 if (a) {
+                    let oldProductId = a.productId;
                     let oldTransactions = transactions.filter(t => t.arabonId == a.id);
                     oldTransactions.forEach(t => { transactions = transactions.filter(x => x.id != t.id); });
                     if (a.instId) { installments = installments.filter(i => i.id != a.instId); }
@@ -6413,6 +6712,13 @@
                     a.firstDueDate = ''; a.schedule = [];
                     a.employeeId = empId ? parseInt(empId) : null;
                     if (remaining <= 0) a.isPaid = true;
+                    // سلامة المخزون عند تغيير الصنف: استرجاع مخزون القديم + خصم الجديد
+                    if (oldProductId != parseInt(pId)) {
+                        let oldP = products.find(x => x.id == oldProductId);
+                        if (oldP) { oldP.stock = (oldP.stock || 0) + 1; if (oldP.archived) oldP.archived = false; }
+                        if (p.stock <= 0) { showToast('الرصيد من الصنف الجديد صفر!', 'error'); return; }
+                        p.stock -= 1;
+                    }
                     if (deposit > 0) {
                         transactions.push({
                             id: Date.now() + 1, type: 'payment_in', amount: deposit,
@@ -6447,6 +6753,7 @@
                 }
 
                 arabonSales.push(newArabon);
+                logAudit('create', 'عربون', name + ' | ' + p.name, 'سعر: ' + sellPrice + ' ج، عربون: ' + deposit + ' ج');
                 showToast('تم اعتماد عقد العربون بنجاح');
             }
 
@@ -6903,6 +7210,7 @@
 
     window.deleteArabonSale = async (arabonId) => {
         try {
+            if (!requireAdmin()) return;
             let a = arabonSales.find(x => x.id == arabonId);
             if (!a) return;
             let ok = await showConfirmModal('هل أنت متأكد من حذف عقد العربون؟\nسيتم إعادة المخزون وحذف الحركات المالية المرتبطة.', '⚠️ حذف عقد');
@@ -6917,6 +7225,7 @@
             stockMovements = stockMovements.filter(s => !(s.productId == a.productId && s.ref && s.ref.includes('العربون') && s.date && a.date && Math.abs(new Date(s.date) - new Date(a.date)) < 5000));
             arabonSales = arabonSales.filter(x => x.id != arabonId);
             saveData(); renderArabonSales(); renderTransactions(); renderProducts(); renderInstallments(); renderDashboard(); renderAccounts(); refreshSelectors();
+            logAudit('delete', 'عربون', arabonId, 'حذف عقد عربون وإعادة المخزون والحركات');
             showToast('تم حذف العقد');
         } catch (err) { showError('خطأ', err.message); }
     };
@@ -7784,8 +8093,7 @@
             notes: notes?.trim() || ''
         };
         merchantSales.push(sale);
-        let transBase = { merchantId, employeeId: empId, notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString() };
-        if (result.cashAmount > 0 || result.bankAmount > 0) {
+        let transBase = { merchantId, employeeId: empId, notes: 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty, date: new Date().toISOString() };        if (result.cashAmount > 0 || result.bankAmount > 0) {
             if (result.cashAmount > 0) transactions.push({ id: transId, type: 'merchant_sale', amount: result.cashAmount, accountId: result.cashAccountId || undefined, ...transBase });
             if (result.bankAmount > 0) transactions.push({ id: transId + 2, type: 'merchant_sale', amount: result.bankAmount, accountId: result.bankAccountId, ...transBase });
         } else {
@@ -7793,6 +8101,7 @@
         }
         p.stock -= qty;
         saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
+        logAudit('create', 'بيع تاجر', m.name + ' | ' + p.name + ' ×' + qty, 'قيمة ' + actualTotal + ' ج');
         showToast('✅ تم بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + ' بقيمة ' + actualTotal.toFixed(2) + ' ج');
     };
 
@@ -8497,6 +8806,17 @@
             let fromAcc = accounts.find(a => a.id == fromId);
             let toAcc = accounts.find(a => a.id == toId);
             if (!fromAcc || !toAcc) { showToast('الحساب غير موجود', 'error'); return; }
+            // منع السحب الزائد: رصيد الحساب المصدر لا ينزل تحت الصفر
+            let srcBalance = (fromAcc.balance || 0);
+            transactions.forEach(t => {
+                if (t.accountId == fromId) {
+                    if (INCOME_TRANS_TYPES.includes(t.type)) srcBalance += t.amount;
+                    if (EXPENSE_TRANS_TYPES.includes(t.type)) srcBalance -= t.amount;
+                }
+            });
+            if (amount > srcBalance) {
+                showToast('لا يمكن التحويل — رصيد الحساب المصدر ' + srcBalance.toFixed(2) + ' ج فقط', 'error'); return;
+            }
             let refId = Date.now();
             transactions.push({
                 id: refId, type: 'transfer_out', amount: amount,
@@ -8515,6 +8835,7 @@
             saved = true;
             newResolve(true);
             oldResolve?.(true);
+            logAudit('update', 'تحويل', fromAcc.name + ' → ' + toAcc.name, amount + ' ج');
             showToast('✅ تم تحويل ' + amount.toFixed(2) + ' ج من ' + fromAcc.name + ' إلى ' + toAcc.name);
         };
         let result = await p;
@@ -9459,6 +9780,7 @@
     });
 
     document.getElementById('backupImportBtn').addEventListener('click', async () => {
+        if (!requireAdmin()) return;
         let ok = await showConfirmModal('استيراد النسخة سيحل محل جميع البيانات الحالية (المخزون، العملاء، الحركات، العقود).\n\nهل تريد المتابعة؟', '⚠️ تنبيه');
         if (!ok) return;
         document.getElementById('backupFileInput').click();
@@ -9492,6 +9814,7 @@
                     arabonSales = data.arabonSales || [];
                     employees = data.employees || [];
                     recurringExpenses = data.recurringExpenses || [];
+                    auditLog = data.auditLog || [];
                     expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
                     if (data.openingCapital !== undefined) {
                         openingCapital = data.openingCapital;
@@ -9503,6 +9826,7 @@
                     renderProducts(); renderTransactions();
                     renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderDashboard(); initSettingsPage();
                     showToast('تم استيراد النسخة الاحتياطية بنجاح!');
+                    logAudit('backup:restore', 'استيراد', file.name || '', 'استيراد نسخة احتياطية من ملف');
                 } catch (parseErr) {
                     showToast('الملف غير صالح — خطأ في قراءة البيانات', 'error');
                 }
@@ -9517,11 +9841,12 @@
     // ====== Web Share — مشاركة النسخة ======
     document.getElementById('shareBackupBtn')?.addEventListener('click', async () => {
         try {
+            if (!requireAdmin()) return;
             const backup = {
                 version: 2,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             if (navigator.share && navigator.canShare) {
@@ -9688,6 +10013,18 @@
         window.location.href = authUrl;
     }
 
+    function loadGsiScript() {
+        return new Promise((resolve, reject) => {
+            if (window.google && window.google.accounts && window.google.accounts.oauth2) { resolve(); return; }
+            const s = document.createElement('script');
+            s.src = 'https://accounts.google.com/gsi/client';
+            s.async = true;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('فشل تحميل مكتبة Google'));
+            document.head.appendChild(s);
+        });
+    }
+
     function googleDriveLogin() {
         if (window.location.protocol === 'file:') {
             showError('الربط بجوجل لا يعمل من ملف محلي', 'افتح النسخة المستضافة على الإنترنت (GitHub Pages)');
@@ -9734,11 +10071,15 @@
                 return;
             }
         }
-        // Fallback: النمط القديم عبر إعادة التوجيه
-        driveRedirectFallback();
+        // تحميل كسول لمكتبة Google فقط عند الحاجة ثم المحاولة مرة أخرى
+        loadGsiScript().then(() => {
+            googleDriveLogin();
+        }).catch(() => {
+            driveRedirectFallback();
+        });
     }
 
-    document.getElementById('driveLoginBtn')?.addEventListener('click', googleDriveLogin);
+    document.getElementById('driveLoginBtn')?.addEventListener('click', () => { if (requireAdmin()) googleDriveLogin(); });
 
     document.getElementById('driveSaveClientIdBtn')?.addEventListener('click', () => {
         const input = document.getElementById('driveClientIdInput');
@@ -9814,6 +10155,7 @@
 
     document.getElementById('driveUploadBtn')?.addEventListener('click', async () => {
         try {
+            if (!requireAdmin()) return;
             if (!driveTokenIsValid()) {
                 updateDriveUI();
                 showError('انتهت صلاحية الاتصال', 'اضغط «🔗 إعادة الربط» ثم أعد الرفع');
@@ -9908,6 +10250,7 @@
         arabonSales = data.arabonSales || [];
         employees = data.employees || [];
         recurringExpenses = data.recurringExpenses || [];
+        auditLog = data.auditLog || [];
         expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
         if (data.openingCapital !== undefined) {
             openingCapital = data.openingCapital;
@@ -9921,6 +10264,7 @@
 
     document.getElementById('driveDownloadBtn')?.addEventListener('click', async () => {
         try {
+            if (!requireAdmin()) return;
             if (!driveTokenIsValid()) {
                 updateDriveUI();
                 showError('انتهت صلاحية الاتصال', 'اضغط «🔗 إعادة الربط» ثم أعد الاسترجاع');
@@ -9949,6 +10293,7 @@
             }
             localStorage.setItem('lastSyncedAt', new Date().toISOString());
             showToast('✅ تم استرجاع البيانات من Google Drive');
+            logAudit('backup:restore', 'Google Drive', '', 'استرجاع البيانات من النسخة السحابية');
 
             btn.disabled = false;
             btn.textContent = '⬇️ استرجاع من Drive';
@@ -9976,7 +10321,7 @@
             version: 3,
             date: new Date().toISOString(),
             products, merchants, transactions, installments, msgTemplates,
-            merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories
+            merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
         };
     }
 
@@ -10069,6 +10414,11 @@
     setTimeout(syncOnStartup, 1500);
 
     function switchPage(pageId) {
+        const adminOnlyPages = ['reports', 'admin', 'settings'];
+        if (!isAdminSession() && adminOnlyPages.includes(pageId)) {
+            showToast('هذه الصفحة متاحة للمدير فقط', 'error');
+            pageId = 'dashboard';
+        }
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
         document.getElementById(pageId).classList.add('active-page');
         if (pageId === 'admin') renderAdminPage();
@@ -10159,6 +10509,7 @@
 
     // تشغيل النسخ الاحتياطي التلقائي
     startAutoBackup();
+    applyPermissions();
     setTimeout(() => {
         const autoToggle = document.getElementById('autoBackupToggle');
         if (autoToggle) {
@@ -10264,6 +10615,88 @@
         applyTheme();
         setTimeout(() => drawChart(), 50);
     });
+
+    // ====== الاختبار الذاتي (?selftest) ======
+    if (new URLSearchParams(location.search).get('selftest') !== null) {
+        (function runSelfTest() {
+            const results = [];
+            const ok = (name) => results.push({ name, pass: true });
+            const fail = (name, why) => results.push({ name, pass: false, why });
+
+            // 1. حساب العمولة (نسبة/ثابت/بدون)
+            try {
+                const e1 = { commissionType: 'percent', commissionValue: 10 };
+                const e2 = { commissionType: 'fixed', commissionValue: 50 };
+                const e3 = { commissionType: 'none', commissionValue: 0 };
+                const c1 = calcCommission(e1, 1000), c2 = calcCommission(e2, 1000), c3 = calcCommission(e3, 1000);
+                if (Math.abs(c1 - 100) < 0.001 && Math.abs(c2 - 50) < 0.001 && c3 === 0) ok('عمولة النسبة/الثابت/بدون');
+                else fail('عمولة النسبة/الثابت/بدون', 'نتائج: ' + c1 + ', ' + c2 + ', ' + c3);
+            } catch (e) { fail('عمولة النسبة/الثابت/بدون', e.message); }
+
+            // 2. حساب ربح البيع النقدي
+            try {
+                const orig = products;
+                products = [{ id: 99991, name: 'اختبار', costPrice: 100, expenses: 10, sellPrice: 150, stock: 5, archived: false }];
+                const profit = calcTransactionProfit({ type: 'sell_cash', amount: 150, productId: 99991 });
+                products = orig;
+                if (Math.abs(profit - 40) < 0.001) ok('ربح عملية البيع (بيع − تكلفة − مصروف)');
+                else fail('ربح عملية البيع', 'الربح = ' + profit);
+            } catch (e) { fail('ربح عملية البيع', e.message); }
+
+            // 3. قائمة الدخل: لا أخطاء عند التنفيذ
+            try {
+                const fin = getFinancials();
+                if (fin && typeof fin.revenue === 'number') ok('قائمة الدخل (getFinancials)');
+                else fail('قائمة الدخل (getFinancials)', 'قيمة غير رقمية');
+            } catch (e) { fail('قائمة الدخل (getFinancials)', e.message); }
+
+            // 4. تقسيم الدفع: المجموع لا يتجاوز الإجمالي
+            try {
+                if (typeof window._syncSplit === 'function') {
+                    ok('تقسيم الدفع (دالة _syncSplit موجودة)');
+                } else fail('تقسيم الدفع (دالة _syncSplit موجودة)', 'غير معرّفة');
+            } catch (e) { fail('تقسيم الدفع', e.message); }
+
+            // 5. خصم/استرجاع المخزون
+            try {
+                const saved = products;
+                products = [{ id: 99992, name: 'مخزون', costPrice: 10, expenses: 0, sellPrice: 20, stock: 3, archived: false }];
+                const p = products[0];
+                p.stock -= 1;
+                const afterDeduct = p.stock;
+                p.stock += 1;
+                const afterRestore = p.stock;
+                products = saved;
+                if (afterDeduct === 2 && afterRestore === 3) ok('خصم/استرجاع الكمية من المخزون');
+                else fail('خصم/استرجاع الكمية', afterDeduct + '/' + afterRestore);
+            } catch (e) { fail('خصم/استرجاع الكمية', e.message); }
+
+            // 6. تكامل البنية: عناصر حرجة موجودة
+            try {
+                const needed = ['repRevenue', 'repCommissions', 'commissionsContent', 'driveSyncToggle', 'auditLogContent', 'tabAuditLog', 'appContainer', 'lockScreen'];
+                const missing = needed.filter(id => !document.getElementById(id));
+                if (missing.length === 0) ok('تكامل البنية (العناصر الحرجة)');
+                else fail('تكامل البنية (العناصر الحرجة)', 'ناقص: ' + missing.join(', '));
+            } catch (e) { fail('تكامل البنية', e.message); }
+
+            // 7. فحص توفر مكتبة المسح
+            try {
+                if (typeof Html5Qrcode !== 'undefined') ok('مكتبة مسح الباركود متاحة');
+                else fail('مكتبة مسح الباركود متاحة', 'غير محمّلة (الإنترنت؟)');
+            } catch (e) { fail('مكتبة مسح الباركود', e.message); }
+
+            const passCount = results.filter(r => r.pass).length;
+            const html = '<div style="background:var(--card-bg);padding:16px;margin:16px auto;max-width:640px;border-radius:16px;border:1px solid var(--border);">' +
+                '<h3 style="margin:0 0 12px;">🧪 الاختبار الذاتي — ' + passCount + '/' + results.length + ' ناجح</h3>' +
+                results.map(r =>
+                    '<div style="padding:8px 12px;margin-bottom:6px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;">' +
+                    (r.pass ? '✅ ' : '❌ ') + '<strong>' + r.name + '</strong>' + (r.why ? ' — <span style="color:var(--danger);">' + r.why + '</span>' : '') +
+                    '</div>').join('') +
+                '<button onclick="location.href=\'app_fixed.html\'" class="btn-sm btn-success" style="margin-top:10px;width:100%;">رجوع إلى التطبيق</button>' +
+                '</div>';
+            document.body.innerHTML = '<div style="padding:20px;min-height:100vh;">' + html + '</div>';
+        })();
+    }
 </script>
 </body>
 </html>
