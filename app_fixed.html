@@ -1082,10 +1082,6 @@
         <input type="password" id="lockInput" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
         <div class="lock-error" id="lockError"></div>
         <button onclick="window.unlockApp()" style="padding:10px 0;width:100%;max-width:280px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-size:1rem;cursor:pointer;">فتح التطبيق</button>
-        <div style="display:flex; gap:16px; justify-content:center; margin-top:6px;">
-            <div class="lock-hint" onclick="removePassword()">إزالة رمز الدخول</div>
-            <div class="lock-hint" onclick="resetPassword()" style="color:var(--danger) !important;">نسيت الرمز؟</div>
-        </div>
     </div>
 
     <!-- إيصال السداد -->
@@ -2183,6 +2179,10 @@
             const bankAccountId = document.getElementById('modalSplitBankSelect').value;
             const payDate = document.getElementById('modalDateInput') ? document.getElementById('modalDateInput').value || null : null;
             if (cashAmount <= 0 && bankAmount <= 0) { _closeModal(null); return; }
+            if (Math.abs((cashAmount + bankAmount) - amount) > 0.01) {
+                showToast('مجموع النقدي والبنكي (' + (cashAmount + bankAmount).toFixed(2) + ') لا يساوي المبلغ الإجمالي (' + amount.toFixed(2) + ')', 'error');
+                return;
+            }
             _closeModal({ amount, cashAmount, cashAccountId: cashAccountId ? parseInt(cashAccountId) : null, bankAmount, bankAccountId: bankAccountId ? parseInt(bankAccountId) : null, date: payDate });
         } else if (accountRow.style.display !== 'none') {
             const amount = parseFloat(numInput.value);
@@ -2482,7 +2482,7 @@
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, arabonSales };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -2504,7 +2504,7 @@
         for (const name of STORE_NAMES) {
             const lsData = localStorage.getItem(name);
             if (!lsData) continue;
-            const parsed = JSON.parse(lsData);
+            const parsed = safeParse(lsData, null);
             if (!parsed) continue;
             const idbData = await idbGetAll(name);
             if (idbData && idbData.length > 0) continue;
@@ -2519,6 +2519,10 @@
         }
         return migrated;
     }
+
+    // أنواع الحركات الداخلة والخارجة (مصدر واحد لكل الحسابات)
+    const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'partner_deposit', 'merchant_sale', 'transfer_in'];
+    const EXPENSE_TRANS_TYPES = ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out'];
 
     let products = [];
     let merchants = [];
@@ -2547,22 +2551,39 @@
         try { initDiags.push(phase + ':' + key + '=' + val); } catch(e) {}
     }
 
+    function safeParse(raw, fallback) {
+        if (!raw) return fallback;
+        try { return JSON.parse(raw); } catch (e) { console.warn('بيانات تالفة في localStorage، تم تجاهلها:', e); return fallback; }
+    }
+
     async function initializeData() {
         // دايمًا نحمل من localStorage أولاً (مصدر أساسي، متزامن، مضمون)
-        products = JSON.parse(localStorage.getItem('products') || '[]');
-        merchants = JSON.parse(localStorage.getItem('merchants') || '[]');
-        transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-        installments = JSON.parse(localStorage.getItem('installments') || '[]');
-        msgTemplates = JSON.parse(localStorage.getItem('msgTemplates')) || { reminder: '', late: '' };
-        merchantSales = JSON.parse(localStorage.getItem('merchantSales') || '[]');
-        merchantPayments = JSON.parse(localStorage.getItem('merchantPayments') || '[]');
-        merchantPurchases = JSON.parse(localStorage.getItem('merchantPurchases') || '[]');
-        merchantPaymentsOut = JSON.parse(localStorage.getItem('merchantPaymentsOut') || '[]');
-        partners = JSON.parse(localStorage.getItem('partners') || '[]');
-        accounts = JSON.parse(localStorage.getItem('accounts') || '[]');
-        stockMovements = JSON.parse(localStorage.getItem('stockMovements') || '[]');
-        arabonSales = JSON.parse(localStorage.getItem('arabonSales') || '[]');
+        products = safeParse(localStorage.getItem('products'), []);
+        merchants = safeParse(localStorage.getItem('merchants'), []);
+        transactions = safeParse(localStorage.getItem('transactions'), []);
+        installments = safeParse(localStorage.getItem('installments'), []);
+        msgTemplates = safeParse(localStorage.getItem('msgTemplates')) || { reminder: '', late: '' };
+        merchantSales = safeParse(localStorage.getItem('merchantSales'), []);
+        merchantPayments = safeParse(localStorage.getItem('merchantPayments'), []);
+        merchantPurchases = safeParse(localStorage.getItem('merchantPurchases'), []);
+        merchantPaymentsOut = safeParse(localStorage.getItem('merchantPaymentsOut'), []);
+        partners = safeParse(localStorage.getItem('partners'), []);
+        accounts = safeParse(localStorage.getItem('accounts'), []);
+        stockMovements = safeParse(localStorage.getItem('stockMovements'), []);
+        arabonSales = safeParse(localStorage.getItem('arabonSales'), []);
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
+        if (!Array.isArray(products)) products = [];
+        if (!Array.isArray(merchants)) merchants = [];
+        if (!Array.isArray(transactions)) transactions = [];
+        if (!Array.isArray(installments)) installments = [];
+        if (!Array.isArray(merchantSales)) merchantSales = [];
+        if (!Array.isArray(merchantPayments)) merchantPayments = [];
+        if (!Array.isArray(merchantPurchases)) merchantPurchases = [];
+        if (!Array.isArray(merchantPaymentsOut)) merchantPaymentsOut = [];
+        if (!Array.isArray(partners)) partners = [];
+        if (!Array.isArray(accounts)) accounts = [];
+        if (!Array.isArray(stockMovements)) stockMovements = [];
+        if (!Array.isArray(arabonSales)) arabonSales = [];
         recordInitDiag('afterLS', 'accounts', accounts.length);
 
         // الـ localStorage هو المصدر الأساسي. الـ IndexedDB مجرد نسخة احتياطية:
@@ -2904,8 +2925,8 @@
             transactions.forEach(t => {
                 const td = new Date(t.date);
                 if (td.getFullYear() === m.y && td.getMonth() === m.m) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') inc += t.amount;
-                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
+                    if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') inc += t.amount;
+                    if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') exp += t.amount;
                 }
             });
             income.push(inc); expense.push(exp);
@@ -3011,6 +3032,11 @@
         setTimeout(() => { toast.style.animation = 'fadeOut 0.3s forwards'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
 
+    function esc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     function showError(title, detail) {
         showToast(title + (detail ? ': ' + detail : ''), 'error');
     }
@@ -3046,7 +3072,7 @@
             autoBackupTimer = setInterval(() => {
                 const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
                 merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital };
-                localStorage.setItem('autoBackup_last', JSON.stringify(backup));
+                lsSet('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
     }
@@ -3132,8 +3158,18 @@
         });
     }
 
+    let _lsQuotaWarned = false;
+
     function lsSet(key, val) {
-        try { localStorage.setItem(key, val); } catch (e) { console.warn('localStorage.setItem فشل:', key, e); }
+        try { localStorage.setItem(key, val); } catch (e) {
+            console.warn('localStorage.setItem فشل:', key, e);
+            if (!_lsQuotaWarned) {
+                _lsQuotaWarned = true;
+                setTimeout(() => {
+                    showToast('⚠️ مساحة التخزين ممتلئة! البيانات لم تُحفظ. صدّر نسخة احتياطية فوراً من الإعدادات', 'error');
+                }, 100);
+            }
+        }
     }
 
     async function saveData() {
@@ -3276,8 +3312,8 @@
         // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ) — التحويلات بين الحسابات متعادلة
         cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'merchant_purchase' || t.type === 'payment_out') cash -= t.amount;
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
         });
 
         // الإيرادات والمصروفات تحسب ضمن النطاق التاريخي فقط
@@ -3315,7 +3351,8 @@
                     revenue += t.amount;
                 }
             }
-            if (t.type === 'expense' || t.type === 'merchant_purchase') expenses += t.amount;
+            // شراء المخزون من تاجر ليس مصروفاً (البضاعة تدخل المخزون وتُخصم كتكلفة عند البيع)
+            if (t.type === 'expense') expenses += t.amount;
         });
 
         filteredInst.forEach(inst => {
@@ -3332,7 +3369,8 @@
         });
 
         let stockValue = products.reduce((sum, p) => sum + ((p.costPrice + (p.expenses || 0)) * p.stock), 0);
-        let totalDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0);
+        let totalDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0)
+            + arabonSales.filter(a => !a.isPaid).reduce((sum, a) => sum + (a.remainingAmount || 0), 0);
         let grossProfit = revenue - cogs;
         let operatingProfit = grossProfit - expenses;
         let netProfit = revenue - cogs - expenses + interestProfit;
@@ -3353,20 +3391,21 @@
         // تحليل المديونية
         let totalInstallmentValue = installments.reduce((sum, i) => sum + i.purchasePrice + (i.totalAfterInterest - i.purchasePrice + i.paidUpfront), 0);
         let collectedAmount = installments.reduce((sum, i) => {
-            let paid = (i.schedule || getInstSchedule(i)).filter(s => s.isPaid).reduce((s, slot) => s + slot.paidAmount, 0);
+            let paid = (i.schedule || getInstSchedule(i)).filter(s => s.paidAmount > 0).reduce((s, slot) => s + slot.paidAmount, 0);
             return sum + paid + (i.paidUpfront || 0);
         }, 0);
-        let remainingDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0);
+        let remainingDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0)
+            + arabonSales.filter(a => !a.isPaid).reduce((sum, a) => sum + (a.remainingAmount || 0), 0);
 
         // تصنيف الديون حسب العمر
-        let now = new Date();
+        let now = new Date(); now.setHours(0, 0, 0, 0);
         let aging = { under30: 0, between30and90: 0, over90: 0 };
         installments.filter(i => !i.isPaid).forEach(i => {
             let schedule = i.schedule || getInstSchedule(i);
             schedule.filter(s => !s.isPaid).forEach(s => {
-                let due = new Date(s.dueDate);
+                let due = new Date(s.dueDate + 'T00:00:00');
+                if (due > now) return;
                 let days = Math.floor((now - due) / (1000 * 60 * 60 * 24));
-                if (days < 0) days = 0;
                 if (days <= 30) aging.under30 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
                 else if (days <= 90) aging.between30and90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
                 else aging.over90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
@@ -3569,8 +3608,8 @@
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') cash -= t.amount;
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
         });
         const container = document.getElementById('dailySummaryContent');
         container.innerHTML = '' +
@@ -3608,8 +3647,8 @@
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') cash -= t.amount;
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
         });
         const dateLabel = today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
         const w = window.open('', '', 'width=400,height=600');
@@ -3728,8 +3767,8 @@
     function getCashLiquidity() {
         let cash = openingCapital;
         transactions.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit') cash += t.amount;
-            if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'payment_out') cash -= t.amount;
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
         });
         return cash;
     }
@@ -3757,7 +3796,7 @@
             let balColor = running >= 0 ? 'var(--success)' : 'var(--danger)';
             return '<tr style="border-bottom:1px solid var(--border);">' +
                 '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
-                '<td style="padding:8px 6px;">' + r.desc + '</td>' +
+                '<td style="padding:8px 6px;">' + esc(r.desc) + '</td>' +
                 '<td style="padding:8px 6px;color:var(--danger);font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
                 '<td style="padding:8px 6px;color:var(--success);font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td>' +
                 '<td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td>' +
@@ -4136,8 +4175,8 @@
             transactions.forEach(t => {
                 const td = new Date(t.date);
                 if (td < cutoff) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'transfer_in') bal += t.amount;
-                    if (t.type === 'purchase' || t.type === 'expense' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') bal -= t.amount;
+                    if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') bal += t.amount;
+                    if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') bal -= t.amount;
                 }
             });
             data.push(bal);
@@ -4396,7 +4435,7 @@
         html += '' +
         '<div class="card' + (p.archived ? ' opacity-50' : '') + '">' +
             '<div class="flex-between mb-2">' +
-                '<strong class="text-lg">📱 ' + p.name + archiveBadge + '</strong>' +
+                '<strong class="text-lg">📱 ' + esc(p.name) + archiveBadge + '</strong>' +
                 '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
             '</div>' +
             '<div class="grid-2 gap-2 border-t pt-3 text-sm">' +
@@ -4404,7 +4443,7 @@
                 '<div><span class="text-muted">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
                 '<div><span class="text-muted">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
                 '<div><span class="text-muted">📈 ربح</span><br><strong class="' + profitColor + '">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
-                (p.imei ? '<div class="col-span-2" style="grid-column:1/-1;"><span class="text-muted">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + p.imei + '</strong></div>' : '') +
+                (p.imei ? '<div class="col-span-2" style="grid-column:1/-1;"><span class="text-muted">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + esc(p.imei) + '</strong></div>' : '') +
             '</div>' +
             '<div class="flex flex-wrap gap-1 mt-3 pt-3 border-t">' +
                 (p.archived
@@ -4855,7 +4894,7 @@
     window._openTransDet = window._openTransDet || new Set();
 
     const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
-    const isIncomeTransType = (type) => ['sell_cash','payment_in','sell','partner_deposit','merchant_sale','transfer_in'].includes(type);
+    const isIncomeTransType = (type) => INCOME_TRANS_TYPES.includes(type);
 
     window.toggleTransDetails = (id) => {
         const el = document.getElementById('transDetails-' + id);
@@ -4908,7 +4947,7 @@
 
         if (rows.length === 0) rows.push(['📝 ملاحظات', '—']);
         return '<div style="font-size:0.85rem;">' + rows.map(r =>
-            '<div class="schedule-row"><span class="schedule-label">' + r[0] + '</span><span class="td-value">' + r[1] + '</span></div>'
+            '<div class="schedule-row"><span class="schedule-label">' + esc(r[0]) + '</span><span class="td-value">' + esc(r[1]) + '</span></div>'
         ).join('') + '</div>';
     }
 
@@ -4983,11 +5022,11 @@
                     '<div class="flex items-center gap-2 p-3" style="flex-wrap:wrap;">' +
                         '<span class="text-lg">' + icon + '</span>' +
                         '<div class="flex-1" style="min-width:0;">' +
-                            '<div class="text-sm font-bold flex items-center gap-1">' + (typeMap[t.type] || t.type) + (entityName ? ' <span class="text-xs font-normal text-muted">· ' + entityName + '</span>' : '') + '</div>' +
+                            '<div class="text-sm font-bold flex items-center gap-1">' + esc(typeMap[t.type] || t.type) + (entityName ? ' <span class="text-xs font-normal text-muted">· ' + esc(entityName) + '</span>' : '') + '</div>' +
                             '<div class="text-xs text-muted truncate">' +
                                 new Date(t.date).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) +
-                                (p?.name ? ' · 📦 ' + p.name : '') +
-                                (a ? ' · ' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name : '') +
+                                (p?.name ? ' · 📦 ' + esc(p.name) : '') +
+                                (a ? ' · ' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + esc(a.name) : '') +
                             '</div>' +
                         '</div>' +
                         '<strong class="' + textClass + ' text-base ws-nowrap">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
@@ -5152,9 +5191,9 @@
             let deviceName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'غير محدد';
 
             let html = '<div class="inst-panel-title">📄 تفاصيل العقد رقم ' + (inst.contractNo || inst.id) + '</div>';
-            html += '<div class="inst-details-customer"><span>👤 <b>' + (m?.name || 'عميل') + '</b></span><span>📞 ' + (m?.phone || '—') + '</span></div>';
+            html += '<div class="inst-details-customer"><span>👤 <b>' + esc(m?.name || 'عميل') + '</b></span><span>📞 ' + esc(m?.phone || '—') + '</span></div>';
             html += '<div class="inst-details-grid">';
-            html += '<div class="inst-details-item"><span class="inst-details-label">📱 الجهاز</span><span class="inst-details-value">' + deviceName + '</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📱 الجهاز</span><span class="inst-details-value">' + esc(deviceName) + '</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + inst.purchasePrice.toLocaleString() + ' ج</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + inst.paidUpfront.toLocaleString() + ' ج</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">📊 نسبة الفائدة</span><span class="inst-details-value">' + inst.interestRate + '%</span></div>';
@@ -5197,7 +5236,7 @@
             let m = merchants.find(x => x.id == inst.merchantId);
             const filteredProducts = filterList(products, '', ['name']);
             const prodOpts = filteredProducts.map(p =>
-                '<option value="' + p.id + '" ' + (p.id == inst.productId ? 'selected' : '') + '>' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>'
+                '<option value="' + p.id + '" ' + (p.id == inst.productId ? 'selected' : '') + '>' + esc(p.name) + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>'
             ).join('');
 
             let paidCount = (inst.schedule || getInstSchedule(inst)).filter(s => s.isPaid).length;
@@ -5210,8 +5249,8 @@
                 html += '<div style="background:var(--danger-light);color:var(--danger);padding:8px 12px;border-radius:8px;margin-bottom:10px;font-size:0.82rem;">⚠️ تم سداد ' + paidCount + ' أقساط — بعض الحقول مقفلة</div>';
             }
             html += '<div class="grid-2">';
-            html += '<div class="form-group"><label>👤 اسم العميل</label><input id="editInstName-' + id + '" value="' + (m?.name || '') + '"></div>';
-            html += '<div class="form-group"><label>📞 رقم الهاتف</label><input id="editInstPhone-' + id + '" value="' + (m?.phone || '') + '"></div>';
+            html += '<div class="form-group"><label>👤 اسم العميل</label><input id="editInstName-' + id + '" value="' + esc(m?.name || '') + '"></div>';
+            html += '<div class="form-group"><label>📞 رقم الهاتف</label><input id="editInstPhone-' + id + '" value="' + esc(m?.phone || '') + '"></div>';
             html += '</div>';
             html += '<div class="form-group"><label>📱 الجهاز (يخصم من المخزون)</label><select id="editInstProduct-' + id + '"' + lock + '>' + prodOpts + '</select></div>';
             html += '<div class="grid-2">';
@@ -5418,8 +5457,8 @@
                 '<div style="display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid var(--border);">' +
                     '<div class="inst-avatar">' + initials + '</div>' +
                     '<div style="flex:1; min-width:0;">' +
-                        '<div class="inst-name">' + (m?.name || 'عميل') + '</div>' +
-                        '<div class="inst-sub"><span>📋 عقد ' + (inst.contractNo || inst.id) + '</span><span>·</span><span>📱 ' + deviceName + '</span></div>' +
+                        '<div class="inst-name">' + esc(m?.name || 'عميل') + '</div>' +
+                        '<div class="inst-sub"><span>📋 عقد ' + (inst.contractNo || inst.id) + '</span><span>·</span><span>📱 ' + esc(deviceName) + '</span></div>' +
                     '</div>' +
                     '<div style="flex-shrink:0;">' + statusBadge + '</div>' +
                 '</div>' +
@@ -5617,9 +5656,25 @@
             let slot = inst.schedule[slotIdx];
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let remaining = parseFloat((inst.monthlyAmount - slot.paidAmount).toFixed(2));
-            let val = Math.min(parseFloat(document.getElementById('payAmount-' + instId).value) || 0, remaining);
             let paymentAccountId = document.getElementById('payAccount-' + instId).value;
+            let splitToggle = document.getElementById('paySplitCheck-' + instId).closest('.split-toggle');
+            let isSplit = splitToggle.classList.contains('active');
+            let cashAmount = 0, bankAmount = 0, cashAccountId = '', bankAccountId = '';
+            if (isSplit) {
+                cashAmount = parseFloat(document.getElementById('payCash-' + instId).value) || 0;
+                bankAmount = parseFloat(document.getElementById('payBankAmount-' + instId).value) || 0;
+                cashAccountId = document.getElementById('payCashSelect-' + instId).value;
+                bankAccountId = document.getElementById('payBankSelect-' + instId).value;
+                if (cashAmount <= 0 && bankAmount <= 0) { showToast('أدخل المبلغ النقدي أو البنكي', 'error'); return; }
+            }
+            let requested = isSplit ? (cashAmount + bankAmount) : (parseFloat(document.getElementById('payAmount-' + instId).value) || 0);
+            let val = Math.min(requested, remaining);
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
+            if (isSplit && val < requested) {
+                let ratio = val / requested;
+                cashAmount = Math.round(cashAmount * ratio * 100) / 100;
+                bankAmount = Math.round(bankAmount * ratio * 100) / 100;
+            }
             let payDate = (document.getElementById('payDate-' + instId).value || new Date().toISOString().split('T')[0]).slice(0, 10);
             let nowTime = new Date();
             let timeStr = [nowTime.getHours(), nowTime.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
@@ -5633,13 +5688,7 @@
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
             let transBase = { merchantId: inst.merchantId, productId: inst.productId, instId: instId, notes: 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName, date: transDateISO };
 
-            let splitToggle = document.getElementById('paySplitCheck-' + instId).closest('.split-toggle');
-            let isSplit = splitToggle.classList.contains('active');
             if (isSplit) {
-                let cashAmount = parseFloat(document.getElementById('payCash-' + instId).value) || 0;
-                let bankAmount = parseFloat(document.getElementById('payBankAmount-' + instId).value) || 0;
-                let cashAccountId = document.getElementById('payCashSelect-' + instId).value;
-                let bankAccountId = document.getElementById('payBankSelect-' + instId).value;
                 if (cashAmount > 0) transactions.push({ id: Date.now(), type: 'payment_in', amount: cashAmount, accountId: cashAccountId ? parseInt(cashAccountId) : undefined, ...transBase });
                 if (bankAmount > 0) transactions.push({ id: Date.now() + 2, type: 'payment_in', amount: bankAmount, accountId: bankAccountId ? parseInt(bankAccountId) : undefined, ...transBase });
             } else {
@@ -5873,11 +5922,11 @@
 
             listHtml += '<div class="card">' +
                 '<div class="flex-between mb-2">' +
-                    '<strong class="text-lg">📱 ' + (a.deviceName || 'جهاز') + ' ' + statusBadge + '</strong>' +
+                    '<strong class="text-lg">📱 ' + esc(a.deviceName || 'جهاز') + ' ' + statusBadge + '</strong>' +
                     '<strong class="text-primary text-xl">' + (a.sellPrice || 0).toFixed(2) + ' ج</strong>' +
                 '</div>' +
                 '<div class="flex flex-wrap gap-3 text-sm text-muted mb-2">' +
-                    '<span>👤 ' + mName + '</span>' +
+                    '<span>👤 ' + esc(mName) + '</span>' +
                     (mPhone ? '<span>📱 ' + mPhone + '</span>' : '') +
                     '<span>💰 العربون: ' + (a.depositAmount || 0).toFixed(2) + ' ج</span>' +
                     '<span>💳 المتبقي: ' + (a.remainingAmount || 0).toFixed(2) + ' ج (' + methodLabel + ')</span>' +
@@ -6175,6 +6224,7 @@
                     let splitAccId = document.getElementById('arabonSplitAccSelect')?.value;
                     let splitCashAccId = document.getElementById('arabonSplitCashAccSelect')?.value;
                     if (cashAmt <= 0 && bankAmt <= 0) { showToast('أدخل مبلغ صحيح', 'error'); return; }
+                    if (Math.abs((cashAmt + bankAmt) - payAmt) > 0.01) { showToast('مجموع النقدي والبنكي يجب أن يساوي المبلغ (' + payAmt.toFixed(2) + ' ج)', 'error'); return; }
                     if (cashAmt > 0) {
                         transactions.push({
                             id: Date.now(), type: 'payment_in', amount: cashAmt,
@@ -6392,7 +6442,7 @@
             let balColor = running >= 0 ? 'var(--danger)' : 'var(--success)';
             return '<tr style="border-bottom:1px solid var(--border);">' +
                 '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
-                '<td style="padding:8px 6px;">' + r.desc + '</td>' +
+                '<td style="padding:8px 6px;">' + esc(r.desc) + '</td>' +
                 '<td style="padding:8px 6px;color:var(--danger);font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
                 '<td style="padding:8px 6px;color:var(--success);font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td>' +
                 '<td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td>' +
@@ -6725,8 +6775,8 @@
         // Merchant info card
         html += '<div class="card" style="margin-bottom:10px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
-        html += '<div><div style="font-weight:700;font-size:1.1rem;">' + m.name + '</div>';
-        html += '<div style="font-size:0.85rem;color:var(--text-muted);">' + (m.phone || '') + (m.address ? ' | ' + m.address : '') + '</div></div>';
+        html += '<div><div style="font-weight:700;font-size:1.1rem;">' + esc(m.name) + '</div>';
+        html += '<div style="font-size:0.85rem;color:var(--text-muted);">' + esc(m.phone || '') + (m.address ? ' | ' + esc(m.address) : '') + '</div></div>';
         html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
         html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
         html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
@@ -6766,7 +6816,7 @@
                 let qty = s.quantity || 1;
                 let totalPrice = (s.sellPrice || 0) * qty;
                 let d = new Date(s.date).toLocaleDateString('ar-EG');
-                html += '<tr><td>' + (s.deviceName || '') + '</td><td>' + qty + '</td><td>' + (s.sellPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
+                html += '<tr><td>' + esc(s.deviceName || '') + '</td><td>' + qty + '</td><td>' + (s.sellPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
                 html += '<td><button class="btn-sm btn-outline" onclick="editMerchantSale(' + s.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantSale(' + s.id + ')">🗑️</button></td></tr>';
             });
             html += '</tbody></table>';
@@ -6785,7 +6835,7 @@
                 let qty = p.quantity || 1;
                 let totalPrice = (p.costPrice || 0) * qty;
                 let d = new Date(p.date).toLocaleDateString('ar-EG');
-                html += '<tr><td>' + (p.productName || '') + '</td><td>' + qty + '</td><td>' + (p.costPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
+                html += '<tr><td>' + esc(p.productName || '') + '</td><td>' + qty + '</td><td>' + (p.costPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
                 html += '<td><button class="btn-sm btn-outline" onclick="editMerchantPurchase(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantPurchase(' + p.id + ')">🗑️</button></td></tr>';
             });
             html += '</tbody></table>';
@@ -6810,7 +6860,7 @@
                 let color = p.dir === 'in' ? 'var(--success)' : 'var(--danger)';
                 let editFn = p.dir === 'in' ? 'editMerchantPayment' : 'editMerchantPaymentOut';
                 let deleteFn = p.dir === 'in' ? 'deleteMerchantPayment' : 'deleteMerchantPaymentOut';
-                html += '<tr><td>' + p.desc + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td>';
+                html += '<tr><td>' + esc(p.desc) + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td>';
                 html += '<td><button class="btn-sm btn-outline" onclick="' + editFn + '(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="' + deleteFn + '(' + p.id + ')">🗑️</button></td></tr>';
             });
             html += '</tbody></table>';
@@ -7011,7 +7061,7 @@
                 if (p.stock < 0) p.stock = 0;
             }
             merchantPurchases = merchantPurchases.filter(p => p.id != id);
-            if (purchase.transactionId) transactions = transactions.filter(t => t.id != purchase.transactionId);
+            if (purchase.transactionId) transactions = transactions.filter(t => t.id != purchase.transactionId && t.id != (purchase.transactionId + 2));
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('تم حذف الشراء');
         } catch (err) {
@@ -7024,6 +7074,7 @@
             let purchase = merchantPurchases.find(p => p.id == id);
             if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
             let qty = purchase.quantity || 1;
+            let oldTotal = (purchase.costPrice || 0) * qty;
             let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (purchase.productName || '') + '\nالكمية الحالية: ' + qty, qty, 'تعديل الكمية');
             if (newQty === null || isNaN(newQty) || newQty < 1) { showToast('كمية غير صالحة', 'error'); return; }
             let diff = newQty - qty;
@@ -7038,6 +7089,22 @@
             let newPrice = await showNumberPromptModal('✏️ تعديل سعر شراء ' + (purchase.productName || '') + '\nسعر القطعة الحالي: ' + (purchase.costPrice || 0).toFixed(2) + ' ج', purchase.costPrice, 'تعديل السعر');
             if (newPrice === null || isNaN(newPrice) || newPrice <= 0) { showToast('سعر غير صالح', 'error'); return; }
             purchase.costPrice = newPrice;
+            let newTotal = (purchase.costPrice || 0) * (purchase.quantity || 1);
+            if (purchase.transactionId) {
+                let tids = [purchase.transactionId];
+                let second = transactions.find(t => t.id == purchase.transactionId + 2);
+                if (second) tids.push(purchase.transactionId + 2);
+                if (tids.length === 1) {
+                    let trans = transactions.find(t => t.id == purchase.transactionId);
+                    if (trans) trans.amount = Math.round(newTotal * 100) / 100;
+                } else if (oldTotal > 0) {
+                    let ratio = newTotal / oldTotal;
+                    tids.forEach(tid => {
+                        let trans = transactions.find(t => t.id == tid);
+                        if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
+                    });
+                }
+            }
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard();
             showToast('✅ تم تحديث الشراء');
         } catch (err) {
@@ -7113,6 +7180,7 @@
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
 
             let qty = sale.quantity || 1;
+            let oldTotal = (sale.sellPrice || 0) * qty;
             let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (sale.deviceName || '') +
                 '\n' + 'الكمية الحالية: ' + qty,
                 qty, 'تعديل الكمية');
@@ -7138,6 +7206,22 @@
             let newNotes = await showPromptModal('أدخل الملاحظات الجديدة:', sale.notes || '', 'تعديل الملاحظات');
             if (newNotes !== null) sale.notes = newNotes.trim();
 
+            let newTotal = (sale.sellPrice || 0) * (sale.quantity || 1);
+            if (sale.transactionId) {
+                let tids = [sale.transactionId];
+                let second = transactions.find(t => t.id == sale.transactionId + 2);
+                if (second) tids.push(sale.transactionId + 2);
+                if (tids.length === 1) {
+                    let trans = transactions.find(t => t.id == sale.transactionId);
+                    if (trans) trans.amount = Math.round(newTotal * 100) / 100;
+                } else if (oldTotal > 0) {
+                    let ratio = newTotal / oldTotal;
+                    tids.forEach(tid => {
+                        let trans = transactions.find(t => t.id == tid);
+                        if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
+                    });
+                }
+            }
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('✅ تم تحديث بيانات البيع: ' + (sale.quantity || 1) + '× ' + sale.deviceName + ' @ ' + sale.sellPrice.toFixed(2) + ' ج');
         } catch (err) {
@@ -7156,7 +7240,7 @@
             if (p) p.stock += (sale.quantity || 1);
 
             merchantSales = merchantSales.filter(s => s.id != id);
-            if (sale.transactionId) transactions = transactions.filter(t => t.id != sale.transactionId);
+            if (sale.transactionId) transactions = transactions.filter(t => t.id != sale.transactionId && t.id != (sale.transactionId + 2));
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('تم حذف بيع ' + (sale.deviceName || ''));
         } catch (err) {
@@ -7238,8 +7322,8 @@
             let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases);
             html += '<div class="card" style="cursor:pointer;" onclick="window.showMerchantPage(' + merchantId + ')">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
-            html += '<div><div style="font-weight:700;font-size:1rem;color:var(--primary);">' + s.name + '</div>';
-            html += '<div style="font-size:0.82rem;color:var(--text-muted);">' + (s.phone || '') + '</div></div>';
+            html += '<div><div style="font-weight:700;font-size:1rem;color:var(--primary);">' + esc(s.name) + '</div>';
+            html += '<div style="font-size:0.82rem;color:var(--text-muted);">' + esc(s.phone || '') + '</div></div>';
             html += '<div style="display:flex;align-items:center;gap:10px;">';
             html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
             html += '<div style="font-weight:700;font-size:1.1rem;color:' + (b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)')) + ';">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
@@ -7313,7 +7397,7 @@
             rows.sort((a, b) => a.date.localeCompare(b.date));
             let rowsHtml = rows.map(r => {
                 return '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.date.slice(0,10) + '</td>' +
-                    '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.desc + '</td>' +
+                    '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + esc(r.desc) + '</td>' +
                     '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9; color:#059669; font-weight:bold;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td>' +
                     '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9; color:#dc2626; font-weight:bold;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>';
             }).join('');
@@ -7444,11 +7528,11 @@
             listHtml += '' +
             '<div class="card">' +
                 '<div class="flex-between mb-2">' +
-                    '<strong class="text-lg">👤 ' + p.name + '</strong>' +
+                    '<strong class="text-lg">👤 ' + esc(p.name) + '</strong>' +
                     '<strong class="' + balClass + ' text-xl">' + p.balance.toFixed(2) + ' ج</strong>' +
                 '</div>' +
-                (p.phone ? '<div class="text-sm text-muted mb-2">📞 ' + p.phone + '</div>' : '') +
-                (p.notes ? '<div class="text-sm text-muted mb-2">📝 ' + p.notes + '</div>' : '') +
+                (p.phone ? '<div class="text-sm text-muted mb-2">📞 ' + esc(p.phone) + '</div>' : '') +
+                (p.notes ? '<div class="text-sm text-muted mb-2">📝 ' + esc(p.notes) + '</div>' : '') +
                 '<div class="text-xs text-muted mb-4">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG') + '</div>' +
                 '<div class="flex gap-2 flex-wrap pt-3 border-t">' +
                     '<button class="btn-sm btn-success flex-1" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')">💵 إيداع</button>' +
@@ -7693,8 +7777,8 @@
             let balance = acc.balance || 0;
             transactions.forEach(t => {
                 if (t.accountId == acc.id) {
-                    if (t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in') balance += t.amount;
-                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') balance -= t.amount;
+                    if (INCOME_TRANS_TYPES.includes(t.type)) balance += t.amount;
+                    if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= t.amount;
                 }
             });
             return balance;
@@ -7726,13 +7810,13 @@
             listHtml += '' +
             '<div class="card">' +
                 '<div class="flex-between mb-2">' +
-                    '<strong class="text-lg">' + typeIcon + ' ' + a.name + '</strong>' +
+                    '<strong class="text-lg">' + typeIcon + ' ' + esc(a.name) + '</strong>' +
                     '<strong class="' + balClass + ' text-xl">' + bal.toFixed(2) + ' ج</strong>' +
                 '</div>' +
                 '<div class="flex flex-wrap gap-3 text-sm text-muted mb-2">' +
                     '<span>' + typeName + '</span>' +
-                    (a.accountNumber ? '<span>🔢 ' + a.accountNumber + '</span>' : '') +
-                    (a.notes ? '<span>📝 ' + a.notes + '</span>' : '') +
+                    (a.accountNumber ? '<span>🔢 ' + esc(a.accountNumber) + '</span>' : '') +
+                    (a.notes ? '<span>📝 ' + esc(a.notes) + '</span>' : '') +
                 '</div>' +
                 '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
                     '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;justify-content:center;" onclick="showAccountStatement(' + a.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> كشف حساب</button>' +
@@ -7885,8 +7969,8 @@
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
         let accTxns = transactions.filter(t => t.accountId == accountId);
-        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in').reduce((s, t) => s + (t.amount || 0), 0);
-        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalIn = accTxns.filter(t => INCOME_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
+        let totalOut = accTxns.filter(t => EXPENSE_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
         let runningBal = (a.balance || 0) + totalIn - totalOut;
 
         let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
@@ -7904,8 +7988,8 @@
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th></tr></thead><tbody>' +
                 accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
                     let d = new Date(t.date).toLocaleDateString('ar-EG');
-                    let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in';
-                    let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out';
+                    let isIn = INCOME_TRANS_TYPES.includes(t.type);
+                    let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
                     if (isIn) runningBalCalc += t.amount;
                     if (isOut) runningBalCalc -= t.amount;
                     let inStr = isIn ? '<span style="color:var(--success);font-weight:700;">+' + (t.amount || 0).toFixed(2) + ' ج</span>' : '—';
@@ -7957,8 +8041,8 @@
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
         let accTxns = transactions.filter(t => t.accountId == accountId);
-        let totalIn = accTxns.filter(t => t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in').reduce((s, t) => s + (t.amount || 0), 0);
-        let totalOut = accTxns.filter(t => t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out').reduce((s, t) => s + (t.amount || 0), 0);
+        let totalIn = accTxns.filter(t => INCOME_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
+        let totalOut = accTxns.filter(t => EXPENSE_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
 
         let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
         let typeName = a.type === 'bank' ? 'بنك' : a.type === 'vodafone' ? 'فودافون كاش' : 'كاش';
@@ -7970,8 +8054,8 @@
         let runningBalCalc = a.balance || 0;
         let rowsHtml = accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
             let d = new Date(t.date).toLocaleDateString('ar-EG');
-            let isIn = t.type === 'sell_cash' || t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in';
-            let isOut = t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out';
+            let isIn = INCOME_TRANS_TYPES.includes(t.type);
+            let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
             if (isIn) runningBalCalc += t.amount;
             if (isOut) runningBalCalc -= t.amount;
             let inStr = isIn ? (t.amount || 0).toFixed(2) + ' ج' : '—';
@@ -8783,7 +8867,7 @@
             } else if (errCode === 'redirect_uri_mismatch') {
                 msg = 'رابط إعادة التوجيه غير مسجل في Google Cloud — انسخ الرابط أدناه وأضفه في إعدادات OAuth ثم أعد الربط';
             } else if (errCode === 'invalid_client') {
-                msg = 'معرّف التطبيق (Client ID) غير صحيح أو محذوف — أنشئ عميل OAuth جديد من نوع Web application في Google Cloud والصق الـ Client ID في خانة 🆔 أعلاه';
+                msg = 'معرّف التطبيق (Client ID) غير صحيح أو محذوف — المعرّف النشط حالياً: ' + getDriveClientId() + ' — أنشئ عميل OAuth جديد من نوع Web application في Google Cloud والصق الـ Client ID في خانة 🆔 أعلاه';
             } else if (errCode === 'invalid_request') {
                 msg = 'طلب الربط مرفوض من Google (النمط المستخدم لم يعد مدعوماً لهذا العميل) — أنشئ عميل OAuth جديد من نوع Web application في Google Cloud';
             } else {
@@ -8874,7 +8958,7 @@
                             if (resp.error === 'access_denied') {
                                 msg = 'تم رفض الوصول — التطبيق في وضع Testing بمشروع Google: أضف بريدك كمختبِر من «OAuth consent screen → Test users» أو انشره إلى Production';
                             } else if (resp.error === 'invalid_client') {
-                                msg = 'معرّف التطبيق (Client ID) غير صحيح أو محذوف — أنشئ عميل OAuth جديد من نوع Web application والصقه في خانة 🆔 أعلاه';
+                                msg = 'معرّف التطبيق (Client ID) غير صحيح أو محذوف — المعرّف النشط حالياً: ' + getDriveClientId() + ' — أنشئ عميل OAuth جديد من نوع Web application والصقه في خانة 🆔 أعلاه';
                             } else {
                                 msg = 'فشل ربط Google: ' + resp.error;
                             }
