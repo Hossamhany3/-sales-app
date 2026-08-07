@@ -1703,6 +1703,7 @@
                     <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
                         <div class="flex-between" style="padding:6px 0;"><span>📉 إجمالي المصروفات التشغيلية</span> <strong id="repExpenses" style="color:var(--danger)">0</strong></div>
                         <div id="repExpenseBreakdown" style="padding:4px 0 2px 8px;"></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>🧑‍💼 عمولات الموظفين</span> <strong id="repCommissions" style="color:var(--danger)">0</strong></div>
                         <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--primary);">
                             <span>⚙️ صافي الربح التشغيلي</span> <strong id="repOperatingProfit">0</strong>
                         </div>
@@ -3547,8 +3548,9 @@
         let totalDebt = installments.filter(i => !i.isPaid).reduce((sum, i) => sum + i.remainingBalance, 0)
             + arabonSales.filter(a => !a.isPaid).reduce((sum, a) => sum + (a.remainingAmount || 0), 0);
         let grossProfit = revenue - cogs;
-        let operatingProfit = grossProfit - expenses;
-        let netProfit = revenue - cogs - expenses + interestProfit;
+        let totalCommissions = getTotalCommissions(range);
+        let operatingProfit = grossProfit - expenses - totalCommissions;
+        let netProfit = revenue - cogs - expenses + interestProfit - totalCommissions;
         let grossMargin = revenue > 0 ? (grossProfit / revenue * 100) : 0;
         let netMargin = revenue > 0 ? (netProfit / revenue * 100) : 0;
         let partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
@@ -3587,7 +3589,7 @@
             });
         });
 
-        return { cash, stockValue, totalDebt, revenue, cogs, expenses, interestProfit, netProfit, totalDiscounts,
+        return { cash, stockValue, totalDebt, revenue, cogs, expenses, totalCommissions, interestProfit, netProfit, totalDiscounts,
             grossProfit, operatingProfit, grossMargin, netMargin, partnerInvest, merchantDebtTotal,
             totalAssets, totalLiabilities, equity, collectedAmount, remainingDebt, aging,
             collectionRate: (totalInstallmentValue > 0 ? (collectedAmount / totalInstallmentValue * 100) : 0) };
@@ -3611,6 +3613,8 @@
         const grossMarginEl = document.getElementById('repGrossMargin');
         if (grossMarginEl) grossMarginEl.innerHTML = fin.grossMargin.toFixed(1) + '%';
         document.getElementById('repExpenses').innerHTML = fin.expenses.toFixed(2) + ' ج';
+        const repCommEl = document.getElementById('repCommissions');
+        if (repCommEl) repCommEl.innerHTML = fin.totalCommissions.toFixed(2) + ' ج';
         const breakdownEl = document.getElementById('repExpenseBreakdown');
         if (breakdownEl) {
             const range = getDateRange();
@@ -3781,11 +3785,69 @@
         if (tabId === 'tabCommissions') { setTimeout(() => renderCommissions(), 50); }
     }
 
-    function calcCommission(emp, amount) {
-        if (!emp || emp.commissionType === 'none' || !amount) return 0;
-        if (emp.commissionType === 'percent') return amount * ((emp.commissionValue || 0) / 100);
+    function calcCommission(emp, profit) {
+        if (!emp || emp.commissionType === 'none' || !profit) return 0;
+        if (emp.commissionType === 'percent') return profit * ((emp.commissionValue || 0) / 100);
         if (emp.commissionType === 'fixed') return emp.commissionValue || 0;
         return 0;
+    }
+
+    // الربح (هامش) لعملية بيع واحدة = قيمة البيع - تكلفتها
+    function calcTransactionProfit(t) {
+        if (t.type === 'sell_cash' || t.type === 'sell') {
+            let prod = products.find(p => p.id == t.productId);
+            if (prod) return t.amount - (prod.costPrice + (prod.expenses || 0));
+            return t.amount;
+        }
+        if (t.type === 'merchant_sale') {
+            let ms = merchantSales.find(s => s.transactionId == t.id);
+            if (!ms) return 0; // حركة التقسيم الثانية — الربح محسوب على أول حركة فقط
+            let prod = products.find(p => p.name === ms.deviceName);
+            let cost = prod ? (prod.costPrice + (prod.expenses || 0)) * (ms.quantity || 1) : 0;
+            return (ms.sellPrice || 0) * (ms.quantity || 1) - cost;
+        }
+        if (t.type === 'payment_in' && t.arabonId && !t.instId) {
+            let arabonObj = arabonSales.find(a => a.id == t.arabonId);
+            if (arabonObj) {
+                let prod = products.find(p => p.id == arabonObj.productId);
+                let cost = prod ? (prod.costPrice + (prod.expenses || 0)) : 0;
+                return arabonObj.sellPrice - cost;
+            }
+            return t.amount;
+        }
+        return t.amount;
+    }
+
+    // أحداث العمولة (بيع واحد = حدث واحد حتى لو انقسم على أكثر من حركة)
+    function getCommissionEvents(range) {
+        const events = [];
+        const counted = new Set();
+        transactions.forEach(t => {
+            if (!t.employeeId || !inRange(t.date, range)) return;
+            if (t.type === 'merchant_sale') {
+                let ms = merchantSales.find(s => s.transactionId == t.id);
+                if (!ms || counted.has('ms' + ms.id)) return;
+                counted.add('ms' + ms.id);
+                events.push({ empId: t.employeeId, profit: calcTransactionProfit(t) });
+            } else if (t.type === 'sell_cash' || t.type === 'sell') {
+                events.push({ empId: t.employeeId, profit: calcTransactionProfit(t) });
+            } else if (t.type === 'payment_in' && t.arabonId && !t.instId) {
+                if (counted.has('a' + t.arabonId)) return;
+                counted.add('a' + t.arabonId);
+                events.push({ empId: t.employeeId, profit: calcTransactionProfit(t) });
+            }
+        });
+        return events;
+    }
+
+    function getTotalCommissions(range) {
+        const events = getCommissionEvents(range);
+        let total = 0;
+        events.forEach(e => {
+            const emp = employees.find(x => x.id == e.empId);
+            total += calcCommission(emp, e.profit);
+        });
+        return total;
     }
 
     function renderCommissions() {
@@ -3796,15 +3858,14 @@
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا يوجد موظفون — أضف موظفاً من صفحة «🧑‍💼 الموظفون والتكاليف المتكررة».</p>';
             return;
         }
-        // جمع عمليات البيع التي تُحسب عليها العمولة (تجاهل عمليات السحب/التحويل/المشتريات)
-        const salesTypes = ['sell_cash', 'sell', 'merchant_sale', 'payment_in'];
-        const eligible = transactions.filter(t => salesTypes.includes(t.type) && t.employeeId && inRange(t.date, range));
+        // أحداث العمولة (بيع = حدث واحد، والعمولة من الربح وليس من إجمالي البيع)
+        const events = getCommissionEvents(range);
         const rows = employees.map(emp => {
-            const empSales = eligible.filter(t => t.employeeId == emp.id);
-            const totalSales = empSales.reduce((s, t) => s + t.amount, 0);
-            const commission = empSales.reduce((s, t) => s + calcCommission(emp, t.amount), 0);
-            const count = empSales.length;
-            return { emp, totalSales, commission, count };
+            const empEvents = events.filter(e => e.empId == emp.id);
+            const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
+            const commission = empEvents.reduce((s, e) => s + calcCommission(emp, e.profit), 0);
+            const count = empEvents.length;
+            return { emp, totalProfit, commission, count };
         });
         const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
         container.innerHTML =
@@ -3822,14 +3883,15 @@
                             '<div style="font-weight:700;font-size:0.95rem;">' + r.count + '</div>' +
                         '</div>' +
                         '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
-                            '<div style="font-size:0.7rem;color:var(--text-muted);">إجمالي المبيعات</div>' +
-                            '<div style="font-weight:700;font-size:0.95rem;">' + r.totalSales.toFixed(0) + ' ج</div>' +
+                            '<div style="font-size:0.7rem;color:var(--text-muted);">إجمالي الربح (قاعدة الحساب)</div>' +
+                            '<div style="font-weight:700;font-size:0.95rem;">' + r.totalProfit.toFixed(0) + ' ج</div>' +
                         '</div>' +
                         '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);">' +
                             '<div style="font-size:0.7rem;color:var(--text-muted);">العمولة المستحقة</div>' +
                             '<div style="font-weight:800;font-size:0.95rem;color:var(--success);">' + r.commission.toFixed(0) + ' ج</div>' +
                         '</div>' +
                     '</div>' +
+                    '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;text-align:center;">العمولة تُحسب من الربح (قيمة البيع − التكلفة) وليس من إجمالي المبيعات</div>' +
                 '</div>';
             }).join('') +
             '<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;color:var(--primary);font-size:0.95rem;">' +
@@ -9127,16 +9189,47 @@
                 return [inst.contractNo || inst.id, m?.name || '', inst.deviceName || '', inst.purchasePrice, inst.paidUpfront || 0, inst.remainingBalance || 0, inst.numInstallments, (inst.monthlyAmount || 0).toFixed(2)];
             })
         });
+        const prodMap = {};
+        function addProdSale(productId, name, qty, revenue) {
+            let p = productId ? products.find(x => x.id == productId) : null;
+            if (!p && name) p = products.find(x => x.name === name);
+            const key = p ? p.id : 'n:' + (name || 'حذف');
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
+            prodMap[key].qty += qty || 1;
+            prodMap[key].revenue += revenue;
+        }
+        transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => { if (t.productId) addProdSale(t.productId, null, 1, t.amount); });
+        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+            if (!inst.productId) return;
+            if (arabonSales.some(a => a.instId == inst.id)) addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
+            else addProdSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+        });
+        arabonSales.filter(a => inRange(a.date, range)).forEach(a => { if (a.productId) addProdSale(a.productId, null, 1, a.sellPrice); });
+        const countedMs = new Set();
+        transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
+            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            if (ms) { countedMs.add(ms.id); addProdSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
+        });
+        sheets.push({
+            title: 'أرباح الأصناف (' + dateLabel + ')',
+            header: ['#', 'الصنف', 'الكمية المباعة', 'التكلفة الكلية', 'الإيرادات', 'الربح', 'هامش الربح %'],
+            rows: Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue).map(([id, d], i) => {
+                const profit = d.revenue - (d.cost * d.qty);
+                const margin = d.revenue ? (profit / d.revenue * 100) : 0;
+                return [i + 1, d.name, d.qty, (d.cost * d.qty).toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin.toFixed(1)];
+            })
+        });
         if (employees.length) {
+            const events = getCommissionEvents(range);
             sheets.push({
                 title: 'عمولات الموظفين',
-                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي المبيعات', 'العمولة المستحقة'],
+                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي الربح (قاعدة الحساب)', 'العمولة المستحقة'],
                 rows: employees.map(emp => {
-                    const empSales = transactions.filter(t => ['sell_cash','sell','merchant_sale','payment_in'].includes(t.type) && t.employeeId == emp.id && inRange(t.date, range));
-                    const totalSales = empSales.reduce((s, t) => s + t.amount, 0);
-                    const commission = empSales.reduce((s, t) => s + calcCommission(emp, t.amount), 0);
+                    const empEvents = events.filter(e => e.empId == emp.id);
+                    const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
+                    const commission = empEvents.reduce((s, e) => s + calcCommission(emp, e.profit), 0);
                     const base = emp.commissionType === 'percent' ? (emp.commissionValue||0) + '%' : emp.commissionType === 'fixed' ? (emp.commissionValue||0) + ' ج/عملية' : '—';
-                    return [emp.name, base, empSales.length, totalSales.toFixed(2), commission.toFixed(2)];
+                    return [emp.name, base, empEvents.length, totalProfit.toFixed(2), commission.toFixed(2)];
                 })
             });
         }
@@ -9244,6 +9337,7 @@
                 '<tr><td>🏭 تكلفة البضاعة المباعة</td><td>' + fin.cogs.toFixed(2) + ' ج</td></tr>' +
                 '<tr class="total-row"><td>📈 إجمالي الربح</td><td class="profit">' + fin.grossProfit.toFixed(2) + ' ج (' + fin.grossMargin.toFixed(1) + '%)</td></tr>' +
                 '<tr><td>📉 المصروفات التشغيلية</td><td>' + fin.expenses.toFixed(2) + ' ج</td></tr>' +
+                '<tr><td>🧑‍💼 عمولات الموظفين</td><td>' + fin.totalCommissions.toFixed(2) + ' ج</td></tr>' +
                 '<tr class="total-row"><td>⚙️ صافي الربح التشغيلي</td><td class="' + (fin.operatingProfit >= 0 ? 'profit' : 'loss') + '">' + fin.operatingProfit.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>💰 أرباح فوائد التقسيط</td><td class="profit">' + fin.interestProfit.toFixed(2) + ' ج</td></tr>' +
                 '<tr class="total-row"><td>🎯 صافي الربح الفعلي</td><td class="' + (fin.netProfit >= 0 ? 'profit' : 'loss') + '" style="font-size:1.1rem;">' + fin.netProfit.toFixed(2) + ' ج (' + fin.netMargin.toFixed(1) + '%)</td></tr></table>' +
