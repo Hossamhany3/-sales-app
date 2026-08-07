@@ -8035,8 +8035,15 @@
 
         let cardsHtml = schedule.map(slot => {
             let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
+            let paidDate = slot.paidDate ? new Date(slot.paidDate).toLocaleDateString('ar-EG') : dueDate;
             let statusColor = slot.isPaid ? '#059669' : '#f97316';
             let statusText = slot.isPaid ? '✅ مسدد' : '⏳ غير مسدد';
+            let payDateRow = slot.isPaid
+                ? '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
+                        '<span style="color:#475569; font-weight:bold;">تاريخ السداد:</span>' +
+                        '<span style="font-weight:700; color:#059669;">' + paidDate + '</span>' +
+                  '</div>'
+                : '';
             return '' +
                 '<div style="border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:14px; background:#fff; page-break-inside:avoid; box-shadow:0 2px 4px rgba(0,0,0,0.04);">' +
                     '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px dashed #e2e8f0; padding-bottom:8px; margin-bottom:12px;">' +
@@ -8044,9 +8051,10 @@
                         '<span style="font-size:0.85rem; font-weight:bold; color:' + statusColor + '; background:' + (slot.isPaid ? '#d1fae5' : '#fff7ed') + '; padding:3px 10px; border-radius:50px;">' + statusText + '</span>' +
                     '</div>' +
                     '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
-                        '<span style="color:#475569; font-weight:bold;">التاريخ:</span>' +
+                        '<span style="color:#475569; font-weight:bold;">تاريخ الاستحقاق:</span>' +
                         '<span style="font-weight:600;">' + dueDate + '</span>' +
                     '</div>' +
+                    payDateRow +
                     '<div style="display:flex; justify-content:space-between; margin-bottom:8px;">' +
                         '<span style="color:#475569; font-weight:bold;">المبلغ المستحق:</span>' +
                         '<span style="font-weight:bold; font-size:1.05rem; color:#0f172a;">' + inst.monthlyAmount.toFixed(2) + ' ج.م</span>' +
