@@ -2706,7 +2706,7 @@
     }
 
     // أنواع الحركات الداخلة والخارجة (مصدر واحد لكل الحسابات)
-    const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'partner_deposit', 'merchant_sale', 'transfer_in'];
+    const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in'];
     const EXPENSE_TRANS_TYPES = ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out'];
 
     // ====== تشفير كلمة المرور (SHA-256 + Salt) ======
@@ -2961,6 +2961,7 @@
 
         // ─── تعديل حركة مالية ───
         editTransaction(transactionId, updates) {
+            if (!isAdminSession()) return false;
             let txn = transactions.find(t => t.id == transactionId);
             if (!txn) return false;
             Object.assign(txn, updates);
@@ -3025,20 +3026,20 @@
             let totalVodafone = 0;
             transactions.forEach(t => {
                 if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') {
-                    totalCash += t.amount;
                     if (t.accountId) {
                         let acc = accounts.find(a => a.id == t.accountId);
-                        if (acc && acc.type === 'bank') totalBank += t.amount;
-                        else if (acc && acc.type === 'vodafone') totalVodafone += t.amount;
-                    }
+                        if (acc && acc.type === 'bank') { totalBank += t.amount; }
+                        else if (acc && acc.type === 'vodafone') { totalVodafone += t.amount; }
+                        else { totalCash += t.amount; }
+                    } else { totalCash += t.amount; }
                 }
                 if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') {
-                    totalCash -= t.amount;
                     if (t.accountId) {
                         let acc = accounts.find(a => a.id == t.accountId);
-                        if (acc && acc.type === 'bank') totalBank -= t.amount;
-                        else if (acc && acc.type === 'vodafone') totalVodafone -= t.amount;
-                    }
+                        if (acc && acc.type === 'bank') { totalBank -= t.amount; }
+                        else if (acc && acc.type === 'vodafone') { totalVodafone -= t.amount; }
+                        else { totalCash -= t.amount; }
+                    } else { totalCash -= t.amount; }
                 }
             });
             let totalDebt = installments.filter(i => !i.isPaid)
@@ -3060,13 +3061,14 @@
 
             let sourceId = this.genId();
             let txnDate = date || new Date().toISOString();
-            let totalAmount = p.sellPrice * qty;
+            let discountTotal = (p.discount || 0) * qty;
+            let totalAmount = p.sellPrice * qty - discountTotal;
 
             let txn = this.postTransaction({
                 type: 'sell_cash', amount: totalAmount,
                 productId: p.id, accountId: accountId, employeeId: employeeId,
                 notes: notes || 'بيع نقدي | ' + p.name,
-                discount: p.discount || 0,
+                discount: discountTotal,
                 sourceType: 'sale_cash', sourceId: sourceId, operationType: 'create',
                 date: txnDate
             });
@@ -3123,7 +3125,7 @@
             let { amount, category, accountId, notes, name, date } = opts;
             let sourceId = this.genId();
             let txn = this.postTransaction({
-                type: 'sell_cash', amount: amount,
+                type: 'income', amount: amount,
                 accountId: accountId,
                 notes: name + (notes ? ' - ' + notes : ''),
                 category: category || 'أخرى',
@@ -3222,7 +3224,7 @@
         // ─── دفعة قسط ───
         recordInstallmentPayment(opts) {
             let { installmentId, amount, accountId, cashAmount, bankAmount,
-                  bankAccountId, date } = opts;
+                  cashAccountId, bankAccountId, date } = opts;
             let inst = installments.find(i => i.id == installmentId);
             if (!inst) return { success: false, reason: 'installment_not_found' };
             if (inst.isPaid) return { success: false, reason: 'already_paid' };
@@ -3238,6 +3240,21 @@
             inst.remainingBalance = parseFloat(Math.max(inst.remainingBalance - val, 0).toFixed(2));
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
 
+            // Sync schedule: apply payment to next unpaid slots
+            if (inst.schedule && inst.schedule.length > 0) {
+                let remaining = val;
+                for (let sl of inst.schedule) {
+                    if (remaining <= 0) break;
+                    let slotDue = parseFloat((inst.monthlyAmount - (sl.paidAmount || 0)).toFixed(2));
+                    if (slotDue <= 0) continue;
+                    let pay = Math.min(remaining, slotDue);
+                    sl.paidAmount = parseFloat(((sl.paidAmount || 0) + pay).toFixed(2));
+                    sl.paidDate = txnDate.split('T')[0];
+                    if (sl.paidAmount >= inst.monthlyAmount - 0.01) { sl.isPaid = true; sl.paidAmount = inst.monthlyAmount; }
+                    remaining = parseFloat((remaining - pay).toFixed(2));
+                }
+            }
+
             let txns = [];
             if (cashAmount > 0 || bankAmount > 0) {
                 if (cashAmount > 0) {
@@ -3247,7 +3264,7 @@
                         merchantId: inst.merchantId, productId: inst.productId,
                         instId: installmentId,
                         notes: 'سداد قسط من عقد رقم ' + (inst.contractNo || inst.id),
-                        sourceType: 'installment_payment', sourceId: sourceId, operationType: 'pay',
+                        sourceType: 'installment_payment', sourceId: sourceId + '_c', operationType: 'pay',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3259,7 +3276,7 @@
                         merchantId: inst.merchantId, productId: inst.productId,
                         instId: installmentId,
                         notes: 'سداد قسط من عقد رقم ' + (inst.contractNo || inst.id),
-                        sourceType: 'installment_payment', sourceId: sourceId, operationType: 'pay',
+                        sourceType: 'installment_payment', sourceId: sourceId + '_b', operationType: 'pay',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3285,7 +3302,7 @@
         // ─── دفعة قسط بالجدول (slot) ───
         recordSlotPayment(opts) {
             let { installmentId, slotIdx, amount, accountId, cashAmount, bankAmount,
-                  bankAccountId, date } = opts;
+                  cashAccountId, bankAccountId, date } = opts;
             let inst = installments.find(i => i.id == installmentId);
             if (!inst) return { success: false, reason: 'installment_not_found' };
             if (!inst.schedule || inst.schedule.length !== inst.numInstallments) {
@@ -3319,7 +3336,7 @@
                         accountId: cashAccountId ? parseInt(cashAccountId) : undefined,
                         merchantId: inst.merchantId, productId: inst.productId,
                         instId: installmentId, notes: transNotes,
-                        sourceType: 'installment_payment', sourceId: sourceId, operationType: 'pay_slot',
+                        sourceType: 'installment_payment', sourceId: sourceId + '_c', operationType: 'pay_slot',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3330,7 +3347,7 @@
                         accountId: bankAccountId ? parseInt(bankAccountId) : undefined,
                         merchantId: inst.merchantId, productId: inst.productId,
                         instId: installmentId, notes: transNotes,
-                        sourceType: 'installment_payment', sourceId: sourceId, operationType: 'pay_slot',
+                        sourceType: 'installment_payment', sourceId: sourceId + '_b', operationType: 'pay_slot',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3400,11 +3417,17 @@
             inst.interestRate = interestRate || 0;
             inst.numInstallments = numInstallments;
             inst.totalAfterInterest = totalFinanced;
-            inst.remainingBalance = totalFinanced;
             inst.monthlyAmount = monthly;
             inst.firstDueDate = firstDueDate;
             inst.schedule = newSchedule;
             inst.deviceName = deviceName || inst.deviceName;
+
+            // حفظ المدفوعات السابقة: حساب المبلغ المدفوع من الجدول القديم
+            let oldPaid = oldSchedule.reduce((s, sl) => s + (sl.paidAmount || 0), 0);
+            let newRemaining = Math.max(totalFinanced - oldPaid, 0);
+            inst.remainingBalance = parseFloat(newRemaining.toFixed(2));
+            if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
+            else { inst.isPaid = false; }
 
             if (merchantId) {
                 let m = merchants.find(x => x.id == inst.merchantId);
@@ -3509,15 +3532,15 @@
 
             let sourceId = String(arabonId);
             let txnDate = new Date().toISOString();
-            let remaining = Math.max(sellPrice - (depositAmount || 0), 0);
             let p = products.find(x => x.id == productId);
             if (!p) return { success: false, reason: 'product_not_found' };
 
-            // حذف المعاملات القديمة
-            this.deleteTransactionsBySource('arabon', sourceId);
-            transactions = transactions.filter(t => t.arabonId != arabonId);
+            // Recalculate remaining preserving existing payments
+            let existingPayments = transactions.filter(t => t.arabonId == arabonId && t.type === 'payment_in');
+            let totalPaid = existingPayments.reduce((s, t) => s + (t.amount || 0), 0);
+            let newRemaining = Math.max(sellPrice - totalPaid, 0);
 
-            // إعادة stock القديم + خصم الجديد إذا تغير المنتج
+            // Swap stock if product changed
             if (a.productId != productId) {
                 let oldP = products.find(x => x.id == a.productId);
                 if (oldP) { oldP.stock = (oldP.stock || 0) + 1; if (oldP.archived) oldP.archived = false; }
@@ -3532,36 +3555,37 @@
                 });
             }
 
-            // حذف القسط المرتبط
-            if (a.instId) {
-                installments = installments.filter(i => i.id != a.instId);
-                transactions = transactions.filter(t => t.instId != a.instId);
+            // Update deposit transaction if amount changed (don't destroy payment history)
+            let depositTxn = transactions.find(t => t.arabonId == arabonId && t.sourceType === 'arabon' && t.operationType === 'deposit');
+            if (depositAmount > 0) {
+                let mName = merchants.find(x => x.id == parseInt(merchantId))?.name || 'عميل';
+                if (depositTxn) {
+                    depositTxn.amount = depositAmount;
+                    depositTxn.accountId = accountId;
+                    depositTxn.productId = parseInt(productId);
+                    depositTxn.merchantId = parseInt(merchantId);
+                } else {
+                    this.postTransaction({
+                        type: 'payment_in', amount: depositAmount,
+                        productId: parseInt(productId), merchantId: parseInt(merchantId),
+                        accountId: accountId,
+                        notes: 'عربون بيع | ' + mName + ' - ' + p.name,
+                        category: 'تحصيل', employeeId: employeeId || null,
+                        arabonId: arabonId,
+                        sourceType: 'arabon', sourceId: sourceId, operationType: 'deposit',
+                        date: txnDate
+                    });
+                }
+            } else if (depositTxn) {
+                transactions = transactions.filter(t => t.id !== depositTxn.id);
             }
 
             a.merchantId = parseInt(merchantId); a.productId = parseInt(productId);
             a.deviceName = p.name; a.sellPrice = sellPrice;
-            a.depositAmount = depositAmount || 0; a.remainingAmount = remaining;
+            a.depositAmount = depositAmount || 0; a.remainingAmount = newRemaining;
             a.accountId = accountId; a.notes = notes; a.dueDate = dueDate;
-            a.isPaid = (remaining <= 0); a.instId = undefined;
-            a.remainingPaymentMethod = ''; a.remainingBalance = remaining;
-            a.interestRate = 0; a.numInstallments = 0; a.monthlyAmount = 0;
-            a.firstDueDate = ''; a.schedule = [];
+            a.isPaid = (newRemaining <= 0); a.remainingBalance = newRemaining;
             a.employeeId = employeeId || null;
-
-            // تسجيل الدفعة المقدمة الجديدة
-            if (depositAmount > 0) {
-                let mName = merchants.find(x => x.id == parseInt(merchantId))?.name || 'عميل';
-                this.postTransaction({
-                    type: 'payment_in', amount: depositAmount,
-                    productId: parseInt(productId), merchantId: parseInt(merchantId),
-                    accountId: accountId,
-                    notes: 'عربون بيع | ' + mName + ' - ' + p.name,
-                    category: 'تحصيل', employeeId: employeeId || null,
-                    arabonId: arabonId,
-                    sourceType: 'arabon', sourceId: sourceId, operationType: 'deposit',
-                    date: txnDate
-                });
-            }
 
             logAudit('update', 'عربون', arabonId, 'تعديل عقد عربون');
             saveData();
@@ -3636,20 +3660,8 @@
             };
             installments.push(newInst);
 
-            // transaction تحويل (marker)
-            let transType = payAmt > 0 ? 'payment_in' : 'payment_in';
-            let transAmount = payAmt > 0 ? 0 : 0;
-            if (accountId) {
-                this.postTransaction({
-                    type: transType, amount: transAmount,
-                    accountId: accountId,
-                    merchantId: a.merchantId, productId: a.productId,
-                    instId: instId, arabonId: arabonId,
-                    notes: 'تحويل عربون لأقساط',
-                    sourceType: 'arabon_convert', sourceId: String(arabonId), operationType: 'convert',
-                    date: txnDate
-                });
-            }
+            // No transaction here — conversion is a restructuring, not a new financial event.
+            // The arabon already recorded the original sale; the installment tracks the remaining debt.
 
             // تحديث العربون
             a.remainingAmount = Math.max(a.remainingAmount - payAmt, 0);
@@ -3700,7 +3712,7 @@
                         type: 'merchant_sale', amount: opts.cashAmount,
                         accountId: opts.cashAccountId || undefined,
                         merchantId, employeeId, notes: transNotes,
-                        sourceType: 'merchant_sale', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_sale', sourceId: sourceId + '_c', operationType: 'create',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3710,7 +3722,7 @@
                         type: 'merchant_sale', amount: opts.bankAmount,
                         accountId: opts.bankAccountId,
                         merchantId, employeeId, notes: transNotes,
-                        sourceType: 'merchant_sale', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_sale', sourceId: sourceId + '_b', operationType: 'create',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3780,7 +3792,7 @@
                         type: 'merchant_purchase', amount: opts.cashAmount,
                         accountId: opts.cashAccountId || undefined,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_purchase', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_purchase', sourceId: sourceId + '_c', operationType: 'create',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3790,7 +3802,7 @@
                         type: 'merchant_purchase', amount: opts.bankAmount,
                         accountId: opts.bankAccountId,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_purchase', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_purchase', sourceId: sourceId + '_b', operationType: 'create',
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3832,7 +3844,7 @@
                         type: 'payment_in', amount: opts.cashAmount,
                         accountId: cashAccountId || undefined,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_payment', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_payment', sourceId: sourceId + '_c', operationType: 'create',
                         date: txnDate
                     });
                     if (t) { txns.push(t); pay.transactionIds.push(t.id); }
@@ -3842,7 +3854,7 @@
                         type: 'payment_in', amount: opts.bankAmount,
                         accountId: bankAccountId,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_payment', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_payment', sourceId: sourceId + '_b', operationType: 'create',
                         date: txnDate
                     });
                     if (t) { txns.push(t); pay.transactionIds.push(t.id); }
@@ -3884,7 +3896,7 @@
                         type: 'payment_out', amount: opts.cashAmount,
                         accountId: cashAccountId || undefined,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_payment_out', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_payment_out', sourceId: sourceId + '_c', operationType: 'create',
                         date: txnDate
                     });
                     if (t) pay.transactionIds.push(t.id);
@@ -3894,7 +3906,7 @@
                         type: 'payment_out', amount: opts.bankAmount,
                         accountId: bankAccountId,
                         merchantId, notes: transNotes,
-                        sourceType: 'merchant_payment_out', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'merchant_payment_out', sourceId: sourceId + '_b', operationType: 'create',
                         date: txnDate
                     });
                     if (t) pay.transactionIds.push(t.id);
@@ -3924,14 +3936,8 @@
             let toAcc = accounts.find(a => a.id == toAccountId);
             if (!fromAcc || !toAcc) return { success: false, reason: 'account_not_found' };
 
-            // فحص الرصيد
-            let srcBalance = (fromAcc.balance || 0);
-            transactions.forEach(t => {
-                if (t.accountId == fromAccountId) {
-                    if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') srcBalance += t.amount;
-                    if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') srcBalance -= t.amount;
-                }
-            });
+            // فحص الرصيد — use authoritative accountBalance() instead of stale manual calc
+            let srcBalance = this.accountBalance(fromAccountId);
             if (amount > srcBalance) return { success: false, reason: 'insufficient_balance', balance: srcBalance };
 
             let sourceId = this.genId();
@@ -3980,7 +3986,7 @@
                         type: transType, amount: opts.cashAmount,
                         accountId: cashAccountId || undefined,
                         partnerId: p.id, notes: transNotes,
-                        sourceType: 'partner', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'partner', sourceId: sourceId + '_c', operationType: 'create',
                         date: txnDate
                     });
                 }
@@ -3989,7 +3995,7 @@
                         type: transType, amount: opts.bankAmount,
                         accountId: bankAccountId,
                         partnerId: p.id, notes: transNotes,
-                        sourceType: 'partner', sourceId: sourceId, operationType: 'create',
+                        sourceType: 'partner', sourceId: sourceId + '_b', operationType: 'create',
                         date: txnDate
                     });
                 }
@@ -4013,8 +4019,9 @@
         reconcile() {
             let issues = [];
 
-            // 1. فحص أرصدة الحسابات
+            // 1. فحص أرصدة الحسابات (excludes opening_balance accounts)
             accounts.forEach(acc => {
+                if (acc.type === 'opening_balance') return;
                 let calculated = this.accountBalance(acc.id);
                 let stored = acc.balance || 0;
                 if (Math.abs(calculated - stored) > 0.01) {
@@ -4233,16 +4240,19 @@
     };
 
     window.removePassword = async function() {
+        if (!isAdminSession()) { showToast('⚠️ للمديرين فقط', 'error'); return; }
         if (!appPassword) return;
         let ok = await showConfirmModal('إزالة رمز الدخول؟', 'تأكيد');
         if (ok) {
             appPassword = '';
             localStorage.setItem('appPassword', '');
+            logAudit('security', 'كلمة المرور', '', 'إزالة رمز الدخول');
             checkAppLock();
         }
     };
 
     window.resetPassword = async function() {
+        if (!isAdminSession()) { showToast('⚠️ للمديرين فقط', 'error'); return; }
         appPassword = '';
         localStorage.removeItem('appPassword');
         location.reload();
@@ -4673,7 +4683,7 @@
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
                 const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories };
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog };
                 lsSet('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -4990,7 +5000,7 @@
             totalDiscounts += inst.discount || 0;
             let prod = products.find(p => p.id == inst.productId);
             if (prod) cogs += prod.costPrice + (prod.expenses || 0);
-            interestProfit += (inst.totalAfterInterest - inst.purchasePrice + inst.paidUpfront);
+            interestProfit += (inst.totalAfterInterest - (inst.purchasePrice - (inst.paidUpfront || 0)));
         });
 
         let stockValue = products.reduce((sum, p) => sum + ((p.costPrice + (p.expenses || 0)) * p.stock), 0);
@@ -5032,9 +5042,10 @@
                 let due = new Date(s.dueDate + 'T00:00:00');
                 if (due > now) return;
                 let days = Math.floor((now - due) / (1000 * 60 * 60 * 24));
-                if (days <= 30) aging.under30 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
-                else if (days <= 90) aging.between30and90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
-                else aging.over90 += i.monthlyAmount || (i.remainingBalance / i.numInstallments);
+                let slotRemaining = Math.max((i.monthlyAmount || 0) - (s.paidAmount || 0), 0);
+                if (days <= 30) aging.under30 += slotRemaining;
+                else if (days <= 90) aging.between30and90 += slotRemaining;
+                else aging.over90 += slotRemaining;
             });
         });
 
@@ -5267,10 +5278,10 @@
         container.innerHTML = items.map(x =>
             '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;">' +
             '<div class="flex-between" style="gap:8px;flex-wrap:wrap;">' +
-            '<span style="font-weight:600;font-size:0.85rem;">' + auditActionLabel(x.action) + ' <span style="color:var(--text-muted);font-weight:400;">' + (x.entity || '') + (x.ref ? ' • ' + x.ref : '') + '</span></span>' +
+            '<span style="font-weight:600;font-size:0.85rem;">' + auditActionLabel(x.action) + ' <span style="color:var(--text-muted);font-weight:400;">' + esc(x.entity || '') + (x.ref ? ' • ' + esc(x.ref) : '') + '</span></span>' +
             '<span style="color:var(--text-muted);font-size:0.75rem;">' + formatAuditTime(x.ts) + '</span>' +
             '</div>' +
-            (x.detail ? '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:4px;">' + x.detail + '</div>' : '') +
+            (x.detail ? '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:4px;">' + esc(x.detail) + '</div>' : '') +
             '</div>'
         ).join('');
     };
@@ -5844,7 +5855,7 @@
         });
         let revenue = 0, expenses = 0, collections = 0;
         trans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell') revenue += t.amount;
+            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') revenue += t.amount;
             else if (t.type === 'expense') expenses += t.amount;
             else if (t.type === 'payment_in') collections += t.amount;
         });
@@ -6875,6 +6886,8 @@
             if (!due) return;
             const last = rec.lastTriggered ? new Date(rec.lastTriggered) : null;
             if (last && last.toDateString() === todayStr) return;
+            // Guard: don't trigger if lastTriggered is in the future (clock issue)
+            if (last && last > today) return;
             rec.lastTriggered = new Date().toISOString();
             BusinessLogic.addExpense({
                 amount: rec.amount, category: rec.category || 'أخرى',
@@ -7428,7 +7441,6 @@
             let result = BusinessLogic.deleteInstallment(id);
             if (!result.success) { showToast('فشل الحذف: ' + result.reason, 'error'); return; }
             renderInstallments(); renderTransactions(); renderProducts(); renderDashboard(); refreshSelectors();
-            showToast('تم حذف العقد وإعادة المخزون');
             showToast('✅ تم حذف العقد رقم ' + (inst.contractNo || id));
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -7745,6 +7757,9 @@
             let requested = isSplit ? (cashAmount + bankAmount) : (parseFloat(document.getElementById('payAmount-' + instId).value) || 0);
             let val = Math.min(requested, remaining);
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
+            if (requested > remaining + 0.01) {
+                showToast('⚠️ المبلغ المطلوب (' + requested.toFixed(2) + ') أكبر من المتبقي (' + remaining.toFixed(2) + '). سيتم تسداد ' + val.toFixed(2) + ' فقط', 'info');
+            }
             if (isSplit && val < requested) {
                 let ratio = val / requested;
                 cashAmount = Math.round(cashAmount * ratio * 100) / 100;
@@ -10877,7 +10892,7 @@
         try {
             if (!requireAdmin()) return;
             const backup = {
-                version: 2,
+                version: 3,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
                 merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
@@ -11203,7 +11218,7 @@
                 version: 3,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const metadata = {
