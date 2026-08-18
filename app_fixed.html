@@ -401,13 +401,13 @@
             #toast-container { bottom: 16px; }
             .toast { font-size: 0.85rem; padding: 10px 16px; }
             /* Merchant sales mobile */
-            .ms-toolbar { flex-direction: column; gap: 8px; }
+            .ms-toolbar { flex-direction: column; gap: 6px; }
             .ms-toolbar .search-box { width: 100%; min-width: 0; }
-            .ms-toolbar .search-box input { padding: 10px 12px 10px 36px; font-size: 0.9rem; }
-            .ms-sort-select { width: 100%; min-width: 0; padding: 10px 14px; }
-            #msSummary { gap: 6px; }
-            #msSummary .ms-summary-card { min-width: calc(50% - 6px); padding: 8px 10px; }
-            #msSummary .ms-summary-card .value { font-size: 0.9rem; }
+            .ms-toolbar .search-box input { padding: 8px 10px 8px 32px; font-size: 0.85rem; }
+            .ms-sort-select { width: 100%; min-width: 0; padding: 8px 12px; }
+            #msSummary { gap: 4px; }
+            #msSummary .ms-summary-card { min-width: calc(50% - 4px); padding: 6px 8px; }
+            #msSummary .ms-summary-card .value { font-size: 0.85rem; }
             #merchantSalesList .sale-actions { gap: 4px; }
             #merchantSalesList .sale-actions button { font-size: 0.68rem; padding: 3px 6px; min-height: 28px; }
             #merchantSalesList .schedule-header { font-size: 0.72rem; }
@@ -424,10 +424,10 @@
         }
 
         /* مبيعات التجار */
-        .ms-toolbar { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; margin-bottom: 14px; }
-        .ms-toolbar .search-box { flex: 1; min-width: 180px; margin-bottom: 0; }
-        .ms-toolbar .search-box input { padding: 12px 14px 12px 40px; font-size: 0.95rem; border-radius: 12px; width: 100%; box-sizing: border-box; }
-        .ms-sort-select { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); font-size: 0.9rem; background: var(--card-bg); color: var(--text-main); cursor: pointer; min-width: 160px; font-family: inherit; box-sizing: border-box; }
+        .ms-toolbar { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; margin-bottom: 10px; }
+        .ms-toolbar .search-box { flex: 1; min-width: 160px; margin-bottom: 0; }
+        .ms-toolbar .search-box input { padding: 9px 12px 9px 36px; font-size: 0.88rem; border-radius: 10px; width: 100%; box-sizing: border-box; }
+        .ms-sort-select { padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--card-bg); color: var(--text-main); cursor: pointer; min-width: 140px; font-family: inherit; box-sizing: border-box; }
         #msSummary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .ms-sale-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .ms-sale-name { font-weight: 700; font-size: 0.88rem; }
@@ -448,8 +448,8 @@
         .merchant-statement-total { background: var(--card-bg); padding: 12px 16px; display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; }
         .merchant-statement-total .debt { color: var(--danger); }
         .merchant-statement-total .credit { color: var(--success); }
-        .ms-summary-card { background: var(--card-bg); border-radius: 12px; padding: 10px 14px; border: 1px solid var(--border); flex: 1; min-width: 120px; font-size: 0.85rem; }
-        .ms-summary-card .value { font-size: 1.1rem; font-weight: 800; margin-top: 4px; }
+        .ms-summary-card { background: var(--card-bg); border-radius: 10px; padding: 8px 12px; border: 1px solid var(--border); flex: 1; min-width: 100px; font-size: 0.8rem; }
+        .ms-summary-card .value { font-size: 1rem; font-weight: 800; margin-top: 2px; }
         .ms-summary-card.danger .value { color: var(--danger); }
         .ms-summary-card.success .value { color: var(--success); }
         .ms-summary-card.primary .value { color: var(--primary); }
@@ -1006,18 +1006,18 @@
     .card { padding: 12px 14px; }
     #mpContent .customer-statement-summary { gap: 6px; }
     #mpContent .customer-statement-summary .stat-card { min-width: calc(50% - 6px); padding: 6px 8px; }
-    #mpContent .customer-statement-summary .stat-card:last-child:nth-child(odd) { min-width: calc(100%); }
-    #mpContent .customer-statement-summary .stat-card .stat-value { font-size: 0.95rem; }
-    #mpContent .customer-statement-summary .stat-card .stat-label { font-size: 0.68rem; }
-    #mpContent .card { overflow-x: auto; }
-    #mpContent .merchant-statement-table { font-size: 0.65rem; white-space: nowrap; }
-    #mpContent .merchant-statement-table th,
-    #mpContent .merchant-statement-table td { padding: 4px 5px; }
-    #mpContent .merchant-statement-table td:first-child { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
-    #mpContent .mp-sticky .card:first-child { padding: 10px 12px; margin-bottom: 6px; }
-        #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
-        #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
-        #mpContent .mp-sticky > div:last-child button { font-size: 0.8rem; padding: 8px 12px; min-height: 38px; flex: 1; text-align: center; }
+            #mpContent .customer-statement-summary .stat-card:last-child:nth-child(odd) { min-width: calc(100%); }
+            #mpContent .customer-statement-summary .stat-card .stat-value { font-size: 0.85rem; }
+            #mpContent .customer-statement-summary .stat-card .stat-label { font-size: 0.65rem; }
+            #mpContent .card { overflow-x: auto; }
+            #mpContent .merchant-statement-table { font-size: 0.65rem; white-space: nowrap; }
+            #mpContent .merchant-statement-table th,
+            #mpContent .merchant-statement-table td { padding: 4px 5px; }
+            #mpContent .merchant-statement-table td:first-child { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+            #mpContent .mp-sticky .card:first-child { padding: 8px 10px; margin-bottom: 4px; }
+            #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
+            #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
+            #mpContent .mp-sticky > div:last-child button { font-size: 0.72rem; padding: 5px 8px; min-height: 32px; flex: 1; text-align: center; }
     /* ترويسة كشوف الحساب المنبثقة: تترتب عموديًا على الشاشات الصغيرة */
     .customer-statement-header { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
     .customer-statement-header .header-actions { justify-content: stretch; }
@@ -1587,13 +1587,12 @@
         </div>
 
         <div id="merchantSales" class="page">
-            <h2>🏪 التجار</h2>
-            <div class="card" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                <button id="addMerchantBtn" class="btn-sm" style="background:var(--primary);color:#fff;border:none;flex:1;min-width:140px;padding:10px 16px;">➕ إضافة تاجر جديد</button>
-                <button id="msLoadContactsBtn" class="btn-sm btn-icon btn-outline" title="جلب من جهات الاتصال"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                <h2 style="margin:0;white-space:nowrap;">🏪 التجار</h2>
+                <button id="addMerchantBtn" class="btn-sm" style="background:var(--primary);color:#fff;border:none;white-space:nowrap;padding:7px 14px;font-size:0.85rem;margin-right:auto;">➕ إضافة تاجر</button>
+                <button id="msLoadContactsBtn" class="btn-sm btn-icon btn-outline" title="جلب من جهات الاتصال" style="min-height:36px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
             </div>
 
-            <h2>📋 كشف حساب وكشل المديونيات</h2>
             <div class="ms-toolbar">
                 <div class="search-box" style="flex:1; min-width:160px; margin-bottom:0;">
                     <span class="search-icon">🔍</span>
@@ -8958,41 +8957,41 @@
         // Sticky header: merchant info + actions + summary
         html += '<div class="mp-sticky">';
 
-        // Merchant info card
-        html += '<div class="card" style="margin-bottom:10px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
-        html += '<div><div style="font-weight:700;font-size:1.15rem;">' + esc(m.name) + '</div>';
-        html += '<div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">' + esc(m.phone || '') + (m.address ? ' | ' + esc(m.address) : '') + '</div></div>';
-        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
-        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
-        html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);white-space:nowrap;" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
-        html += '<button class="whatsapp-btn btn-sm" style="white-space:nowrap;" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
+        // Merchant info + report buttons in ONE row
+        html += '<div class="card" style="margin-bottom:8px;padding:12px 14px;">';
+        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+        html += '<div style="font-weight:700;font-size:1rem;white-space:nowrap;">' + esc(m.name) + '</div>';
+        html += '<div style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;">' + esc(m.phone || '') + '</div>';
+        html += '<div style="margin-right:auto;display:flex;gap:4px;flex-wrap:wrap;">';
+        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;padding:6px 10px;font-size:0.78rem;min-height:30px;" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
+        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;padding:6px 10px;font-size:0.78rem;min-height:30px;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
+        html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);padding:6px 10px;font-size:0.78rem;min-height:30px;" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف</button>';
+        html += '<button class="whatsapp-btn btn-sm" style="padding:6px 10px;font-size:0.78rem;min-height:30px;" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱</button>';
         html += '</div></div>';
 
-        // Action buttons row
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-top:12px;">';
-        html += '<button class="btn-sm" style="background:var(--primary);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantSaleOnPage(' + merchantId + ')">➕ بيع جديد</button>';
-        html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء من تاجر</button>';
-        html += '<button class="btn-sm" style="background:var(--success);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPayment(' + merchantId + ')">💰 دفعة منه</button>';
-        html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 دفعة له</button>';
-        html += '<button class="btn-sm" style="background:#dc2626;color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="deleteMerchant(' + merchantId + ')">🗑️ حذف التاجر</button>';
+        // Action buttons — compact single row
+        html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
+        html += '<button class="btn-sm" style="background:var(--primary);color:#fff;border:none;padding:7px 10px;font-size:0.78rem;min-height:32px;flex:1;" onclick="recordMerchantSaleOnPage(' + merchantId + ')">➕ بيع</button>';
+        html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;padding:7px 10px;font-size:0.78rem;min-height:32px;flex:1;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء</button>';
+        html += '<button class="btn-sm" style="background:var(--success);color:#fff;border:none;padding:7px 10px;font-size:0.78rem;min-height:32px;flex:1;" onclick="recordMerchantPayment(' + merchantId + ')">💰 منه</button>';
+        html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;padding:7px 10px;font-size:0.78rem;min-height:32px;flex:1;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 له</button>';
+        html += '<button class="btn-sm" style="background:#dc2626;color:#fff;border:none;padding:7px 10px;font-size:0.78rem;min-height:32px;" onclick="deleteMerchant(' + merchantId + ')">🗑️</button>';
         html += '</div></div>';
 
-        // Summary cards
-        html += '<div class="customer-statement-summary" style="margin-bottom:10px;gap:8px;">';
-        html += '<div class="stat-card" style="border-color:var(--primary);"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value primary">' + bal.totalSales.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card" style="border-color:#f59e0b;"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card" style="border-color:var(--success);"><div class="stat-label">مدفوعات (منه)</div><div class="stat-value success">' + bal.totalPayments.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card" style="border-color:#f59e0b;"><div class="stat-label">مدفوعات (له)</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card" style="border-color:' + (bal.balance > 0 ? 'var(--danger)' : 'var(--success)') + ';"><div class="stat-label">الرصيد</div><div class="stat-value ' + (bal.balance > 0 ? 'danger' : 'success') + '">' + bal.balance.toFixed(2) + ' ج</div></div>';
+        // Summary cards — compact
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">';
+        html += '<div style="flex:1;min-width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);"><div style="font-size:0.7rem;color:var(--text-muted);">مبيعات</div><div style="font-size:0.9rem;font-weight:800;color:var(--primary);">' + bal.totalSales.toFixed(2) + '</div></div>';
+        html += '<div style="flex:1;min-width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);"><div style="font-size:0.7rem;color:var(--text-muted);">مشتريات</div><div style="font-size:0.9rem;font-weight:800;color:#f59e0b;">' + bal.totalPurchases.toFixed(2) + '</div></div>';
+        html += '<div style="flex:1;min-width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);"><div style="font-size:0.7rem;color:var(--text-muted);">منه</div><div style="font-size:0.9rem;font-weight:800;color:var(--success);">' + bal.totalPayments.toFixed(2) + '</div></div>';
+        html += '<div style="flex:1;min-width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);"><div style="font-size:0.7rem;color:var(--text-muted);">له</div><div style="font-size:0.9rem;font-weight:800;color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + '</div></div>';
+        html += '<div style="flex:1;min-width:80px;text-align:center;padding:6px 8px;border-radius:8px;border:1px solid ' + (bal.balance > 0 ? 'var(--danger)' : 'var(--success)') + ';background:var(--card-bg);"><div style="font-size:0.7rem;color:var(--text-muted);">الرصيد</div><div style="font-size:0.9rem;font-weight:800;color:' + (bal.balance > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + bal.balance.toFixed(2) + '</div></div>';
         html += '</div>';
 
         html += '</div>'; // end mp-sticky
 
         // Sales section
-        html += '<div class="card" style="margin-bottom:14px;">';
-        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">📦 مبيعات للتاجر (' + sales.length + ')</h3>';
+        html += '<div class="card" style="margin-bottom:10px;padding:12px 14px;">';
+        html += '<h3 style="margin:0 0 8px 0;font-size:0.9rem;">📦 مبيعات (' + sales.length + ')</h3>';
         if (sales.length === 0) {
             html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مبيعات</div>';
         } else {
@@ -9010,8 +9009,8 @@
         html += '</div>';
 
         // Purchases section
-        html += '<div class="card" style="margin-bottom:14px;">';
-        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">📥 مشتريات من التاجر (' + purchases.length + ')</h3>';
+        html += '<div class="card" style="margin-bottom:10px;padding:12px 14px;">';
+        html += '<h3 style="margin:0 0 8px 0;font-size:0.9rem;">📥 مشتريات (' + purchases.length + ')</h3>';
         if (purchases.length === 0) {
             html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مشتريات</div>';
         } else {
@@ -9029,8 +9028,8 @@
         html += '</div>';
 
         // Payments section
-        html += '<div class="card" style="margin-bottom:14px;">';
-        html += '<h3 style="margin:0 0 10px 0;font-size:1rem;">💰 المدفوعات (' + (payments.length + paymentsOut.length) + ')</h3>';
+        html += '<div class="card" style="margin-bottom:10px;padding:12px 14px;">';
+        html += '<h3 style="margin:0 0 8px 0;font-size:0.9rem;">💰 مدفوعات (' + (payments.length + paymentsOut.length) + ')</h3>';
         let allPmts = [];
         payments.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة من تاجر', amount: p.amount, dir: 'in' }));
         paymentsOut.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة لتاجر', amount: p.amount, dir: 'out' }));
@@ -9472,15 +9471,15 @@
             let balColor = b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)');
             let balBg = b > 0 ? 'var(--danger-light)' : (b < 0 ? 'var(--success-light)' : 'var(--background)');
             let balLabel = b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد');
-            html += '<div class="card" style="cursor:pointer;border-right:4px solid ' + (b > 0 ? 'var(--danger)' : 'var(--success)') + ';padding:14px 16px;" onclick="window.showMerchantPage(' + merchantId + ')">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">';
+            html += '<div class="card" style="cursor:pointer;border-right:4px solid ' + (b > 0 ? 'var(--danger)' : 'var(--success)') + ';padding:10px 14px;margin-bottom:8px;" onclick="window.showMerchantPage(' + merchantId + ')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
             html += '<div style="min-width:0;flex:1;">';
-            html += '<div style="font-weight:700;font-size:1rem;color:var(--primary);">' + esc(s.name) + '</div>';
-            html += '<div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">' + esc(s.phone || '') + '</div>';
+            html += '<div style="font-weight:700;font-size:0.9rem;color:var(--primary);">' + esc(s.name) + '</div>';
+            html += '<div style="font-size:0.78rem;color:var(--text-muted);">' + esc(s.phone || '') + '</div>';
             html += '</div>';
-            html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
-            html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;padding:8px 12px;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
-            html += '<span style="font-weight:700;font-size:0.95rem;color:' + balColor + ';background:' + balBg + ';padding:6px 12px;border-radius:10px;white-space:nowrap;">' + balLabel + ' ج</span>';
+            html += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
+            html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;padding:6px 10px;font-size:0.78rem;min-height:30px;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف</button>';
+            html += '<span style="font-weight:700;font-size:0.85rem;color:' + balColor + ';background:' + balBg + ';padding:4px 10px;border-radius:8px;white-space:nowrap;">' + balLabel + ' ج</span>';
             html += '</div>';
             html += '</div></div>';
         });
