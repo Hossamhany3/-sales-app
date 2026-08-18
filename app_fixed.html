@@ -6267,6 +6267,10 @@
             pill.style.background = 'var(--card-bg)';
             pill.style.color = 'var(--text-muted)';
             pill.style.borderColor = 'var(--border)';
+            document.getElementById('prodCashAmount').value = '0';
+            document.getElementById('prodBankAmount').value = '0';
+            document.getElementById('prodCashAccSelect').selectedIndex = 0;
+            document.getElementById('prodBankAccSelect').selectedIndex = 0;
         }
     }
     function calcProdSplitTotal() {
