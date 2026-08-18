@@ -9959,13 +9959,16 @@
             let balClass = bal >= 0 ? 'text-success' : 'text-danger';
 
             listHtml += '' +
-            '<div class="card">' +
+            '<div class="card" style="border-right:4px solid ' + (a.type === 'bank' ? 'var(--primary)' : a.type === 'vodafone' ? '#25D366' : 'var(--accent)') + ';padding:16px;">' +
                 '<div class="flex-between mb-2">' +
                     '<strong class="text-lg">' + typeIcon + ' ' + esc(a.name) + '</strong>' +
-                    '<strong class="' + balClass + ' text-xl">' + bal.toFixed(2) + ' ج</strong>' +
+                    '<span style="font-size:0.75rem;padding:3px 10px;border-radius:12px;background:' + (a.type === 'bank' ? 'var(--primary-light)' : a.type === 'vodafone' ? '#dcfce7' : '#fef3c7') + ';color:' + (a.type === 'bank' ? 'var(--primary)' : a.type === 'vodafone' ? '#16a34a' : '#d97706') + ';font-weight:600;">' + typeName + '</span>' +
+                '</div>' +
+                '<div style="background:var(--background);border-radius:var(--radius-sm);padding:12px;margin:8px 0 12px;text-align:center;">' +
+                    '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">الرصيد الحالي</div>' +
+                    '<div style="font-size:1.4rem;font-weight:800;color:' + (bal >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + bal.toFixed(2) + ' ج</div>' +
                 '</div>' +
                 '<div class="flex flex-wrap gap-3 text-sm text-muted mb-2">' +
-                    '<span>' + typeName + '</span>' +
                     (a.accountNumber ? '<span>🔢 ' + esc(a.accountNumber) + '</span>' : '') +
                     (a.notes ? '<span>📝 ' + esc(a.notes) + '</span>' : '') +
                 '</div>' +
