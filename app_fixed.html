@@ -401,9 +401,10 @@
             #toast-container { bottom: 16px; }
             .toast { font-size: 0.85rem; padding: 10px 16px; }
             /* Merchant sales mobile */
-            .ms-toolbar { flex-direction: column; }
-            .ms-toolbar .search-box { width: 100%; }
-            .ms-sort-select { width: 100%; }
+            .ms-toolbar { flex-direction: column; gap: 8px; }
+            .ms-toolbar .search-box { width: 100%; min-width: 0; }
+            .ms-toolbar .search-box input { padding: 10px 12px 10px 36px; font-size: 0.9rem; }
+            .ms-sort-select { width: 100%; min-width: 0; padding: 10px 14px; }
             #msSummary { gap: 6px; }
             #msSummary .ms-summary-card { min-width: calc(50% - 6px); padding: 8px 10px; }
             #msSummary .ms-summary-card .value { font-size: 0.9rem; }
@@ -423,8 +424,10 @@
         }
 
         /* مبيعات التجار */
-        .ms-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-        .ms-sort-select { padding: 8px 12px; border-radius: 50px; border: 1px solid var(--border); font-size: 0.85rem; background: var(--card-bg); color: var(--text-main); cursor: pointer; min-width: 140px; font-family: inherit; }
+        .ms-toolbar { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; margin-bottom: 14px; }
+        .ms-toolbar .search-box { flex: 1; min-width: 180px; margin-bottom: 0; }
+        .ms-toolbar .search-box input { padding: 12px 14px 12px 40px; font-size: 0.95rem; border-radius: 12px; width: 100%; box-sizing: border-box; }
+        .ms-sort-select { padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); font-size: 0.9rem; background: var(--card-bg); color: var(--text-main); cursor: pointer; min-width: 160px; font-family: inherit; box-sizing: border-box; }
         #msSummary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .ms-sale-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .ms-sale-name { font-weight: 700; font-size: 0.88rem; }
@@ -1012,9 +1015,9 @@
     #mpContent .merchant-statement-table td { padding: 4px 5px; }
     #mpContent .merchant-statement-table td:first-child { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
     #mpContent .mp-sticky .card:first-child { padding: 10px 12px; margin-bottom: 6px; }
-    #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
-    #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
-    #mpContent .mp-sticky > div:last-child button { font-size: 0.75rem; padding: 6px 10px; min-height: 36px; flex: 1; text-align: center; }
+        #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
+        #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
+        #mpContent .mp-sticky > div:last-child button { font-size: 0.8rem; padding: 8px 12px; min-height: 38px; flex: 1; text-align: center; }
     /* ترويسة كشوف الحساب المنبثقة: تترتب عموديًا على الشاشات الصغيرة */
     .customer-statement-header { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
     .customer-statement-header .header-actions { justify-content: stretch; }
@@ -8957,32 +8960,32 @@
 
         // Merchant info card
         html += '<div class="card" style="margin-bottom:10px;">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">';
-        html += '<div><div style="font-weight:700;font-size:1.1rem;">' + esc(m.name) + '</div>';
-        html += '<div style="font-size:0.85rem;color:var(--text-muted);">' + esc(m.phone || '') + (m.address ? ' | ' + esc(m.address) : '') + '</div></div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
+        html += '<div><div style="font-weight:700;font-size:1.15rem;">' + esc(m.name) + '</div>';
+        html += '<div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">' + esc(m.phone || '') + (m.address ? ' | ' + esc(m.address) : '') + '</div></div>';
         html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-        html += '<button class="btn-sm btn-success" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
-        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
-        html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
-        html += '<button class="whatsapp-btn btn-sm" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
+        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="generateMerchantStatementPDF(' + merchantId + ')">📋 PDF</button>';
+        html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
+        html += '<button class="btn-sm" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);white-space:nowrap;" onclick="showMerchantStatement(' + merchantId + ')">📊 كشف حساب</button>';
+        html += '<button class="whatsapp-btn btn-sm" style="white-space:nowrap;" onclick="sendMerchantWhatsApp(' + merchantId + ')">📱 واتساب</button>';
         html += '</div></div>';
 
         // Action buttons row
-        html += '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">';
-        html += '<button class="btn-sm" style="background:var(--primary);color:#fff;border:none;" onclick="recordMerchantSaleOnPage(' + merchantId + ')">➕ بيع جديد</button>';
-        html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء من تاجر</button>';
-        html += '<button class="btn-sm btn-outline" onclick="recordMerchantPayment(' + merchantId + ')">💰 دفعة منه</button>';
-        html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 دفعة له</button>';
-        html += '<button class="btn-sm" style="background:#dc2626;color:#fff;border:none;" onclick="deleteMerchant(' + merchantId + ')">🗑️ حذف التاجر</button>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-top:12px;">';
+        html += '<button class="btn-sm" style="background:var(--primary);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantSaleOnPage(' + merchantId + ')">➕ بيع جديد</button>';
+        html += '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPurchase(' + merchantId + ')">📥 شراء من تاجر</button>';
+        html += '<button class="btn-sm" style="background:var(--success);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPayment(' + merchantId + ')">💰 دفعة منه</button>';
+        html += '<button class="btn-sm" style="background:var(--danger);color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="recordMerchantPaymentOut(' + merchantId + ')">💸 دفعة له</button>';
+        html += '<button class="btn-sm" style="background:#dc2626;color:#fff;border:none;white-space:nowrap;padding:10px 12px;" onclick="deleteMerchant(' + merchantId + ')">🗑️ حذف التاجر</button>';
         html += '</div></div>';
 
         // Summary cards
-        html += '<div class="customer-statement-summary" style="margin-bottom:10px;">';
-        html += '<div class="stat-card"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value primary">' + bal.totalSales.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card"><div class="stat-label">مدفوعات (منه)</div><div class="stat-value success">' + bal.totalPayments.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card"><div class="stat-label">مدفوعات (له)</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>';
-        html += '<div class="stat-card"><div class="stat-label">الرصيد</div><div class="stat-value ' + (bal.balance > 0 ? 'danger' : 'success') + '">' + bal.balance.toFixed(2) + ' ج</div></div>';
+        html += '<div class="customer-statement-summary" style="margin-bottom:10px;gap:8px;">';
+        html += '<div class="stat-card" style="border-color:var(--primary);"><div class="stat-label">إجمالي المبيعات</div><div class="stat-value primary">' + bal.totalSales.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card" style="border-color:#f59e0b;"><div class="stat-label">إجمالي المشتريات</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPurchases.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card" style="border-color:var(--success);"><div class="stat-label">مدفوعات (منه)</div><div class="stat-value success">' + bal.totalPayments.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card" style="border-color:#f59e0b;"><div class="stat-label">مدفوعات (له)</div><div class="stat-value" style="color:#f59e0b;">' + bal.totalPaymentsOut.toFixed(2) + ' ج</div></div>';
+        html += '<div class="stat-card" style="border-color:' + (bal.balance > 0 ? 'var(--danger)' : 'var(--success)') + ';"><div class="stat-label">الرصيد</div><div class="stat-value ' + (bal.balance > 0 ? 'danger' : 'success') + '">' + bal.balance.toFixed(2) + ' ج</div></div>';
         html += '</div>';
 
         html += '</div>'; // end mp-sticky
@@ -9466,13 +9469,18 @@
         let html = '';
         list.forEach(([merchantId, s]) => {
             let b = (s.totalSales + s.totalPaymentsOut) - (s.totalPayments + s.totalPurchases);
-            html += '<div class="card" style="cursor:pointer;" onclick="window.showMerchantPage(' + merchantId + ')">';
-            html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">';
-            html += '<div><div style="font-weight:700;font-size:1rem;color:var(--primary);">' + esc(s.name) + '</div>';
-            html += '<div style="font-size:0.82rem;color:var(--text-muted);">' + esc(s.phone || '') + '</div></div>';
-            html += '<div style="display:flex;align-items:center;gap:10px;">';
-            html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
-            html += '<div style="font-weight:700;font-size:1.1rem;color:' + (b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)')) + ';">' + (b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد')) + ' ج</div>';
+            let balColor = b > 0 ? 'var(--danger)' : (b < 0 ? 'var(--success)' : 'var(--text-muted)');
+            let balBg = b > 0 ? 'var(--danger-light)' : (b < 0 ? 'var(--success-light)' : 'var(--background)');
+            let balLabel = b > 0 ? 'متبقي: ' + b.toFixed(2) : (b < 0 ? 'زيادة: ' + Math.abs(b).toFixed(2) : 'مسدد');
+            html += '<div class="card" style="cursor:pointer;border-right:4px solid ' + (b > 0 ? 'var(--danger)' : 'var(--success)') + ';padding:14px 16px;" onclick="window.showMerchantPage(' + merchantId + ')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">';
+            html += '<div style="min-width:0;flex:1;">';
+            html += '<div style="font-weight:700;font-size:1rem;color:var(--primary);">' + esc(s.name) + '</div>';
+            html += '<div style="font-size:0.82rem;color:var(--text-muted);margin-top:2px;">' + esc(s.phone || '') + '</div>';
+            html += '</div>';
+            html += '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">';
+            html += '<button class="btn-sm" style="background:#10b981;color:#fff;border:none;white-space:nowrap;padding:8px 12px;" onclick="event.stopPropagation();showComprehensiveStatement(' + merchantId + ')">📄 كشف شامل</button>';
+            html += '<span style="font-weight:700;font-size:0.95rem;color:' + balColor + ';background:' + balBg + ';padding:6px 12px;border-radius:10px;white-space:nowrap;">' + balLabel + ' ج</span>';
             html += '</div>';
             html += '</div></div>';
         });
