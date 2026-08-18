@@ -1073,7 +1073,7 @@
 </head>
 <body>
     <!-- شاشة القفل -->
-    <div class="lock-screen" id="lockScreen">
+    <div class="lock-screen hidden" id="lockScreen">
         <div class="lock-icon">🔒</div>
         <h2>التطبيق مقفل</h2>
         <p>أدخل رمز الدخول للمتابعة</p>
@@ -1241,6 +1241,42 @@
                     <div class="form-group">
                         <label>🏦 حساب الاستلام الافتراضي (يُستعمل في البيع والشراء)</label>
                         <select id="prodAccountId"><option value="">بدون حساب</option></select>
+                    </div>
+                    <div class="flex-between" style="margin-bottom:12px;">
+                        <label style="font-weight:600;cursor:pointer;">
+                            <input type="checkbox" id="prodSplitToggle" onchange="toggleProdSplit()" style="margin-left:6px;">
+                            💰 تقسيم الدفع (كاش + بنك)
+                        </label>
+                    </div>
+                    <div id="prodSplitSection" style="display:none;">
+                        <div style="padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,0,0.02);margin-bottom:12px;">
+                            <div class="flex-between" style="margin-bottom:8px;">
+                                <label style="font-weight:600;font-size:0.85rem;">💰 تقسيم الدفع (كاش + بنك/فودافون)</label>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.8rem;">💵 المبلغ النقدي</label>
+                                    <input type="number" step="any" id="prodCashAmount" min="0" value="0" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="calcProdSplitTotal()">
+                                </div>
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.8rem;">🏦 المبلغ البنكي/فودافون</label>
+                                    <input type="number" step="any" id="prodBankAmount" min="0" value="0" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="calcProdSplitTotal()">
+                                </div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.8rem;">💵 حساب الكاش</label>
+                                    <select id="prodCashAccSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;"><option value="">اختر حساب</option></select>
+                                </div>
+                                <div>
+                                    <label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.8rem;">🏦 حساب البنك/فودافون</label>
+                                    <select id="prodBankAccSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;"><option value="">اختر حساب</option></select>
+                                </div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;margin-top:8px;padding:6px 8px;border-radius:6px;background:rgba(79,70,229,0.06);font-size:0.8rem;font-weight:600;">
+                                <span>المجموع:</span><span id="prodSplitTotal">0 ج</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>الربح المتوقع (للقطعة)</label>
@@ -2722,6 +2758,7 @@
             return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
         } catch (e) { return pin; }
     }
+    let appPassword = localStorage.getItem('appPassword') || '';
     // ترحيل تلقائي: إن كان الرمز القديم نصاً عادياً يُشفَّر فوراً
     (async function migrateLegacyPassword() {
         const raw = localStorage.getItem('appPassword') || '';
@@ -2736,7 +2773,6 @@
     let transactions = [];
     let installments = [];
     let msgTemplates = {};
-    let appPassword = localStorage.getItem('appPassword') || '';
     let openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
     let merchantSales = [];
     let merchantPayments = [];
@@ -3090,21 +3126,48 @@
 
         // ─── شراء مخزون ───
         purchaseStock(opts) {
-            let { productId, qty, accountId, notes, date } = opts;
+            let { productId, qty, accountId, notes, date,
+                  cashAmount, bankAmount, cashAccountId, bankAccountId } = opts;
             let p = products.find(x => x.id == productId);
             if (!p) return { success: false, reason: 'product_not_found' };
 
             let sourceId = this.genId();
             let txnDate = date || new Date().toISOString();
             let totalAmount = p.costPrice * qty;
+            let transNotes = notes || 'شراء مخزون | ' + p.name;
 
-            let txn = this.postTransaction({
-                type: 'purchase', amount: totalAmount,
-                productId: p.id, accountId: accountId || p.accountId,
-                notes: notes || 'شراء مخزون | ' + p.name,
-                sourceType: 'purchase', sourceId: sourceId, operationType: 'create',
-                date: txnDate
-            });
+            let txns = [];
+            if (cashAmount > 0 || bankAmount > 0) {
+                if (cashAmount > 0) {
+                    let t = this.postTransaction({
+                        type: 'purchase', amount: cashAmount,
+                        productId: p.id, accountId: cashAccountId || undefined,
+                        notes: transNotes,
+                        sourceType: 'purchase', sourceId: sourceId + '_c', operationType: 'create',
+                        date: txnDate
+                    });
+                    if (t) txns.push(t);
+                }
+                if (bankAmount > 0) {
+                    let t = this.postTransaction({
+                        type: 'purchase', amount: bankAmount,
+                        productId: p.id, accountId: bankAccountId || undefined,
+                        notes: transNotes,
+                        sourceType: 'purchase', sourceId: sourceId + '_b', operationType: 'create',
+                        date: txnDate
+                    });
+                    if (t) txns.push(t);
+                }
+            } else {
+                let t = this.postTransaction({
+                    type: 'purchase', amount: totalAmount,
+                    productId: p.id, accountId: accountId || p.accountId,
+                    notes: transNotes,
+                    sourceType: 'purchase', sourceId: sourceId, operationType: 'create',
+                    date: txnDate
+                });
+                if (t) txns.push(t);
+            }
 
             let mv = this.addStockMovement({
                 productId: p.id, productName: p.name,
@@ -3117,7 +3180,7 @@
             if (p.archived) p.archived = false;
 
             saveData();
-            return { success: true, transactionId: txn?.id, stockMovementId: mv?.id, sourceId };
+            return { success: true, transactionIds: txns.map(t => t.id), stockMovementId: mv?.id, sourceId };
         },
 
         // ─── إيراد يدوي ───
@@ -4898,6 +4961,8 @@
         if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
         if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
         if (document.getElementById('prodAccountId')) document.getElementById('prodAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
+        if (document.getElementById('prodCashAccSelect')) document.getElementById('prodCashAccSelect').innerHTML = '<option value="">اختر حساب كاش</option>' + accountOptionsNoEmpty;
+        if (document.getElementById('prodBankAccSelect')) document.getElementById('prodBankAccSelect').innerHTML = '<option value="">اختر حساب بنك/فودافون</option>' + accountOptionsNoEmpty;
         if (document.getElementById('instAccountId')) document.getElementById('instAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
         if (document.getElementById('partnerAccountId')) document.getElementById('partnerAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
@@ -6177,6 +6242,31 @@
     document.getElementById('prodExpenses').addEventListener('input', calcProfitMargin);
     document.getElementById('sellPrice').addEventListener('input', calcProfitMargin);
 
+    function toggleProdSplit() {
+        let on = document.getElementById('prodSplitToggle').checked;
+        document.getElementById('prodSplitSection').style.display = on ? 'block' : 'none';
+        if (on) calcProdSplitTotal();
+    }
+    function calcProdSplitTotal() {
+        let cost = parseFloat(document.getElementById('costPrice').value) || 0;
+        let expenses = parseFloat(document.getElementById('prodExpenses').value) || 0;
+        let qty = parseInt(document.getElementById('stockQty').value) || 1;
+        let total = (cost + expenses) * qty;
+        let cash = parseFloat(document.getElementById('prodCashAmount').value) || 0;
+        let bank = parseFloat(document.getElementById('prodBankAmount').value) || 0;
+        let sum = cash + bank;
+        let el = document.getElementById('prodSplitTotal');
+        if (el) el.textContent = sum + ' ج / المطلوب: ' + total + ' ج';
+        if (Math.abs(sum - total) > 0.01) {
+            el.style.color = 'var(--danger)';
+        } else {
+            el.style.color = 'var(--success)';
+        }
+    }
+    document.getElementById('stockQty').addEventListener('input', function() {
+        if (document.getElementById('prodSplitToggle')?.checked) calcProdSplitTotal();
+    });
+
     document.getElementById('productForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
@@ -6209,24 +6299,54 @@
             } else {
                 products.push(p);
                 if (p.stock > 0) {
-                    BusinessLogic.postTransaction({
-                        type: 'purchase', amount: (cost + expenses) * p.stock,
-                        productId: p.id, merchantId: null, accountId: p.accountId || undefined,
-                        notes: 'شراء مخزون افتتاحي | ' + p.name + ' × ' + p.stock,
-                        sourceType: 'opening_stock', sourceId: String(p.id), operationType: 'create',
-                        date: new Date().toISOString()
-                    });
+                    let txnDate = new Date().toISOString();
+                    let totalAmount = (cost + expenses) * p.stock;
+                    let splitOn = document.getElementById('prodSplitToggle')?.checked;
+                    if (splitOn) {
+                        let cashAmt = parseFloat(document.getElementById('prodCashAmount').value) || 0;
+                        let bankAmt = parseFloat(document.getElementById('prodBankAmount').value) || 0;
+                        let cashAcc = document.getElementById('prodCashAccSelect')?.value || undefined;
+                        let bankAcc = document.getElementById('prodBankAccSelect')?.value || undefined;
+                        if (cashAmt > 0) {
+                            BusinessLogic.postTransaction({
+                                type: 'purchase', amount: cashAmt,
+                                productId: p.id, accountId: cashAcc ? parseInt(cashAcc) : undefined,
+                                notes: 'شراء مخزون افتتاحي | ' + p.name + ' × ' + p.stock + ' (كاش)',
+                                sourceType: 'opening_stock', sourceId: String(p.id) + '_c', operationType: 'create',
+                                date: txnDate
+                            });
+                        }
+                        if (bankAmt > 0) {
+                            BusinessLogic.postTransaction({
+                                type: 'purchase', amount: bankAmt,
+                                productId: p.id, accountId: bankAcc ? parseInt(bankAcc) : undefined,
+                                notes: 'شراء مخزون افتتاحي | ' + p.name + ' × ' + p.stock + ' (بنك)',
+                                sourceType: 'opening_stock', sourceId: String(p.id) + '_b', operationType: 'create',
+                                date: txnDate
+                            });
+                        }
+                    } else {
+                        BusinessLogic.postTransaction({
+                            type: 'purchase', amount: totalAmount,
+                            productId: p.id, merchantId: null, accountId: p.accountId || undefined,
+                            notes: 'شراء مخزون افتتاحي | ' + p.name + ' × ' + p.stock,
+                            sourceType: 'opening_stock', sourceId: String(p.id), operationType: 'create',
+                            date: txnDate
+                        });
+                    }
                     BusinessLogic.addStockMovement({
                         productId: p.id, productName: p.name,
                         type: 'in', qty: p.stock, ref: 'مخزون افتتاحي',
                         sourceType: 'opening_stock', sourceId: String(p.id),
-                        date: new Date().toISOString(), notes: 'إدخال أولي'
+                        date: txnDate, notes: 'إدخال أولي'
                     });
                 }
                 showToast('تم إضافة الصنف بنجاح');
             }
             saveData(); renderProducts(); renderTransactions(); renderAccounts(); renderDashboard(); refreshSelectors();
             e.target.reset(); document.getElementById('productId').value = ''; calcProfitMargin();
+            if (document.getElementById('prodSplitToggle')) document.getElementById('prodSplitToggle').checked = false;
+            if (document.getElementById('prodSplitSection')) document.getElementById('prodSplitSection').style.display = 'none';
             setFormVisible('productForm', 'productToggleIcon', false);
             logAudit(id ? 'update' : 'create', 'صنف', name, (id ? 'تعديل صنف' : 'إضافة صنف جديد') + ' — شراء: ' + cost + '، بيع: ' + sell + '، مخزون: ' + p.stock);
         } catch (err) {
