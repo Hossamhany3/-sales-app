@@ -1244,8 +1244,8 @@
                     </div>
                     <div class="flex-between" style="margin-bottom:12px;">
                         <label style="font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="prodSplitToggle" onchange="toggleProdSplit()" style="display:none;">
-                            <span id="prodSplitPill" onclick="document.getElementById('prodSplitToggle').click()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:0.85rem;font-weight:600;cursor:pointer;transition:var(--transition);background:var(--card-bg);color:var(--text-muted);">
+                            <input type="checkbox" id="prodSplitToggle" style="position:absolute;opacity:0;pointer-events:none;">
+                            <span id="prodSplitPill" onclick="var cb=document.getElementById('prodSplitToggle'); cb.checked=!cb.checked; toggleProdSplit();" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);font-size:0.85rem;font-weight:600;cursor:pointer;transition:var(--transition);background:var(--card-bg);color:var(--text-muted);">
                                 <span style="font-size:1rem;">💰</span> تقسيم الدفع
                             </span>
                         </label>
