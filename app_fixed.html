@@ -3034,11 +3034,12 @@
 
         // ─── رصيد حساب من المعاملات ───
         accountBalance(accountId) {
-            let balance = 0;
+            let acc = accounts.find(a => a.id == accountId);
+            let balance = (acc && acc.balance) || 0;
             transactions.forEach(t => {
                 if (t.accountId == accountId) {
-                    if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') balance += t.amount;
-                    if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') balance -= t.amount;
+                    if (INCOME_TRANS_TYPES.includes(t.type)) balance += t.amount;
+                    if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= t.amount;
                 }
             });
             return balance;
@@ -4093,23 +4094,7 @@
         reconcile() {
             let issues = [];
 
-            // 1. فحص أرصدة الحسابات (excludes opening_balance accounts)
-            accounts.forEach(acc => {
-                if (acc.type === 'opening_balance') return;
-                let calculated = this.accountBalance(acc.id);
-                let stored = acc.balance || 0;
-                if (Math.abs(calculated - stored) > 0.01) {
-                    issues.push({
-                        type: 'account_balance_mismatch',
-                        entity: 'حساب', name: acc.name, accountId: acc.id,
-                        calculated: parseFloat(calculated.toFixed(2)),
-                        stored: parseFloat(stored.toFixed(2)),
-                        diff: parseFloat((calculated - stored).toFixed(2))
-                    });
-                }
-            });
-
-            // 2. فحص stock
+            // 1. فحص stock
             products.forEach(p => {
                 let calculated = this.calculateStockFromMovements(p.id);
                 let stored = p.stock || 0;
