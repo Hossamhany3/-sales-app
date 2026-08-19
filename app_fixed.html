@@ -830,6 +830,35 @@
 .relative { position: relative; }
 .tr-ease { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease; }
 
+/* ===== System Health Center ===== */
+.shc-score-ring { width:120px; height:120px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:900; margin:0 auto 8px; position:relative; }
+.shc-score-ring::before { content:''; position:absolute; inset:-3px; border-radius:50%; background:conic-gradient(var(--shc-color) var(--shc-pct,0%), transparent 0); opacity:.4; }
+.shc-score-ring::after { content:''; position:absolute; inset:0; border-radius:50%; background:var(--card-bg); }
+.shc-score-ring span { position:relative; z-index:1; }
+.shc-mod-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; }
+.shc-mod-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:10px 12px; text-align:center; cursor:pointer; transition:transform .15s ease,box-shadow .15s ease; }
+.shc-mod-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.3); }
+.shc-mod-icon { font-size:1.3rem; margin-bottom:2px; }
+.shc-mod-label { font-size:.72rem; color:var(--text-muted); }
+.shc-mod-status { font-size:.68rem; font-weight:700; margin-top:2px; }
+.shc-issue-card { background:var(--card-bg); border:1px solid var(--card-border); border-radius:10px; padding:12px 14px; margin-bottom:6px; border-right:3px solid var(--shc-sev-color,var(--border)); }
+.shc-issue-title { font-weight:700; font-size:.85rem; margin-bottom:4px; }
+.shc-issue-desc { font-size:.78rem; color:var(--text-muted); line-height:1.5; }
+.shc-issue-meta { font-size:.7rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; }
+.shc-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:.68rem; font-weight:700; }
+.shc-sev-critical { background:rgba(239,68,68,.15); color:#ef4444; border:1px solid rgba(239,68,68,.3); }
+.shc-sev-high { background:rgba(249,115,22,.15); color:#f97316; border:1px solid rgba(249,115,22,.3); }
+.shc-sev-medium { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+.shc-sev-low { background:rgba(59,130,246,.15); color:#3b82f6; border:1px solid rgba(59,130,246,.3); }
+.shc-sev-info { background:rgba(148,163,184,.1); color:#94a3b8; border:1px solid rgba(148,163,184,.2); }
+.shc-summary-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.shc-summary-item { padding:6px 12px; border-radius:8px; background:rgba(255,255,255,.04); border:1px solid var(--card-border); font-size:.78rem; font-weight:700; }
+.shc-filters { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.shc-filters select, .shc-filters input { padding:6px 10px; border-radius:8px; border:1px solid var(--border); font-size:.82rem; background:var(--card-bg); color:var(--text-main); }
+.shc-progress { width:100%; height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; margin-bottom:12px; }
+.shc-progress-bar { height:100%; border-radius:2px; background:var(--primary); transition:width .3s ease; }
+@media (max-width:600px) { .shc-mod-grid { grid-template-columns:repeat(3,1fr); } }
+
 /* ===== تحسين البطاقات ===== */
 .card-elevated { box-shadow: var(--shadow-xl); }
 .card-highlight { border-color: var(--primary); border-width: 2px; }
@@ -1157,6 +1186,7 @@
         <button data-page="reports" class="admin-only-nav">📈 التقارير المحاسبية</button>
         <button data-page="admin" class="admin-only-nav">🧑‍💼 الموظفون والتكاليف المتكررة</button>
         <button data-page="settings" class="admin-only-nav">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
+        <button data-page="healthCenter" class="admin-only-nav">🩺 فحص سلامة النظام</button>
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
     </div>
     <div class="overlay" id="overlay"></div>
@@ -2307,6 +2337,11 @@
                     </p>
                 </div>
             </div>
+        </div>
+
+        <!-- ====== صفحة فحص سلامة النظام ====== -->
+        <div id="healthCenter" class="page">
+            <div id="shcContent"><div class="text-center text-muted p-3">اضغط "🔄 إعادة الفحص" للبدء</div></div>
         </div>
 
         <!-- ====== صفحة الموظفون والتكاليف المتكررة ====== -->
@@ -5247,6 +5282,350 @@
             collectionRate: (totalInstallmentValue > 0 ? (collectedAmount / totalInstallmentValue * 100) : 0) };
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // SYSTEM HEALTH CENTER
+    // ══════════════════════════════════════════════════════════════
+    const SHC = {
+        issues: [], modules: {}, scanTime: null,
+        _sevWeights: { critical: 25, high: 10, medium: 3, low: 1 },
+        _moduleLabels: { database:'📦 قاعدة البيانات', transactions:'💰 المعاملات', inventory:'📦 المخزون', installments:'📅 التقسيط', accounts:'🏦 الحسابات', arabon:'🤝 العربون', merchants:'🏪 التجار', partners:'🤝 الشركاء', employees:'🧑‍💼 الموظفون', audit:'📋 التدقيق', backup:'💾 النسخة الاحتياطية' },
+        _moduleIcons: { database:'📦', transactions:'💰', inventory:'📦', installments:'📅', accounts:'🏦', arabon:'🤝', merchants:'🏪', partners:'🤝', employees:'🧑‍💼', audit:'📋', backup:'💾' },
+        addIssue(mod, sev, title, desc, recId, field, expected, actual) {
+            this.issues.push({ module: mod, severity: sev, title, description: desc || '', recordId: recId || '', field: field || '', expected: expected || '', actual: actual || '', timestamp: Date.now() });
+        },
+        runAllChecks() {
+            this.issues = []; this.modules = {};
+            const t0 = Date.now();
+            try { this.checkDatabase(); } catch(e) { console.error('SHC database:', e); }
+            try { this.checkTransactions(); } catch(e) { console.error('SHC transactions:', e); }
+            try { this.checkInventory(); } catch(e) { console.error('SHC inventory:', e); }
+            try { this.checkInstallments(); } catch(e) { console.error('SHC installments:', e); }
+            try { this.checkAccounts(); } catch(e) { console.error('SHC accounts:', e); }
+            try { this.checkArabon(); } catch(e) { console.error('SHC arabon:', e); }
+            try { this.checkMerchants(); } catch(e) { console.error('SHC merchants:', e); }
+            try { this.checkPartners(); } catch(e) { console.error('SHC partners:', e); }
+            try { this.checkEmployees(); } catch(e) { console.error('SHC employees:', e); }
+            try { this.checkAudit(); } catch(e) { console.error('SHC audit:', e); }
+            try { this.checkBackup(); } catch(e) { console.error('SHC backup:', e); }
+            try { this.checkOrphans(); } catch(e) { console.error('SHC orphans:', e); }
+            try { this.checkDuplicates(); } catch(e) { console.error('SHC duplicates:', e); }
+            try { this.checkCrossModule(); } catch(e) { console.error('SHC cross:', e); }
+            this.modules['database'] = this.issues.filter(i => i.module === 'database').length;
+            this.modules['transactions'] = this.issues.filter(i => i.module === 'transactions').length;
+            this.modules['inventory'] = this.issues.filter(i => i.module === 'inventory').length;
+            this.modules['installments'] = this.issues.filter(i => i.module === 'installments').length;
+            this.modules['accounts'] = this.issues.filter(i => i.module === 'accounts').length;
+            this.modules['arabon'] = this.issues.filter(i => i.module === 'arabon').length;
+            this.modules['merchants'] = this.issues.filter(i => i.module === 'merchants').length;
+            this.modules['partners'] = this.issues.filter(i => i.module === 'partners').length;
+            this.modules['employees'] = this.issues.filter(i => i.module === 'employees').length;
+            this.modules['audit'] = this.issues.filter(i => i.module === 'audit').length;
+            this.modules['backup'] = this.issues.filter(i => i.module === 'backup').length;
+            this.scanTime = new Date().toISOString();
+            console.log('SHC scan complete in ' + (Date.now() - t0) + 'ms, ' + this.issues.length + ' issues found');
+        },
+        getScore() {
+            let s = 100;
+            this.issues.forEach(i => { s -= (this._sevWeights[i.severity] || 0); });
+            return Math.max(0, Math.min(100, s));
+        },
+        getStatus() {
+            let crit = this.issues.filter(i => i.severity === 'critical').length;
+            let score = this.getScore();
+            if (crit > 0) return { label: 'توجد مشاكل حرجة', cls: 'text-danger', icon: '🔴', color: '#ef4444' };
+            if (score >= 90) return { label: 'النظام بحالة جيدة', cls: 'text-success', icon: '🟢', color: '#22c55e' };
+            if (score >= 70) return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b' };
+            return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b' };
+        },
+
+        // A. DATABASE INTEGRITY
+        checkDatabase() {
+            const stores = { products, transactions, installments, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, arabonSales, partners, accounts, employees, recurringExpenses, auditLog, stockMovements };
+            Object.entries(stores).forEach(([name, arr]) => {
+                if (!Array.isArray(arr)) { this.addIssue('database','critical','Data store "'+name+'" is not an array','','','','','Array'); return; }
+                const idMap = {};
+                arr.forEach((r, idx) => {
+                    if (!r || typeof r !== 'object') { this.addIssue('database','high', name+'['+idx+'] not an object','Record is null or invalid', idx+'','','Valid object','Invalid'); return; }
+                    if (!r.id && r.id !== 0) { this.addIssue('database','medium', name+' record #'+idx+' missing ID','No id field',idx+'','id','Present','Missing'); }
+                    else { if (idMap[r.id]) { this.addIssue('database','critical','Duplicate ID in '+name, 'ID '+r.id+' appears multiple times', String(r.id), 'id', 'Unique','Duplicate'); } idMap[r.id] = true; }
+                });
+            });
+        },
+
+        // B. TRANSACTION INTEGRITY
+        checkTransactions() {
+            const validTypes = ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_payment','installment_paid','arabon_payment','arabon_paid','partner_in','partner_out','opening_balance','payment_out','sell_cash','sell','merchant_sale','merchant_purchase','payment_in'];
+            transactions.forEach(t => {
+                if (!t.sourceId && !t.sourceType) { /* ok - some trans have neither */ }
+                if (t.amount == null || isNaN(t.amount)) this.addIssue('transactions','critical','Transaction has invalid amount','Amount is NaN or null',String(t.id),'amount','Number',String(t.amount));
+                if (t.amount < 0 && !['sale_return','purchase_return','partner_withdrawal','transfer_out','payment_out','expense'].includes(t.type)) this.addIssue('transactions','medium','Negative amount on '+t.type,'Unexpected negative',String(t.id),'amount','Positive',String(t.amount));
+                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('transactions','high','Transaction references missing account','Account #'+t.accountId+' not found',String(t.id),'accountId','Existing account','Missing');
+                if (t.productId && !products.find(p => p.id == t.productId)) this.addIssue('transactions','medium','Transaction references missing product','Product #'+t.productId, String(t.id),'productId','Existing product','Missing');
+                if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('transactions','medium','Transaction references missing employee','Employee #'+t.employeeId, String(t.id),'employeeId','Existing employee','Missing');
+            });
+        },
+
+        // C. INVENTORY INTEGRITY
+        checkInventory() {
+            products.forEach(p => {
+                if (p.stock < 0) this.addIssue('inventory','critical','Negative stock: '+p.name,'Stock is '+p.stock, String(p.id),'stock','>= 0',String(p.stock));
+                if (p.costPrice < 0) this.addIssue('inventory','high','Negative cost price: '+p.name, String(p.id),'costPrice','>= 0',String(p.costPrice));
+                if (!p.name || p.name.trim() === '') this.addIssue('inventory','medium','Product missing name','',String(p.id),'name','Present','Empty');
+                let expected = 0;
+                stockMovements.forEach(sm => {
+                    if (sm.productId == p.id) {
+                        if (sm.type === 'in') expected += (parseFloat(sm.qty) || 0);
+                        else if (sm.type === 'out') expected -= (parseFloat(sm.qty) || 0);
+                    }
+                });
+                if (Math.abs(expected - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+expected.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',expected.toFixed(0),String(p.stock));
+            });
+            stockMovements.forEach(sm => {
+                if (!sm.productId) this.addIssue('inventory','high','Stock movement #'+sm.id+' has no product','',String(sm.id),'productId','Present','Missing');
+                if (!sm.sourceType && !sm.sourceId) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has no source reference','',String(sm.id),'sourceType','Present','Missing');
+                if (sm.qty == null || isNaN(sm.qty) || sm.qty <= 0) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has invalid qty','Qty: '+sm.qty, String(sm.id),'qty','Positive number',String(sm.qty));
+            });
+        },
+
+        // D. INSTALLMENT INTEGRITY
+        checkInstallments() {
+            installments.forEach(inst => {
+                let totalPaid = (inst.schedule || []).reduce((s, sl) => s + (sl.paidAmount || 0), 0);
+                let remaining = (inst.totalAfterInterest || inst.purchasePrice || 0) - totalPaid;
+                if (inst.remainingBalance != null && Math.abs(remaining - inst.remainingBalance) > 0.01) this.addIssue('installments','high','Balance mismatch: Contract #'+(inst.contractNo||inst.id),'Calculated '+remaining.toFixed(2)+' vs stored '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance',remaining.toFixed(2),String(inst.remainingBalance));
+                if (inst.remainingBalance != null && inst.remainingBalance < -0.01) this.addIssue('installments','critical','Negative remaining: Contract #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','>= 0',String(inst.remainingBalance));
+                if (totalPaid > (inst.totalAfterInterest || inst.purchasePrice) + 0.01 && !inst.isPaid) this.addIssue('installments','high','Overpaid contract: #'+(inst.contractNo||inst.id),'Paid '+totalPaid.toFixed(2)+' > total '+(inst.totalAfterInterest||inst.purchasePrice).toFixed(2), String(inst.id),'paidAmount','<= total',String(totalPaid.toFixed(2)));
+                if (!inst.merchantId) this.addIssue('installments','medium','Missing customer in #'+(inst.contractNo||inst.id),'No merchantId', String(inst.id),'merchantId','Present','Missing');
+                else if (!merchants.find(m => m.id == inst.merchantId)) this.addIssue('installments','high','Invalid customer in #'+(inst.contractNo||inst.id),'Merchant #'+inst.merchantId+' not found', String(inst.id),'merchantId','Existing merchant','Missing');
+                if (!inst.productId) this.addIssue('installments','medium','Missing product in #'+(inst.contractNo||inst.id),'No productId', String(inst.id),'productId','Present','Missing');
+                else if (!products.find(p => p.id == inst.productId)) this.addIssue('installments','high','Invalid product in #'+(inst.contractNo||inst.id),'Product #'+inst.productId+' not found', String(inst.id),'productId','Existing product','Missing');
+                if (inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) > 0.01) this.addIssue('installments','high','Completed contract with balance: #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','0 when paid',String(inst.remainingBalance));
+                if (!inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) < 0.01 && totalPaid > 0) this.addIssue('installments','medium','Open contract with zero balance: #'+(inst.contractNo||inst.id),'Should be marked paid','', 'isPaid','true','false');
+                if (!inst.schedule || inst.schedule.length === 0) this.addIssue('installments','medium','Missing schedule: #'+(inst.contractNo||inst.id),'No payment schedule', String(inst.id),'schedule','Present','Missing');
+            });
+        },
+
+        // E. ACCOUNT INTEGRITY
+        checkAccounts() {
+            const accIds = {};
+            accounts.forEach(a => {
+                if (accIds[a.id]) this.addIssue('accounts','critical','Duplicate account ID: '+a.id,'',String(a.id),'id','Unique','Duplicate');
+                accIds[a.id] = true;
+                if (typeof a.balance !== 'number' || isNaN(a.balance)) this.addIssue('accounts','high','Invalid balance: '+a.name,'Balance is '+a.balance, String(a.id),'balance','Number',String(a.balance));
+                if (!['cash','bank','vodafone'].includes(a.type)) this.addIssue('accounts','medium','Invalid account type: '+a.name,'Type: '+a.type, String(a.id),'type','cash|bank|vodafone',a.type);
+                if (!a.name) this.addIssue('accounts','medium','Account #'+a.id+' has no name','',String(a.id),'name','Present','Missing');
+            });
+            transactions.forEach(t => {
+                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('accounts','high','Orphan transaction account ref: #'+t.id,'Account #'+t.accountId+' missing', String(t.id),'accountId','Existing',t.accountId);
+            });
+        },
+
+        // F. ARABON INTEGRITY
+        checkArabon() {
+            arabonSales.forEach(a => {
+                if (!a.merchantId || !merchants.find(m => m.id == a.merchantId)) this.addIssue('arabon','high','Arabon #'+a.id+' missing customer','Merchant #'+a.merchantId, String(a.id),'merchantId','Existing','Missing');
+                if (!a.productId || !products.find(p => p.id == a.productId)) this.addIssue('arabon','medium','Arabon #'+a.id+' missing product','Product #'+a.productId, String(a.id),'productId','Existing','Missing');
+                if (a.remainingBalance != null && a.remainingBalance < -0.01) this.addIssue('arabon','critical','Negative remaining in arabon #'+a.id,'Remaining: '+a.remainingBalance, String(a.id),'remainingBalance','>= 0',String(a.remainingBalance));
+                if (a.depositAmount > (a.sellPrice || 0) + 0.01) this.addIssue('arabon','high','Deposit exceeds price: arabon #'+a.id,'Deposit '+a.depositAmount+' > price '+a.sellPrice, String(a.id),'depositAmount','<= sellPrice',String(a.depositAmount));
+            });
+        },
+
+        // G. MERCHANT INTEGRITY
+        checkMerchants() {
+            const mIds = {};
+            merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing'); });
+            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing'); if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing'); });
+            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); });
+            merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount)); });
+            merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); });
+        },
+
+        // H. PARTNER INTEGRITY
+        checkPartners() {
+            partners.forEach(p => {
+                if (typeof p.balance !== 'number' || isNaN(p.balance)) this.addIssue('partners','high','Invalid partner balance: '+p.name,'Balance: '+p.balance, String(p.id),'balance','Number',String(p.balance));
+                if (!p.name) this.addIssue('partners','medium','Partner #'+p.id+' has no name','',String(p.id),'name','Present','Missing');
+            });
+            transactions.forEach(t => {
+                if ((t.type === 'partner_in' || t.type === 'partner_out') && t.partnerId && !partners.find(p => p.id == t.partnerId)) this.addIssue('partners','high','Partner transaction #'+t.id+' refs missing partner','Partner #'+t.partnerId, String(t.id),'partnerId','Existing','Missing');
+            });
+        },
+
+        // I. EMPLOYEE INTEGRITY
+        checkEmployees() {
+            const eIds = {};
+            employees.forEach(e => { if (eIds[e.id]) this.addIssue('employees','critical','Duplicate employee ID: '+e.id,'',String(e.id),'id','Unique','Duplicate'); eIds[e.id] = true; if (!e.name) this.addIssue('employees','medium','Employee #'+e.id+' has no name','',String(e.id),'name','Present','Missing'); if (!['admin','employee'].includes(e.role)) this.addIssue('employees','low','Employee '+e.name+' has invalid role','Role: '+e.role, String(e.id),'role','admin|employee',e.role); });
+            transactions.forEach(t => { if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('employees','medium','Transaction #'+t.id+' refs missing employee #'+t.employeeId,'', String(t.id),'employeeId','Existing','Missing'); });
+            installments.forEach(i => { if (i.employeeId && !employees.find(e => e.id == i.employeeId)) this.addIssue('employees','medium','Installment #'+i.id+' refs missing employee #'+i.employeeId,'', String(i.id),'employeeId','Existing','Missing'); });
+        },
+
+        // J. AUDIT INTEGRITY
+        checkAudit() {
+            if (auditLog.length > 0) {
+                let missingTs = 0, missingAction = 0;
+                auditLog.forEach(a => { if (!a.timestamp) missingTs++; if (!a.action) missingAction++; });
+                if (missingTs > 0) this.addIssue('audit','low', missingTs+' audit entries missing timestamp','','','','',missingTs+' entries');
+                if (missingAction > 0) this.addIssue('audit','low', missingAction+' audit entries missing action','','','','',missingAction+' entries');
+            }
+        },
+
+        // K. BACKUP HEALTH
+        checkBackup() {
+            let lastBackup = localStorage.getItem('autoBackup_last');
+            if (!lastBackup) { this.addIssue('backup','info','No backup timestamp found','No auto-backup configured','','','','Never'); return; }
+            let age = Date.now() - new Date(lastBackup).getTime();
+            let days = Math.floor(age / 86400000);
+            if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 7 days',days+' days');
+        },
+
+        // ORPHAN DETECTION
+        checkOrphans() {
+            const prodIds = new Set(products.map(p => String(p.id)));
+            const merchIds = new Set(merchants.map(m => String(m.id)));
+            const accIds = new Set(accounts.map(a => String(a.id)));
+            const instIds = new Set(installments.map(i => String(i.id)));
+            const empIds = new Set(employees.map(e => String(e.id)));
+            const partIds = new Set(partners.map(p => String(p.id)));
+            stockMovements.forEach(sm => { if (sm.productId && !prodIds.has(String(sm.productId))) this.addIssue('inventory','high','Orphan stock movement #'+sm.id+' refs missing product #'+sm.productId,'',String(sm.id),'productId','Existing product','Missing'); });
+            transactions.forEach(t => { if (t.instId && !instIds.has(String(t.instId))) this.addIssue('installments','high','Transaction #'+t.id+' refs missing installment #'+t.instId,'',String(t.id),'instId','Existing installment','Missing'); if (t.arabonId && !arabonSales.find(a => a.id == t.arabonId)) this.addIssue('arabon','high','Transaction #'+t.id+' refs missing arabon #'+t.arabonId,'',String(t.id),'arabonId','Existing arabon','Missing'); });
+            merchantPayments.forEach(p => { if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing transaction #'+tid,'',String(p.id),'transactionIds','Existing','Missing'); }); });
+            merchantPaymentsOut.forEach(p => { if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing transaction #'+tid,'',String(p.id),'transactionIds','Existing','Missing'); }); });
+        },
+
+        // DUPLICATE DETECTION
+        checkDuplicates() {
+            const seen = {};
+            transactions.forEach(t => {
+                let key = t.type + '|' + t.amount + '|' + t.date + '|' + (t.sourceId || '');
+                if (key !== '|') { if (seen[key]) this.addIssue('transactions','high','Possible duplicate transactions','#'+seen[key]+' and #'+t.id, String(t.id),'','Unique combination','Duplicate pattern'); seen[key] = t.id; }
+            });
+            const instSeen = {};
+            installments.forEach(i => { if (i.contractNo) { if (instSeen[i.contractNo]) this.addIssue('installments','high','Duplicate contract number: '+i.contractNo,'',String(i.id),'contractNo','Unique','Duplicate'); instSeen[i.contractNo] = true; } });
+        },
+
+        // CROSS-MODULE CONSISTENCY
+        checkCrossModule() {
+            transactions.filter(t => t.type === 'merchant_sale').forEach(t => {
+                let ms = merchantSales.find(s => { let base = t.sourceId ? t.sourceId.replace(/_[cb]$/,'') : ''; return s.transactionId == base || s.transactionId == t.id; });
+                if (!ms) this.addIssue('transactions','high','Merchant sale transaction #'+t.id+' not linked to merchant sale record','','','merchantSales link','Existing','Missing');
+            });
+            installments.forEach(inst => {
+                let paidSchedule = (inst.schedule || []).filter(s => s.isPaid || s.paidAmount > 0);
+                let hasPayment = transactions.some(t => t.instId == inst.id && t.type === 'installment_payment');
+                if (paidSchedule.length > 0 && !hasPayment && inst.paidUpfront <= 0) this.addIssue('installments','medium','Installment #'+(inst.contractNo||inst.id)+' has paid schedule but no payment transaction','','','','','');
+            });
+        },
+
+        // Get summary counts
+        getCounts() {
+            let c = { critical:0, high:0, medium:0, low:0, info:0 };
+            this.issues.forEach(i => { if (c[i.severity] !== undefined) c[i.severity]++; });
+            return c;
+        }
+    };
+
+    // Render System Health Center
+    function renderHealthCenter() {
+        const container = document.getElementById('shcContent');
+        if (!container) return;
+        if (SHC.issues.length === 0 && !SHC.scanTime) { container.innerHTML = '<div class="text-center text-muted p-3">اضغط "🔄 إعادة الفحص" للبدء</div>'; return; }
+        const status = SHC.getStatus();
+        const score = SHC.getScore();
+        const counts = SHC.getCounts();
+        let pct = score + '%';
+        let html = '';
+        html += '<div style="text-align:center;margin-bottom:16px;">';
+        html += '<div class="shc-score-ring" style="--shc-color:'+status.color+';--shc-pct:'+score+'%;"><span style="color:'+status.color+'">'+score+'</span></div>';
+        html += '<div style="font-size:1rem;font-weight:700;color:'+status.color+'">'+status.icon+' '+status.label+'</div>';
+        html += '<div style="font-size:.75rem;color:var(--text-muted);margin-top:2px">آخر فحص: '+(SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG') : '—')+'</div>';
+        html += '</div>';
+        html += '<div class="shc-summary-row">';
+        if (counts.critical>0) html += '<div class="shc-summary-item" style="color:#ef4444;border-color:rgba(239,68,68,.3)">🔴 '+counts.critical+' حرج</div>';
+        if (counts.high>0) html += '<div class="shc-summary-item" style="color:#f97316;border-color:rgba(249,115,22,.3)">🟠 '+counts.high+' مرتفع</div>';
+        if (counts.medium>0) html += '<div class="shc-summary-item" style="color:#f59e0b;border-color:rgba(245,158,11,.3)">🟡 '+counts.medium+' متوسط</div>';
+        if (counts.low>0) html += '<div class="shc-summary-item" style="color:#3b82f6;border-color:rgba(59,130,246,.3)">🔵 '+counts.low+' منخفض</div>';
+        if (counts.info>0) html += '<div class="shc-summary-item" style="color:#94a3b8;border-color:rgba(148,163,184,.2)">ℹ️ '+counts.info+' معلومة</div>';
+        if (counts.critical===0 && counts.high===0 && counts.medium===0 && counts.low===0) html += '<div class="shc-summary-item" style="color:#22c55e;border-color:rgba(34,197,94,.3)">✅ لا توجد مشاكل</div>';
+        html += '</div>';
+        html += '<button onclick="runSHCScan()" style="background:var(--gradient-primary);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer;margin-bottom:12px;">🔄 إعادة الفحص</button>';
+        html += '<div class="shc-mod-grid" style="margin-bottom:16px">';
+        Object.entries(SHC._moduleLabels).forEach(([key, label]) => {
+            let count = SHC.modules[key] || 0;
+            let icon = SHC._moduleIcons[key] || '📋';
+            let mCls = count === 0 ? 'color:#22c55e' : count <= 2 ? 'color:#f59e0b' : 'color:#ef4444';
+            let mStatus = count === 0 ? '🟢 سليم' : count <= 2 ? '🟡 '+count+' مشاكل' : '🔴 '+count+' مشاكل';
+            html += '<div class="shc-mod-card" onclick="filterSHCModule(\''+key+'\')">';
+            html += '<div class="shc-mod-icon">'+icon+'</div>';
+            html += '<div class="shc-mod-label">'+label+'</div>';
+            html += '<div class="shc-mod-status" style="'+mCls+'">'+mStatus+'</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+        html += '<div class="shc-filters">';
+        html += '<input type="text" id="shcSearch" placeholder="🔍بحث..." oninput="filterSHCIssues()" style="flex:1;min-width:120px;">';
+        html += '<select id="shcSevFilter" onchange="filterSHCIssues()"><option value="">كل الشدة</option><option value="critical">🔴 حرج</option><option value="high">🟠 مرتفع</option><option value="medium">🟡 متوسط</option><option value="low">🔵 منخفض</option><option value="info">ℹ️ معلومة</option></select>';
+        html += '<select id="shcModFilter" onchange="filterSHCIssues()"><option value="">كل الوحدات</option>';
+        Object.entries(SHC._moduleLabels).forEach(([k,v]) => { html += '<option value="'+k+'">'+v+'</option>'; });
+        html += '</select></div>';
+        html += '<div id="shcIssuesList">';
+        html += renderSHCIssues(SHC.issues);
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function renderSHCIssues(issues) {
+        if (issues.length === 0) return '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:.85rem;">✅ لا توجد مشاكل في هذا الفلتر</div>';
+        let html = '';
+        let grouped = { critical:[], high:[], medium:[], low:[], info:[] };
+        issues.forEach(i => { if (grouped[i.severity]) grouped[i.severity].push(i); });
+        const sevLabels = { critical:'🔴 حرج', high:'🟠 مرتفع', medium:'🟡 متوسط', low:'🔵 منخفض', info:'ℹ️ معلومة' };
+        const sevColors = { critical:'#ef4444', high:'#f97316', medium:'#f59e0b', low:'#3b82f6', info:'#94a3b8' };
+        Object.entries(grouped).forEach(([sev, items]) => {
+            if (items.length === 0) return;
+            html += '<div style="font-size:.8rem;font-weight:700;color:'+sevColors[sev]+';margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);">'+sevLabels[sev]+' ('+items.length+')</div>';
+            items.forEach((issue, idx) => {
+                html += '<div class="shc-issue-card" style="--shc-sev-color:'+sevColors[sev]+'">';
+                html += '<div class="shc-issue-title"><span class="shc-badge shc-sev-'+sev+'">'+sevLabels[sev]+'</span> '+esc(issue.title)+'</div>';
+                if (issue.description) html += '<div class="shc-issue-desc">'+esc(issue.description)+'</div>';
+                html += '<div class="shc-issue-meta">';
+                html += '<span>📦 '+esc(SHC._moduleLabels[issue.module] || issue.module)+'</span>';
+                if (issue.recordId) html += '<span>🔗 #'+esc(String(issue.recordId))+'</span>';
+                if (issue.field) html += '<span>📝 '+esc(issue.field)+'</span>';
+                if (issue.expected && issue.actual) html += '<span>المتوقع: '+esc(issue.expected)+' | الحالي: '+esc(issue.actual)+'</span>';
+                html += '</div></div>';
+            });
+        });
+        return html;
+    }
+
+    window.filterSHCModule = function(mod) {
+        let sel = document.getElementById('shcModFilter');
+        if (sel) { sel.value = mod; filterSHCIssues(); }
+    };
+
+    window.filterSHCIssues = function() {
+        let search = (document.getElementById('shcSearch')?.value || '').toLowerCase();
+        let sev = document.getElementById('shcSevFilter')?.value || '';
+        let mod = document.getElementById('shcModFilter')?.value || '';
+        let filtered = SHC.issues.filter(i => {
+            if (sev && i.severity !== sev) return false;
+            if (mod && i.module !== mod) return false;
+            if (search) {
+                let text = (i.title + ' ' + i.description + ' ' + i.recordId + ' ' + i.field).toLowerCase();
+                if (!text.includes(search)) return false;
+            }
+            return true;
+        });
+        let list = document.getElementById('shcIssuesList');
+        if (list) list.innerHTML = renderSHCIssues(filtered);
+    };
+
+    window.runSHCScan = function() {
+        SHC.runAllChecks();
+        renderHealthCenter();
+        showToast('✅ اكتمل فحص سلامة النظام — '+SHC.issues.length+' مشكلة', SHC.issues.length > 0 ? 'warning' : 'success');
+    };
+
     function renderDashboard() {
         let fin;
         try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
@@ -5493,24 +5872,22 @@
         }
 
         // ── حالة النظام ──
-        const issues = BusinessLogic.reconcile();
-        if (issues.length === 0) {
-            setHtml('ccSystemHealth',
-                '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--success-light);border-radius:10px;">' +
-                '<span style="font-size:1.2rem;">✅</span>' +
-                '<div><div style="font-size:0.85rem;font-weight:600;color:var(--success);">النظام يعمل بشكل طبيعي</div>' +
-                '<div style="font-size:0.75rem;color:var(--text-muted);">جميع البيانات متطابقة</div></div></div>');
-        } else {
-            const stockIssues = issues.filter(i => i.type === 'stock_mismatch');
-            const instIssues = issues.filter(i => i.type === 'installment_balance_mismatch');
-            setHtml('ccSystemHealth',
-                '<div style="padding:8px 10px;background:var(--warning-light);border-radius:10px;border:1px solid var(--border);">' +
-                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="font-size:1rem;">⚠️</span><strong style="font-size:0.85rem;color:var(--warning);">' + issues.length + ' تضارب في البيانات</strong></div>' +
-                (stockIssues.length > 0 ? '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:2px;">📦 ' + stockIssues.length + ' تباين في المخزون</div>' : '') +
-                (instIssues.length > 0 ? '<div style="font-size:0.78rem;color:var(--text-muted);">📋 ' + instIssues.length + ' تباين في أرصدة الأقساط</div>' : '') +
-                '<div onclick="runReconcile()" style="font-size:0.78rem;color:var(--primary);cursor:pointer;margin-top:6px;">🔧 عرض التفاصيل</div>' +
-                '</div>');
-        }
+        try { SHC.runAllChecks(); } catch(e) { console.error('SHC error:', e); }
+        const shcScore = SHC.getScore();
+        const shcStatus = SHC.getStatus();
+        const shcCounts = SHC.getCounts();
+        let shcHtml = '<div style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.03);">';
+        shcHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.2rem;">'+shcStatus.icon+'</span>';
+        shcHtml += '<div><div style="font-size:0.85rem;font-weight:600;color:'+shcStatus.color+';">'+shcStatus.label+'</div>';
+        shcHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">Score: '+shcScore+'/100</div></div></div>';
+        if (shcCounts.critical > 0) shcHtml += '<div style="font-size:.78rem;color:#ef4444;margin-bottom:2px;">🔴 '+shcCounts.critical+' حرج</div>';
+        if (shcCounts.high > 0) shcHtml += '<div style="font-size:.78rem;color:#f97316;margin-bottom:2px;">🟠 '+shcCounts.high+' مرتفع</div>';
+        if (shcCounts.medium > 0) shcHtml += '<div style="font-size:.78rem;color:#f59e0b;margin-bottom:2px;">🟡 '+shcCounts.medium+' متوسط</div>';
+        if (shcCounts.low > 0) shcHtml += '<div style="font-size:.78rem;color:#3b82f6;margin-bottom:2px;">🔵 '+shcCounts.low+' منخفض</div>';
+        if (shcCounts.critical === 0 && shcCounts.high === 0 && shcCounts.medium === 0 && shcCounts.low === 0) shcHtml += '<div style="font-size:.78rem;color:#22c55e;">✅ جميع الفحوصات سليمة</div>';
+        shcHtml += '<div onclick="switchPage(\'healthCenter\');toggleMenu(true);" style="font-size:0.78rem;color:var(--primary);cursor:pointer;margin-top:6px;">🩺 فتح فحص سلامة النظام ←</div>';
+        shcHtml += '</div>';
+        setHtml('ccSystemHealth', shcHtml);
 
         // ── ملخص البيانات ──
         const totalProducts = products.length;
@@ -11909,7 +12286,7 @@
     setTimeout(syncOnStartup, 1500);
 
     function switchPage(pageId) {
-        const adminOnlyPages = ['reports', 'admin', 'settings'];
+        const adminOnlyPages = ['reports', 'admin', 'settings', 'healthCenter'];
         if (!isAdminSession() && adminOnlyPages.includes(pageId)) {
             showToast('هذه الصفحة متاحة للمدير فقط', 'error');
             pageId = 'dashboard';
@@ -11943,6 +12320,7 @@
             renderProducts();
             renderTransactions(); renderInstallments(); renderArabonSales(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
+            if (pageId === 'healthCenter') renderHealthCenter();
         };
     });
 
