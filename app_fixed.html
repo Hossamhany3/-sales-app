@@ -7607,9 +7607,9 @@
                             '</div>' +
                         '</div>' +
                         '<strong class="' + textClass + ' text-base ws-nowrap">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
-                        '<button class="btn-sm btn-icon" style="color:var(--text-muted);" onclick="toggleTransDetails(' + t.id + ')" title="تفاصيل البند">' + (openDet ? '🔼' : '📋') + '</button>' +
-                        '<button class="btn-sm btn-icon" style="color:var(--primary);" onclick="editTransaction(' + t.id + ')" title="تعديل">✏️</button>' +
-                        '<button class="btn-sm btn-icon" style="color:var(--danger);" onclick="deleteTransaction(' + t.id + ')" title="حذف">🗑️</button>' +
+                        '<button class="btn-sm btn-icon" style="color:var(--text-muted);" onclick="toggleTransDetails(\'' + t.id + '\')" title="تفاصيل البند">' + (openDet ? '🔼' : '📋') + '</button>' +
+                        '<button class="btn-sm btn-icon" style="color:var(--primary);" onclick="editTransaction(\'' + t.id + '\')" title="تعديل">✏️</button>' +
+                        '<button class="btn-sm btn-icon" style="color:var(--danger);" onclick="deleteTransaction(\'' + t.id + '\')" title="حذف">🗑️</button>' +
                     '</div>' +
                     '<div class="trans-details' + (openDet ? ' open' : '') + '" id="transDetails-' + t.id + '">' + detRows + '</div>' +
                 '</div>';
