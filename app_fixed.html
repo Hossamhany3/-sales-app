@@ -9044,31 +9044,6 @@
         }
         html += '</div>';
 
-        // Payments section
-        html += '<div class="card" style="margin-bottom:10px;padding:12px 14px;">';
-        html += '<h3 style="margin:0 0 8px 0;font-size:0.9rem;">💰 مدفوعات (' + (payments.length + paymentsOut.length) + ')</h3>';
-        let allPmts = [];
-        payments.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة من تاجر', amount: p.amount, dir: 'in' }));
-        paymentsOut.forEach(p => allPmts.push({ id: p.id, date: p.date, desc: p.notes || 'دفعة لتاجر', amount: p.amount, dir: 'out' }));
-        allPmts.sort((a, b) => b.date.localeCompare(a.date));
-        if (allPmts.length === 0) {
-            html += '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:0.85rem;">لا توجد مدفوعات</div>';
-        } else {
-            html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
-            html += '<thead><tr><th>البيان</th><th>المبلغ</th><th>النوع</th><th>التاريخ</th><th>إجراءات</th></tr></thead><tbody>';
-            allPmts.forEach(p => {
-                let d = new Date(p.date).toLocaleDateString('ar-EG');
-                let typeLabel = p.dir === 'in' ? '🧾 دفعة منه' : '💸 دفعة له';
-                let color = p.dir === 'in' ? 'var(--success)' : 'var(--danger)';
-                let editFn = p.dir === 'in' ? 'editMerchantPayment' : 'editMerchantPaymentOut';
-                let deleteFn = p.dir === 'in' ? 'deleteMerchantPayment' : 'deleteMerchantPaymentOut';
-                html += '<tr><td>' + esc(p.desc) + '</td><td style="color:' + color + ';font-weight:700;">' + p.amount.toFixed(2) + ' ج</td><td>' + typeLabel + '</td><td class="text-muted">' + d + '</td>';
-                html += '<td><button class="btn-sm btn-outline" onclick="' + editFn + '(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="' + deleteFn + '(' + p.id + ')">🗑️</button></td></tr>';
-            });
-            html += '</tbody></table>';
-        }
-        html += '</div>';
-
         // ─── Timeline ───
         let tlEvents = [];
         sales.forEach(s => tlEvents.push({ date: s.date, type: 'sale', icon: '📦', color: 'var(--primary)', bg: 'var(--primary-light)', title: 'بيع — ' + (s.deviceName || ''), amount: ((s.sellPrice || 0) * (s.quantity || 1)), sign: '+', note: (s.quantity || 1) + ' × ' + (s.sellPrice || 0).toFixed(2) + ' ج' }));
