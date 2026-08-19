@@ -404,8 +404,11 @@
         .receipt-box .receipt-actions { display: flex; gap: 8px; margin-top: 16px; }
         .receipt-box .receipt-actions button { flex: 1; }
 
-        /* Responsive */
+        .cc-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+        .cc-half-grid { grid-template-columns: 1fr 1fr; }
         @media (max-width: 640px) {
+            .cc-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .cc-half-grid { grid-template-columns: 1fr; }
             .container { padding-bottom: 20px; }
             .content { padding: 14px 12px; }
             .grid-2 { grid-template-columns: 1fr; }
@@ -1161,35 +1164,94 @@
     <div class="content">
         
         <div id="dashboard" class="page active-page">
-            <!-- إشعارات الأقساط -->
             <div id="alertBanner" class="alert-banner"></div>
 
-            <h2>نظرة مالية شاملة</h2>
-            <div class="flex-between" style="gap:10px; margin-bottom: 24px;">
-                <div class="stat-card" style="border-color: var(--primary);">
-                    <div style="font-size:1.5rem; margin-bottom:2px;">💰</div>
-                    <div style="font-size:0.8rem; color:var(--primary);">الخزينة النقدية</div>
-                    <div class="value" id="dashCash" style="color:var(--primary);">0</div>
-                </div>
-                <div class="stat-card" style="border-color: var(--accent);">
-                    <div style="font-size:1.5rem; margin-bottom:2px;">📋</div>
-                    <div style="font-size:0.8rem; color:var(--accent);">للتحصيل</div>
-                    <div class="value" id="dashDebt" style="color:var(--accent);">0</div>
-                </div>
-                <div class="stat-card" style="border-color: var(--success);">
-                    <div style="font-size:1.5rem; margin-bottom:2px;">📦</div>
-                    <div style="font-size:0.8rem; color:var(--success);">قيمة المخزون</div>
-                    <div class="value" id="dashStock" style="color:var(--success);">0</div>
-                </div>
-                <div class="stat-card" style="border-color: var(--danger);">
-                    <div style="font-size:1.5rem; margin-bottom:2px;">🤝</div>
-                    <div style="font-size:0.8rem; color:var(--danger);">استثمارات الشركاء</div>
-                    <div class="value" id="dashPartnerInvest" style="color:var(--danger);">0</div>
+            <div class="flex-between" style="margin-bottom:14px;">
+                <h2 style="margin:0;font-size:1.1rem;">📊 لوحة التحكم الذكية</h2>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <input type="date" id="ccDateFrom" onchange="renderCommandCenter()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
+                    <span style="color:var(--text-muted);font-size:0.78rem;">إلى</span>
+                    <input type="date" id="ccDateTo" onchange="renderCommandCenter()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
                 </div>
             </div>
 
-            <!-- رسم بياني -->
-            <div class="chart-container">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;" class="cc-kpi-grid">
+                <div class="stat-card" style="border-color:var(--primary);cursor:pointer;" onclick="switchPage('transactions');toggleMenu(true);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">💰</div>
+                    <div style="font-size:0.72rem;color:var(--primary);">الخزينة النقدية</div>
+                    <div class="value" id="ccCash" style="color:var(--primary);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--accent);cursor:pointer;" onclick="switchPage('installments');toggleMenu(true);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">📋</div>
+                    <div style="font-size:0.72rem;color:var(--accent);">للتحصيل</div>
+                    <div class="value" id="ccDebt" style="color:var(--accent);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--success);cursor:pointer;" onclick="switchPage('products');toggleMenu(true);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">📦</div>
+                    <div style="font-size:0.72rem;color:var(--success);">قيمة المخزون</div>
+                    <div class="value" id="ccStock" style="color:var(--success);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--warning);cursor:pointer;" onclick="switchPage('partners');toggleMenu(true);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">🤝</div>
+                    <div style="font-size:0.72rem;color:var(--warning);">استثمارات الشركاء</div>
+                    <div class="value" id="ccPartnerInvest" style="color:var(--warning);font-size:1rem;">—</div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;" class="cc-kpi-grid">
+                <div class="stat-card" style="border-color:var(--success);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">📈</div>
+                    <div style="font-size:0.72rem;color:var(--success);">صافي الربح</div>
+                    <div class="value" id="ccNetProfit" style="color:var(--success);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--primary);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">💵</div>
+                    <div style="font-size:0.72rem;color:var(--primary);">الإيرادات</div>
+                    <div class="value" id="ccRevenue" style="color:var(--primary);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--accent);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">📊</div>
+                    <div style="font-size:0.72rem;color:var(--accent);">نسبة التحصيل</div>
+                    <div class="value" id="ccCollectionRate" style="color:var(--accent);font-size:1rem;">—</div>
+                </div>
+                <div class="stat-card" style="border-color:var(--neon-blue);">
+                    <div style="font-size:1.4rem;margin-bottom:2px;">📅</div>
+                    <div style="font-size:0.72rem;color:var(--neon-blue);">عقود نشطة</div>
+                    <div class="value" id="ccActiveInst" style="color:var(--neon-blue);font-size:1rem;">—</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="font-size:1.1rem;">📊</span>
+                    <strong style="flex:1;font-size:0.9rem;">مؤشرات الأداء الشهري</strong>
+                    <select id="ccMonthSelector" onchange="renderCommandCenter()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.8rem;background:var(--card-bg);color:var(--text-main);"></select>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="stat-card" style="border-color:var(--primary);padding:8px;">
+                        <div style="font-size:0.72rem;color:var(--primary);">💰 إيرادات الشهر</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:var(--primary);" id="ccMonthRevenue">0</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);" id="ccMonthRevenueChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--danger);padding:8px;">
+                        <div style="font-size:0.72rem;color:var(--danger);">📉 مصروفات الشهر</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:var(--danger);" id="ccMonthExpenses">0</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);" id="ccMonthExpensesChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--success);padding:8px;">
+                        <div style="font-size:0.72rem;color:var(--success);">✅ صافي الربح</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:var(--success);" id="ccMonthProfit">0</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);" id="ccMonthProfitChange">—</div>
+                    </div>
+                    <div class="stat-card" style="border-color:var(--accent);padding:8px;">
+                        <div style="font-size:0.72rem;color:var(--accent);">💰 التحصيلات</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:var(--accent);" id="ccMonthCollections">0</div>
+                        <div style="font-size:0.72rem;color:var(--text-muted);" id="ccMonthCollectionsChange">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container" style="margin-bottom:14px;">
                 <canvas id="chartCanvas" height="200"></canvas>
                 <div class="chart-legend">
                     <span><span class="dot" style="background:var(--success)"></span> الإيرادات</span>
@@ -1197,39 +1259,74 @@
                 </div>
             </div>
 
-            <!-- الأداء الشهري -->
-            <div style="margin:24px 0;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                    <span style="font-size:1.2rem;">📊</span>
-                    <strong style="flex:1;">مؤشرات الأداء الشهري</strong>
-                    <select id="monthSelector" onchange="renderDashboard()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;background:var(--card-bg);color:var(--text-main);"></select>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" class="cc-half-grid">
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">🔔</span>
+                        <strong style="flex:1;font-size:0.9rem;">التنبيهات الذكية</strong>
+                        <span id="ccAlertCount" style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:var(--danger-light);color:var(--danger);display:none;"></span>
+                    </div>
+                    <div id="ccAlerts"></div>
                 </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
-                    <div class="stat-card" style="border-color:var(--primary);padding:10px;">
-                        <div style="font-size:0.75rem;color:var(--primary);">💰 إيرادات الشهر</div>
-                        <div style="font-size:1.2rem;font-weight:800;color:var(--primary);" id="monthRevenue">0</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthRevenueChange">—</div>
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">⚡</span>
+                        <strong style="font-size:0.9rem;">إجراءات سريعة</strong>
                     </div>
-                    <div class="stat-card" style="border-color:var(--danger);padding:10px;">
-                        <div style="font-size:0.75rem;color:var(--danger);">📉 مصروفات الشهر</div>
-                        <div style="font-size:1.2rem;font-weight:800;color:var(--danger);" id="monthExpenses">0</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthExpensesChange">—</div>
-                    </div>
-                    <div class="stat-card" style="border-color:var(--success);padding:10px;">
-                        <div style="font-size:0.75rem;color:var(--success);">✅ صافي الربح</div>
-                        <div style="font-size:1.2rem;font-weight:800;color:var(--success);" id="monthProfit">0</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthProfitChange">—</div>
-                    </div>
-                    <div class="stat-card" style="border-color:var(--accent);padding:10px;">
-                        <div style="font-size:0.75rem;color:var(--accent);">💰 التحصيلات</div>
-                        <div style="font-size:1.2rem;font-weight:800;color:var(--accent);" id="monthCollections">0</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);" id="monthCollectionsChange">—</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <button onclick="switchPage('products');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">💵 بيع نقدي</button>
+                        <button onclick="switchPage('installments');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">📅 عقد قسط</button>
+                        <button onclick="switchPage('arabonSales');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">🤝 عربون</button>
+                        <button onclick="switchPage('merchantSales');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">🏪 شراء تاجر</button>
+                        <button onclick="switchPage('reports');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">📈 التقارير</button>
+                        <button onclick="switchPage('accounts');toggleMenu(true);" class="btn-outline" style="padding:10px 6px;font-size:0.8rem;">🏦 الحسابات</button>
                     </div>
                 </div>
             </div>
 
-            <h2>آخر العمليات</h2>
-            <div id="recentTransactions"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" class="cc-half-grid">
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">📦</span>
+                        <strong style="flex:1;font-size:0.9rem;">منتجات تحت الحد الأدنى</strong>
+                        <span id="ccLowStockCount" style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:var(--danger-light);color:var(--danger);display:none;"></span>
+                    </div>
+                    <div id="ccLowStock"></div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">🏆</span>
+                        <strong style="font-size:0.9rem;">أكثر الأصناف مبيعاً</strong>
+                    </div>
+                    <div id="ccTopProducts"></div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;" class="cc-half-grid">
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">⚙️</span>
+                        <strong style="font-size:0.9rem;">حالة النظام</strong>
+                    </div>
+                    <div id="ccSystemHealth"></div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <span style="font-size:1.1rem;">📊</span>
+                        <strong style="font-size:0.9rem;">ملخص البيانات</strong>
+                    </div>
+                    <div id="ccDataSummary"></div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span style="font-size:1.1rem;">🕐</span>
+                    <strong style="flex:1;font-size:0.9rem;">آخر العمليات</strong>
+                    <button onclick="switchPage('transactions');toggleMenu(true);" style="font-size:0.78rem;color:var(--primary);background:none;border:none;cursor:pointer;">عرض الكل &larr;</button>
+                </div>
+                <div id="ccRecentActivity"></div>
+            </div>
         </div>
 
         <div id="products" class="page">
@@ -5152,14 +5249,9 @@
 
     function renderDashboard() {
         const fin = getFinancials();
-        document.getElementById('dashCash').innerText = fin.cash.toFixed(2) + ' ج';
-        document.getElementById('dashDebt').innerText = fin.totalDebt.toFixed(2) + ' ج';
-        document.getElementById('dashStock').innerText = fin.stockValue.toFixed(2) + ' ج';
-        const partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
-        const investEl = document.getElementById('dashPartnerInvest');
-        if (investEl) investEl.innerText = partnerInvest.toFixed(2) + ' ج';
 
-        // P&L
+        renderCommandCenter();
+
         document.getElementById('repRevenue').innerHTML = fin.revenue.toFixed(2) + ' ج';
         document.getElementById('repDiscounts').innerHTML = fin.totalDiscounts.toFixed(2) + ' ج';
         document.getElementById('repCOGS').innerHTML = fin.cogs.toFixed(2) + ' ج';
@@ -5193,7 +5285,6 @@
         const netMarginEl = document.getElementById('repNetMargin');
         if (netMarginEl) netMarginEl.innerHTML = fin.netMargin.toFixed(1) + '%';
 
-        // المركز المالي
         const balCash = document.getElementById('balCash');
         if (balCash) balCash.innerHTML = fin.cash.toFixed(2) + ' ج';
         const balStock = document.getElementById('balStock');
@@ -5211,7 +5302,6 @@
         const balEquity = document.getElementById('balEquity');
         if (balEquity) balEquity.innerHTML = fin.equity.toFixed(2) + ' ج';
 
-        // تحليل المديونية
         const debtCol = document.getElementById('debtCollected');
         if (debtCol) debtCol.innerHTML = fin.collectedAmount.toFixed(2) + ' ج';
         const debtRem = document.getElementById('debtRemaining');
@@ -5226,88 +5316,6 @@
                 '<div class="flex-between" style="padding:6px 0;"><span>🔴 أكثر من 90 يوم</span><strong style="color:var(--danger);">' + fin.aging.over90.toFixed(2) + ' ج</strong></div>';
         }
 
-        // حساب مؤشرات الشهر
-        const monthSelect = document.getElementById('monthSelector');
-        if (monthSelect) {
-            if (monthSelect.options.length === 0) {
-                let now = new Date();
-                for (let i = 0; i < 12; i++) {
-                    let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    let label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
-                    let val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-                    monthSelect.innerHTML += '<option value="' + val + '">' + label + '</option>';
-                }
-            }
-
-            function monthTransactions(year, month) {
-                return transactions.filter(t => {
-                    let d = new Date(t.date);
-                    return d.getFullYear() === year && d.getMonth() === month;
-                });
-            }
-
-            let parts = (monthSelect.value || '').split('-');
-            let selYear = parseInt(parts[0]);
-            let selMonth = parseInt(parts[1]) - 1;
-            let monthTrans = monthTransactions(selYear, selMonth);
-            // الشهر السابق
-            let prevMonth = selMonth === 0 ? 11 : selMonth - 1;
-            let prevYear = selMonth === 0 ? selYear - 1 : selYear;
-            let prevTrans = monthTransactions(prevYear, prevMonth);
-
-            function calcMonthTotals(list) {
-                let rev = 0, exp = 0, coll = 0;
-                list.forEach(t => {
-                    if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'partner_deposit') rev += t.amount;
-                    if (t.type === 'payment_in') { rev += t.amount; coll += t.amount; }
-                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
-                });
-                return { revenue: rev, expenses: exp, profit: rev - exp, collections: coll };
-            }
-
-            let curr = calcMonthTotals(monthTrans);
-            let prev = calcMonthTotals(prevTrans);
-
-            function fmtChange(currVal, prevVal) {
-                if (prevVal === 0) return currVal > 0 ? '⬆️ جديد' : '—';
-                let pct = ((currVal - prevVal) / prevVal * 100).toFixed(1);
-                return (currVal >= prevVal ? '⬆️ +' : '⬇️ ') + pct + '%';
-            }
-
-            document.getElementById('monthRevenue').innerText = curr.revenue.toFixed(2) + ' ج';
-            document.getElementById('monthRevenueChange').innerText = fmtChange(curr.revenue, prev.revenue);
-            document.getElementById('monthExpenses').innerText = curr.expenses.toFixed(2) + ' ج';
-            document.getElementById('monthExpensesChange').innerText = fmtChange(curr.expenses, prev.expenses);
-            document.getElementById('monthProfit').innerText = curr.profit.toFixed(2) + ' ج';
-            document.getElementById('monthProfitChange').innerText = fmtChange(curr.profit, prev.profit);
-            document.getElementById('monthCollections').innerText = curr.collections.toFixed(2) + ' ج';
-            document.getElementById('monthCollectionsChange').innerText = fmtChange(curr.collections, prev.collections);
-        }
-
-        renderNotifications();
-        setTimeout(() => drawChart(), 100);
-
-        let recent = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5);
-        if (recent.length === 0) {
-            document.getElementById('recentTransactions').innerHTML = '<div class="card" style="text-align:center; padding:32px 20px;"><div style="font-size:2.5rem; margin-bottom:8px; opacity:0.4;">📭</div><div style="color:var(--text-muted);">لا توجد حركات مالية بعد</div></div>';
-        } else {
-            document.getElementById('recentTransactions').innerHTML = recent.map((t, idx) => {
-                let icon = '💰'; let color = 'var(--danger)'; let bgColor = 'var(--danger-light)';
-                if(t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') { icon = '📉'; color = 'var(--danger)'; bgColor = 'var(--danger-light)'; }
-                else if(t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in') { icon = '💰'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
-                else if(t.type === 'sell_cash') { icon = '💵'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
-                let sign = (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') ? '' : '+';
-                return '<div style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:6px; background:' + bgColor + '; border-radius:10px;">' +
-                    '<span style="font-size:1.3rem;">' + icon + '</span>' +
-                    '<div style="flex:1; min-width:0;">' +
-                        '<div style="font-size:0.9rem; font-weight:600; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' + (t.notes || 'حركة مالية') + '</div>' +
-                        '<div style="font-size:0.75rem; color:var(--text-muted);">' + new Date(t.date).toLocaleDateString('ar-EG', {month:'short', day:'numeric'}) + '</div>' +
-                    '</div>' +
-                    '<strong style="color:' + color + '; font-size:1rem; white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong>' +
-                '</div>';
-            }).join('');
-        }
-
         let balances = merchants.map(m => {
             let debt = installments.filter(i => i.merchantId == m.id && !i.isPaid).reduce((s, i) => s + i.remainingBalance, 0);
             if (debt <= 0) return '';
@@ -5319,8 +5327,245 @@
         }).join('');
         document.getElementById('merchantBalances').innerHTML = balances || '<div style="color:var(--text-muted); text-align:center; padding:16px;">✅ لا توجد مديونيات مستحقة</div>';
         updateStorageInfo();
-        // رسم الشارتات الإضافية
         setTimeout(() => { drawCashTimeline(); drawExpensePie(); }, 200);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    //  لوحة التحكم الذكية — Command Center
+    // ═══════════════════════════════════════════════════════
+    function renderCommandCenter() {
+        const ccFrom = document.getElementById('ccDateFrom');
+        const ccTo = document.getElementById('ccDateTo');
+        const rFrom = document.getElementById('reportDateFrom');
+        const rTo = document.getElementById('reportDateTo');
+        if (ccFrom && rFrom && ccFrom.value) rFrom.value = ccFrom.value;
+        if (ccTo && rTo && ccTo.value) rTo.value = ccTo.value;
+        if (rFrom && ccFrom && !ccFrom.value && rFrom.value) ccFrom.value = rFrom.value;
+        if (rTo && ccTo && !ccTo.value && rTo.value) ccTo.value = rTo.value;
+        const fin = getFinancials();
+
+        const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+        setTxt('ccCash', fin.cash.toFixed(2) + ' ج');
+        setTxt('ccDebt', fin.totalDebt.toFixed(2) + ' ج');
+        setTxt('ccStock', fin.stockValue.toFixed(2) + ' ج');
+        setTxt('ccPartnerInvest', fin.partnerInvest.toFixed(2) + ' ج');
+        setTxt('ccNetProfit', fin.netProfit.toFixed(2) + ' ج');
+        setTxt('ccRevenue', fin.revenue.toFixed(2) + ' ج');
+        setTxt('ccCollectionRate', fin.collectionRate.toFixed(1) + '%');
+        const activeInstCount = installments.filter(i => !i.isPaid).length;
+        setTxt('ccActiveInst', activeInstCount + ' عقد');
+
+        // ── مؤشرات الأداء الشهري ──
+        const monthSelect = document.getElementById('ccMonthSelector');
+        if (monthSelect) {
+            if (monthSelect.options.length === 0) {
+                const now = new Date();
+                for (let i = 0; i < 12; i++) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+                    const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                    monthSelect.innerHTML += '<option value="' + val + '">' + label + '</option>';
+                }
+            }
+            const parts = (monthSelect.value || '').split('-');
+            const selYear = parseInt(parts[0]);
+            const selMonth = parseInt(parts[1]) - 1;
+            function monthTrans(year, month) {
+                return transactions.filter(t => { const d = new Date(t.date); return d.getFullYear() === year && d.getMonth() === month; });
+            }
+            const currList = monthTrans(selYear, selMonth);
+            const prevM = selMonth === 0 ? 11 : selMonth - 1;
+            const prevY = selMonth === 0 ? selYear - 1 : selYear;
+            const prevList = monthTrans(prevY, prevM);
+            function calcTotals(list) {
+                let rev = 0, exp = 0, coll = 0;
+                list.forEach(t => {
+                    if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') rev += t.amount;
+                    if (t.type === 'payment_in') { rev += t.amount; coll += t.amount; }
+                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
+                });
+                return { revenue: rev, expenses: exp, profit: rev - exp, collections: coll };
+            }
+            const curr = calcTotals(currList);
+            const prev = calcTotals(prevList);
+            function fmtCh(c, p) {
+                if (p === 0) return c > 0 ? '⬆️ جديد' : '—';
+                const pct = ((c - p) / p * 100).toFixed(1);
+                return (c >= p ? '⬆️ +' : '⬇️ ') + pct + '%';
+            }
+            setTxt('ccMonthRevenue', curr.revenue.toFixed(2) + ' ج');
+            setTxt('ccMonthRevenueChange', fmtCh(curr.revenue, prev.revenue));
+            setTxt('ccMonthExpenses', curr.expenses.toFixed(2) + ' ج');
+            setTxt('ccMonthExpensesChange', fmtCh(curr.expenses, prev.expenses));
+            setTxt('ccMonthProfit', curr.profit.toFixed(2) + ' ج');
+            setTxt('ccMonthProfitChange', fmtCh(curr.profit, prev.profit));
+            setTxt('ccMonthCollections', curr.collections.toFixed(2) + ' ج');
+            setTxt('ccMonthCollectionsChange', fmtCh(curr.collections, prev.collections));
+        }
+
+        // ── التنبيهات الذكية ──
+        const today = new Date(); today.setHours(0,0,0,0);
+        const alerts = [];
+        installments.filter(i => !i.isPaid).forEach(inst => {
+            const schedule = getInstSchedule(inst);
+            schedule.filter(s => !s.isPaid).forEach(slot => {
+                const d = new Date(slot.dueDate + 'T00:00:00');
+                const diff = Math.ceil((d - today) / 86400000);
+                if (diff < 0) {
+                    const merchant = merchants.find(m => m.id == inst.merchantId);
+                    alerts.push({ type: 'danger', icon: '🚨', text: (merchant ? merchant.name : 'عميل') + ' — قسط #' + slot.index + ' متأخر ' + Math.abs(diff) + ' يوم', page: 'installments' });
+                } else if (diff <= 3) {
+                    const merchant = merchants.find(m => m.id == inst.merchantId);
+                    alerts.push({ type: 'warning', icon: '⏰', text: (merchant ? merchant.name : 'عميل') + ' — قسط #' + slot.index + ' يستحق ' + (diff === 0 ? 'اليوم' : 'بعد ' + diff + ' أيام'), page: 'installments' });
+                }
+            });
+        });
+        const lowStockProducts = products.filter(p => p.status !== 'inactive' && p.stock <= (p.minStock || 0) && p.stock > 0);
+        const outOfStockProducts = products.filter(p => p.status !== 'inactive' && p.stock === 0);
+        outOfStockProducts.forEach(p => {
+            alerts.push({ type: 'danger', icon: '📦', text: p.name + ' — نفد المخزون تماماً', page: 'products' });
+        });
+        lowStockProducts.forEach(p => {
+            alerts.push({ type: 'warning', icon: '📦', text: p.name + ' — متبقي ' + p.stock + ' (الحد الأدنى: ' + (p.minStock || 0) + ')', page: 'products' });
+        });
+        const alertCountEl = document.getElementById('ccAlertCount');
+        if (alertCountEl) {
+            if (alerts.length > 0) { alertCountEl.style.display = ''; alertCountEl.textContent = alerts.length; }
+            else { alertCountEl.style.display = 'none'; }
+        }
+        if (alerts.length === 0) {
+            setHtml('ccAlerts', '<div style="text-align:center;padding:20px;color:var(--success);"><div style="font-size:1.8rem;margin-bottom:4px;">✅</div><div style="font-size:0.85rem;">لا توجد تنبيهات حالياً</div></div>');
+        } else {
+            setHtml('ccAlerts', alerts.slice(0, 6).map(a =>
+                '<div onclick="switchPage(\'' + a.page + '\');toggleMenu(true);" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;border-radius:10px;cursor:pointer;background:var(--' + a.type + '-light);border:1px solid var(--border);">' +
+                '<span style="font-size:1rem;">' + a.icon + '</span>' +
+                '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + a.text + '</span>' +
+                '</div>'
+            ).join(''));
+        }
+
+        // ── منتجات تحت الحد الأدنى ──
+        const allLowStock = products.filter(p => p.status !== 'inactive' && p.stock <= (p.minStock || 0));
+        const lowStockCountEl = document.getElementById('ccLowStockCount');
+        if (lowStockCountEl) {
+            if (allLowStock.length > 0) { lowStockCountEl.style.display = ''; lowStockCountEl.textContent = allLowStock.length; }
+            else { lowStockCountEl.style.display = 'none'; }
+        }
+        if (allLowStock.length === 0) {
+            setHtml('ccLowStock', '<div style="text-align:center;padding:16px;color:var(--success);font-size:0.85rem;">✅ جميع المنتجات متوفرة</div>');
+        } else {
+            setHtml('ccLowStock', allLowStock.slice(0, 5).map(p =>
+                '<div onclick="switchPage(\'products\');toggleMenu(true);" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;cursor:pointer;background:var(--danger-light);">' +
+                '<span style="font-size:0.9rem;">📦</span>' +
+                '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + esc(p.name) + '</span>' +
+                '<strong style="font-size:0.8rem;color:' + (p.stock === 0 ? 'var(--danger)' : 'var(--warning)') + ';">' + p.stock + ' / ' + (p.minStock || 0) + '</strong>' +
+                '</div>'
+            ).join(''));
+        }
+
+        // ── أكثر الأصناف مبيعاً ──
+        const prodSales = {};
+        transactions.filter(t => (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') && t.productId).forEach(t => {
+            if (!prodSales[t.productId]) prodSales[t.productId] = { qty: 0, revenue: 0 };
+            prodSales[t.productId].qty += (t.quantity || 1);
+            prodSales[t.productId].revenue += t.amount;
+        });
+        installments.filter(i => i.productId).forEach(inst => {
+            if (!prodSales[inst.productId]) prodSales[inst.productId] = { qty: 0, revenue: 0 };
+            prodSales[inst.productId].qty += (inst.quantity || 1);
+            prodSales[inst.productId].revenue += inst.purchasePrice || 0;
+        });
+        const topProds = Object.entries(prodSales).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
+        if (topProds.length === 0) {
+            setHtml('ccTopProducts', '<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.85rem;">📭 لا توجد بيانات مبيعات</div>');
+        } else {
+            setHtml('ccTopProducts', topProds.map(([pid, data]) => {
+                const prod = products.find(p => p.id == pid);
+                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;background:var(--success-light);">' +
+                    '<span style="font-size:0.9rem;">📱</span>' +
+                    '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + (prod ? esc(prod.name) : 'صنف #' + pid) + '</span>' +
+                    '<strong style="font-size:0.78rem;color:var(--success);">' + data.qty + ' قطعة — ' + data.revenue.toFixed(0) + ' ج</strong>' +
+                    '</div>';
+            }).join(''));
+        }
+
+        // ── حالة النظام ──
+        const issues = BusinessLogic.reconcile();
+        if (issues.length === 0) {
+            setHtml('ccSystemHealth',
+                '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--success-light);border-radius:10px;">' +
+                '<span style="font-size:1.2rem;">✅</span>' +
+                '<div><div style="font-size:0.85rem;font-weight:600;color:var(--success);">النظام يعمل بشكل طبيعي</div>' +
+                '<div style="font-size:0.75rem;color:var(--text-muted);">جميع البيانات متطابقة</div></div></div>');
+        } else {
+            const stockIssues = issues.filter(i => i.type === 'stock_mismatch');
+            const instIssues = issues.filter(i => i.type === 'installment_balance_mismatch');
+            setHtml('ccSystemHealth',
+                '<div style="padding:8px 10px;background:var(--warning-light);border-radius:10px;border:1px solid var(--border);">' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="font-size:1rem;">⚠️</span><strong style="font-size:0.85rem;color:var(--warning);">' + issues.length + ' تضارب في البيانات</strong></div>' +
+                (stockIssues.length > 0 ? '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:2px;">📦 ' + stockIssues.length + ' تباين في المخزون</div>' : '') +
+                (instIssues.length > 0 ? '<div style="font-size:0.78rem;color:var(--text-muted);">📋 ' + instIssues.length + ' تباين في أرصدة الأقساط</div>' : '') +
+                '<div onclick="runReconcile()" style="font-size:0.78rem;color:var(--primary);cursor:pointer;margin-top:6px;">🔧 عرض التفاصيل</div>' +
+                '</div>');
+        }
+
+        // ── ملخص البيانات ──
+        const totalProducts = products.length;
+        const activeProducts = products.filter(p => p.status !== 'inactive').length;
+        const totalMerchants = merchants.length;
+        const totalTransactions = transactions.length;
+        const totalAccounts = accounts.length;
+        const totalEmployees = employees.filter(e => e.isActive).length;
+        const totalInstallments = installments.length;
+        const totalArabon = arabonSales.length;
+        const totalPartners = partners.length;
+        setHtml('ccDataSummary',
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
+            ccSummaryItem('📦', 'الأصناف', activeProducts + ' / ' + totalProducts) +
+            ccSummaryItem('🏪', 'التجار', totalMerchants) +
+            ccSummaryItem('💰', 'المعاملات', totalTransactions) +
+            ccSummaryItem('🏦', 'الحسابات', totalAccounts) +
+            ccSummaryItem('🧑‍💼', 'الموظفون', totalEmployees) +
+            ccSummaryItem('📅', 'عقود الأقساط', totalInstallments) +
+            ccSummaryItem('🤝', 'عقود العربون', totalArabon) +
+            ccSummaryItem('💎', 'الشركاء', totalPartners) +
+            '</div>');
+
+        // ── آخر العمليات ──
+        const recent = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 6);
+        if (recent.length === 0) {
+            setHtml('ccRecentActivity', '<div class="card" style="text-align:center;padding:24px 16px;"><div style="font-size:2rem;margin-bottom:6px;opacity:0.4;">📭</div><div style="color:var(--text-muted);font-size:0.85rem;">لا توجد حركات مالية بعد</div></div>');
+        } else {
+            setHtml('ccRecentActivity', recent.map(t => {
+                let icon = '💰', color = 'var(--success)', bgColor = 'var(--success-light)';
+                if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') { icon = '📉'; color = 'var(--danger)'; bgColor = 'var(--danger-light)'; }
+                else if (t.type === 'payment_in' || t.type === 'partner_deposit' || t.type === 'transfer_in') { icon = '💰'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
+                else if (t.type === 'sell_cash' || t.type === 'sell') { icon = '💵'; color = 'var(--success)'; bgColor = 'var(--success-light)'; }
+                else if (t.type === 'merchant_sale') { icon = '🏪'; color = 'var(--primary)'; bgColor = 'var(--primary-light)'; }
+                else if (t.type === 'installment_payment') { icon = '📅'; color = 'var(--accent)'; bgColor = 'var(--accent-light)'; }
+                const sign = (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal' || t.type === 'transfer_out') ? '' : '+';
+                return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:5px;background:' + bgColor + ';border-radius:10px;">' +
+                    '<span style="font-size:1.2rem;">' + icon + '</span>' +
+                    '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-size:0.85rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (t.notes || 'حركة مالية') + '</div>' +
+                    '<div style="font-size:0.72rem;color:var(--text-muted);">' + new Date(t.date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + '</div>' +
+                    '</div>' +
+                    '<strong style="color:' + color + ';font-size:0.95rem;white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong></div>';
+            }).join(''));
+        }
+
+        // ── الرسم البياني + الإشعارات ──
+        renderNotifications();
+        setTimeout(() => drawChart(), 100);
+    }
+
+    function ccSummaryItem(icon, label, value) {
+        return '<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--card-bg);border-radius:8px;border:1px solid var(--border);">' +
+            '<span style="font-size:0.85rem;">' + icon + '</span>' +
+            '<div style="flex:1;min-width:0;"><div style="font-size:0.7rem;color:var(--text-muted);">' + label + '</div>' +
+            '<div style="font-size:0.82rem;font-weight:700;color:var(--text-main);">' + value + '</div></div></div>';
     }
 
     function switchReportTab(tabId) {
