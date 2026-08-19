@@ -5695,6 +5695,17 @@
                 events.push({ empId: t.employeeId, profit: calcTransactionProfit(t) });
             }
         });
+        // عقود الأقساط — العمولة من الربح عند إنشاء العقد (حدث واحد لكل عقد)
+        installments.forEach(inst => {
+            if (!inst.employeeId) return;
+            if (!inRange(inst.date, range)) return;
+            if (counted.has('inst' + inst.id)) return;
+            counted.add('inst' + inst.id);
+            let prod = products.find(p => p.id == inst.productId);
+            let cost = prod ? (prod.costPrice + (prod.expenses || 0)) : 0;
+            let profit = (inst.purchasePrice || 0) - cost;
+            events.push({ empId: inst.employeeId, profit: profit });
+        });
         return events;
     }
 
