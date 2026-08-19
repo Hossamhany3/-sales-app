@@ -5248,18 +5248,19 @@
     }
 
     function renderDashboard() {
-        const fin = getFinancials();
+        let fin;
+        try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
 
-        renderCommandCenter();
+        try { renderCommandCenter(); } catch(e) { console.error('CommandCenter error:', e); }
 
-        document.getElementById('repRevenue').innerHTML = fin.revenue.toFixed(2) + ' ج';
-        document.getElementById('repDiscounts').innerHTML = fin.totalDiscounts.toFixed(2) + ' ج';
-        document.getElementById('repCOGS').innerHTML = fin.cogs.toFixed(2) + ' ج';
+        if (document.getElementById('repRevenue')) document.getElementById('repRevenue').innerHTML = fin.revenue.toFixed(2) + ' ج';
+        if (document.getElementById('repDiscounts')) document.getElementById('repDiscounts').innerHTML = fin.totalDiscounts.toFixed(2) + ' ج';
+        if (document.getElementById('repCOGS')) document.getElementById('repCOGS').innerHTML = fin.cogs.toFixed(2) + ' ج';
         const grossProfitEl = document.getElementById('repGrossProfit');
         if (grossProfitEl) grossProfitEl.innerHTML = fin.grossProfit.toFixed(2) + ' ج';
         const grossMarginEl = document.getElementById('repGrossMargin');
         if (grossMarginEl) grossMarginEl.innerHTML = fin.grossMargin.toFixed(1) + '%';
-        document.getElementById('repExpenses').innerHTML = fin.expenses.toFixed(2) + ' ج';
+        if (document.getElementById('repExpenses')) document.getElementById('repExpenses').innerHTML = fin.expenses.toFixed(2) + ' ج';
         const repCommEl = document.getElementById('repCommissions');
         if (repCommEl) repCommEl.innerHTML = fin.totalCommissions.toFixed(2) + ' ج';
         const breakdownEl = document.getElementById('repExpenseBreakdown');
@@ -5280,8 +5281,8 @@
         }
         const operatingProfitEl = document.getElementById('repOperatingProfit');
         if (operatingProfitEl) operatingProfitEl.innerHTML = fin.operatingProfit.toFixed(2) + ' ج';
-        document.getElementById('repInterest').innerHTML = fin.interestProfit.toFixed(2) + ' ج';
-        document.getElementById('repNetProfit').innerHTML = fin.netProfit.toFixed(2) + ' ج';
+        if (document.getElementById('repInterest')) document.getElementById('repInterest').innerHTML = fin.interestProfit.toFixed(2) + ' ج';
+        if (document.getElementById('repNetProfit')) document.getElementById('repNetProfit').innerHTML = fin.netProfit.toFixed(2) + ' ج';
         const netMarginEl = document.getElementById('repNetMargin');
         if (netMarginEl) netMarginEl.innerHTML = fin.netMargin.toFixed(1) + '%';
 
@@ -11936,7 +11937,8 @@
             const pageId = btn.getAttribute('data-page');
             switchPage(pageId);
             toggleMenu(true);
-            renderDashboard(); renderProducts();
+            try { renderDashboard(); } catch(e) { console.error('renderDashboard error:', e); }
+            renderProducts();
             renderTransactions(); renderInstallments(); renderArabonSales(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
         };
