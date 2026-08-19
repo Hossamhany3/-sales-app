@@ -437,6 +437,17 @@
         .ms-sale-actions button { padding: 4px 8px; font-size: 0.75rem; min-height: 30px; border-radius: 6px; }
         #merchantSalesList .schedule-item { display: flex; flex-direction: column; padding: 10px 14px; }
         .mp-sticky { position: sticky; top: 0; z-index: 10; background: var(--card-bg); padding-bottom: 4px; }
+        .tl { position:relative; padding:0; margin:0; list-style:none; }
+        .tl-item { display:flex; gap:12px; padding:0 0 16px 0; position:relative; }
+        .tl-item:last-child { padding-bottom:0; }
+        .tl-item::before { content:''; position:absolute; right:11px; top:24px; bottom:0; width:2px; background:var(--border); }
+        .tl-item:last-child::before { display:none; }
+        .tl-dot { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; flex-shrink:0; z-index:1; border:2px solid var(--card-bg); box-shadow:0 0 0 2px var(--border); }
+        .tl-body { flex:1; min-width:0; background:var(--background); border-radius:10px; padding:10px 12px; }
+        .tl-date { font-size:0.72rem; color:var(--text-muted); margin-bottom:2px; }
+        .tl-title { font-size:0.88rem; font-weight:700; }
+        .tl-amount { font-size:0.95rem; font-weight:800; margin-top:2px; }
+        .tl-note { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
         .merchant-statement { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin: 12px 0; }
         .merchant-statement-header { background: var(--primary); color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
         .merchant-statement-header h3 { margin: 0; font-size: 1rem; color: white; }
@@ -1018,6 +1029,11 @@
             #mpContent .mp-sticky .card:first-child > div:first-child { flex-direction: column; align-items: flex-start !important; }
             #mpContent .mp-sticky .card:first-child > div:first-child > div:last-child { width: 100%; justify-content: flex-start; }
             #mpContent .mp-sticky > div:last-child button { font-size: 0.72rem; padding: 5px 8px; min-height: 32px; flex: 1; text-align: center; }
+            .tl-item { gap: 8px; }
+            .tl-dot { width: 20px; height: 20px; font-size: 0.6rem; }
+            .tl-body { padding: 8px 10px; }
+            .tl-title { font-size: 0.82rem; }
+            .tl-amount { font-size: 0.85rem; }
     /* ترويسة كشوف الحساب المنبثقة: تترتب عموديًا على الشاشات الصغيرة */
     .customer-statement-header { flex-direction: column; align-items: stretch; gap: 8px; padding: 14px 16px; }
     .customer-statement-header .header-actions { justify-content: stretch; }
@@ -9050,6 +9066,37 @@
                 html += '<td><button class="btn-sm btn-outline" onclick="' + editFn + '(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="' + deleteFn + '(' + p.id + ')">🗑️</button></td></tr>';
             });
             html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        // ─── Timeline ───
+        let tlEvents = [];
+        sales.forEach(s => tlEvents.push({ date: s.date, type: 'sale', icon: '📦', color: 'var(--primary)', bg: 'var(--primary-light)', title: 'بيع — ' + (s.deviceName || ''), amount: ((s.sellPrice || 0) * (s.quantity || 1)), sign: '+', note: (s.quantity || 1) + ' × ' + (s.sellPrice || 0).toFixed(2) + ' ج' }));
+        purchases.forEach(p => tlEvents.push({ date: p.date, type: 'purchase', icon: '📥', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', title: 'شراء — ' + (p.productName || ''), amount: ((p.costPrice || 0) * (p.quantity || 1)), sign: '-', note: (p.quantity || 1) + ' × ' + (p.costPrice || 0).toFixed(2) + ' ج' }));
+        payments.forEach(p => tlEvents.push({ date: p.date, type: 'payment_in', icon: '💰', color: 'var(--success)', bg: 'var(--success-light)', title: 'دفعة منه', amount: p.amount, sign: '+', note: p.notes || '' }));
+        paymentsOut.forEach(p => tlEvents.push({ date: p.date, type: 'payment_out', icon: '💸', color: 'var(--danger)', bg: 'var(--danger-light)', title: 'دفعة له', amount: p.amount, sign: '-', note: p.notes || '' }));
+        tlEvents.sort((a, b) => b.date.localeCompare(a.date));
+
+        html += '<div class="card" style="padding:14px 16px;">';
+        html += '<h3 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">📅 الجدول الزمني <span style="font-size:0.75rem;color:var(--text-muted);font-weight:400;">(' + tlEvents.length + ')</span></h3>';
+        if (tlEvents.length === 0) {
+            html += '<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.85rem;">لا توجد أحداث بعد</div>';
+        } else {
+            html += '<div class="tl">';
+            tlEvents.forEach(ev => {
+                let d = new Date(ev.date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
+                let t = new Date(ev.date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                let amtColor = ev.sign === '+' ? 'var(--success)' : 'var(--danger)';
+                html += '<div class="tl-item">';
+                html += '<div class="tl-dot" style="background:' + ev.bg + ';color:' + ev.color + ';">' + ev.icon + '</div>';
+                html += '<div class="tl-body">';
+                html += '<div class="tl-date">' + d + ' — ' + t + '</div>';
+                html += '<div class="tl-title" style="color:' + ev.color + ';">' + ev.title + '</div>';
+                html += '<div class="tl-amount" style="color:' + amtColor + ';">' + ev.sign + ev.amount.toLocaleString() + ' ج</div>';
+                if (ev.note) html += '<div class="tl-note">' + esc(ev.note) + '</div>';
+                html += '</div></div>';
+            });
+            html += '</div>';
         }
         html += '</div>';
 
