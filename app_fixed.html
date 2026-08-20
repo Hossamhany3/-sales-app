@@ -5349,7 +5349,10 @@
                 const idMap = {};
                 arr.forEach((r, idx) => {
                     if (!r || typeof r !== 'object') { this.addIssue('database','high', name+'['+idx+'] not an object','Record is null or invalid', idx+'','','Valid object','Invalid','DB_INVALID_RECORD'); return; }
-                    if (!r.id && r.id !== 0) { this.addIssue('database','medium', name+' record #'+idx+' missing ID','No id field',idx+'','id','Present','Missing','DB_MISSING_ID'); }
+                    if (!r.id && r.id !== 0) {
+                        if (name === 'stockMovements') { /* legacy records without id — identified by productId+sourceType+sourceId+date */ }
+                        else this.addIssue('database','medium', name+' record #'+idx+' missing ID','No id field',idx+'','id','Present','Missing','DB_MISSING_ID');
+                    }
                     else { if (idMap[r.id]) { this.addIssue('database','critical','Duplicate ID in '+name, 'ID '+r.id+' appears multiple times', String(r.id), 'id', 'Unique','Duplicate','DB_DUPLICATE_ID'); } idMap[r.id] = true; }
                 });
             });
