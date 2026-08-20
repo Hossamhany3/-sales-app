@@ -5556,18 +5556,31 @@
 
         // M. DUPLICATE DETECTION (improved)
         checkDuplicates() {
-            const seen = {};
-            transactions.forEach(t => {
-                if (t.sourceId && t.sourceType) {
-                    let key = t.sourceType + '|' + t.sourceId + '|' + t.operationType;
-                    if (seen[key]) this.addIssue('transactions','high','Possible duplicate: same source','#'+seen[key]+' and #'+t.id, String(t.id),'sourceId','Unique source','Duplicate','DUP_TX_SOURCE');
-                    seen[key] = t.id;
-                }
-            });
-            const instSeen = {};
-            installments.forEach(i => { if (i.contractNo && i.contractNo.trim()) { let c = i.contractNo.trim(); if (instSeen[c]) this.addIssue('installments','high','Duplicate contract number: '+c,'',String(i.id),'contractNo','Unique','Duplicate','DUP_CONTRACT_NO'); instSeen[c] = true; } });
-            const imeiMap = {};
-            products.forEach(p => { if (p.imei && p.imei.trim()) { let imei = p.imei.trim(); if (imeiMap[imei]) this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate','DUP_IMEI'); imeiMap[imei] = p.id; } });
+            try {
+                const seen = {};
+                if (Array.isArray(transactions)) transactions.forEach(t => {
+                    if (!t) return;
+                    if (t.sourceId && t.sourceType) {
+                        let key = t.sourceType + '|' + t.sourceId + '|' + (t.operationType || '');
+                        if (seen[key]) this.addIssue('transactions','high','Possible duplicate: same source','#'+seen[key]+' and #'+(t.id||'?'), String(t.id||''),'sourceId','Unique source','Duplicate','DUP_TX_SOURCE');
+                        seen[key] = t.id;
+                    }
+                });
+            } catch(e) { console.error('SHC DUP tx:', e); }
+            try {
+                const instSeen = {};
+                if (Array.isArray(installments)) installments.forEach(i => {
+                    if (!i) return;
+                    if (i.contractNo && String(i.contractNo).trim()) { let c = String(i.contractNo).trim(); if (instSeen[c]) this.addIssue('installments','high','Duplicate contract number: '+c,'',String(i.id||''),'contractNo','Unique','Duplicate','DUP_CONTRACT_NO'); instSeen[c] = true; }
+                });
+            } catch(e) { console.error('SHC DUP inst:', e); }
+            try {
+                const imeiMap = {};
+                if (Array.isArray(products)) products.forEach(p => {
+                    if (!p) return;
+                    if (p.imei && String(p.imei).trim()) { let imei = String(p.imei).trim(); if (imeiMap[imei]) this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+(p.id||'?'), String(p.id||''), 'imei', 'Unique', 'Duplicate','DUP_IMEI'); imeiMap[imei] = p.id; }
+                });
+            } catch(e) { console.error('SHC DUP imei:', e); }
         },
 
         // N. CROSS-MODULE CONSISTENCY
