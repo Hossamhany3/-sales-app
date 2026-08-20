@@ -5380,17 +5380,19 @@
         // C. INVENTORY INTEGRITY
         checkInventory() {
             const movCounts = {};
-            stockMovements.forEach(sm => { movCounts[sm.productId] = (movCounts[sm.productId]||0) + 1; });
+            stockMovements.forEach(sm => { if (sm && sm.productId != null) movCounts[String(sm.productId)] = (movCounts[String(sm.productId)]||0) + 1; });
             products.forEach(p => {
+                if (!p) return;
                 if (p.stock < 0) this.addIssue('inventory','critical','Negative stock: '+p.name,'Stock is '+p.stock, String(p.id),'stock','>= 0',String(p.stock),'INV_NEGATIVE_STOCK');
                 if (p.costPrice < 0) this.addIssue('inventory','high','Negative cost price: '+p.name, String(p.id),'costPrice','>= 0',String(p.costPrice),'INV_NEGATIVE_COST');
                 if (!p.name || p.name.trim() === '') this.addIssue('inventory','medium','Product missing name','',String(p.id),'name','Present','Empty','INV_MISSING_NAME');
-                if (movCounts[p.id]) {
+                if (movCounts[String(p.id)]) {
                     let calcStock = BusinessLogic.calculateStockFromMovements(p.id);
                     if (Math.abs(calcStock - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+calcStock.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',calcStock.toFixed(0),String(p.stock),'INV_STOCK_MISMATCH');
                 }
             });
             stockMovements.forEach(sm => {
+                if (!sm) return;
                 if (!sm.productId || !products.find(p => p.id == sm.productId)) this.addIssue('inventory','high','Orphan stock movement #'+sm.id+' refs missing product #'+sm.productId,'',String(sm.id),'productId','Existing product','Missing','INV_ORPHAN_MOVEMENT');
                 if (!sm.sourceType && !sm.sourceId) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has no source reference','',String(sm.id),'sourceType','Present','Missing','INV_NO_SOURCE');
                 if (sm.qty == null || isNaN(sm.qty) || sm.qty <= 0) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has invalid qty','Qty: '+sm.qty, String(sm.id),'qty','Positive number',String(sm.qty),'INV_INVALID_QTY');
