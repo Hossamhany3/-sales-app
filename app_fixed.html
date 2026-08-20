@@ -5290,40 +5290,34 @@
         _sevWeights: { critical: 25, high: 10, medium: 3, low: 1 },
         _moduleLabels: { database:'📦 قاعدة البيانات', transactions:'💰 المعاملات', inventory:'📦 المخزون', installments:'📅 التقسيط', accounts:'🏦 الحسابات', arabon:'🤝 العربون', merchants:'🏪 التجار', partners:'🤝 الشركاء', employees:'🧑‍💼 الموظفون', audit:'📋 التدقيق', backup:'💾 النسخة الاحتياطية' },
         _moduleIcons: { database:'📦', transactions:'💰', inventory:'📦', installments:'📅', accounts:'🏦', arabon:'🤝', merchants:'🏪', partners:'🤝', employees:'🧑‍💼', audit:'📋', backup:'💾' },
-        addIssue(mod, sev, title, desc, recId, field, expected, actual) {
-            this.issues.push({ module: mod, severity: sev, title, description: desc || '', recordId: recId || '', field: field || '', expected: expected || '', actual: actual || '', timestamp: Date.now() });
+        _VALID_TYPES: ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_paid','arabon_paid','partner_deposit','partner_withdrawal','opening_balance','sell_cash','sell','merchant_sale','merchant_purchase','payment_in','payment_out'],
+        addIssue(mod, sev, title, desc, recId, field, expected, actual, checkId) {
+            let rootCause = '';
+            if (recId && this._rootMap[recId]) rootCause = this._rootMap[recId];
+            else if (checkId) { rootCause = checkId; this._rootMap[recId || title] = checkId; }
+            this.issues.push({ module: mod, severity: sev, title, description: desc || '', recordId: recId || '', field: field || '', expected: expected || '', actual: actual || '', checkId: checkId || '', rootCause: rootCause, timestamp: Date.now() });
         },
+        _rootMap: {},
         runAllChecks() {
-            this.issues = []; this.modules = {};
+            this.issues = []; this.modules = {}; this._rootMap = {};
             const t0 = Date.now();
-            try { this.checkDatabase(); } catch(e) { this.addIssue('database','critical','Check failed: database','Error: '+e.message); console.error('SHC database:', e); }
-            try { this.checkTransactions(); } catch(e) { this.addIssue('transactions','critical','Check failed: transactions','Error: '+e.message); console.error('SHC transactions:', e); }
-            try { this.checkInventory(); } catch(e) { this.addIssue('inventory','critical','Check failed: inventory','Error: '+e.message); console.error('SHC inventory:', e); }
-            try { this.checkInstallments(); } catch(e) { this.addIssue('installments','critical','Check failed: installments','Error: '+e.message); console.error('SHC installments:', e); }
-            try { this.checkAccounts(); } catch(e) { this.addIssue('accounts','critical','Check failed: accounts','Error: '+e.message); console.error('SHC accounts:', e); }
-            try { this.checkArabon(); } catch(e) { this.addIssue('arabon','critical','Check failed: arabon','Error: '+e.message); console.error('SHC arabon:', e); }
-            try { this.checkMerchants(); } catch(e) { this.addIssue('merchants','critical','Check failed: merchants','Error: '+e.message); console.error('SHC merchants:', e); }
-            try { this.checkPartners(); } catch(e) { this.addIssue('partners','critical','Check failed: partners','Error: '+e.message); console.error('SHC partners:', e); }
-            try { this.checkEmployees(); } catch(e) { this.addIssue('employees','critical','Check failed: employees','Error: '+e.message); console.error('SHC employees:', e); }
-            try { this.checkAudit(); } catch(e) { this.addIssue('audit','critical','Check failed: audit','Error: '+e.message); console.error('SHC audit:', e); }
-            try { this.checkBackup(); } catch(e) { this.addIssue('backup','critical','Check failed: backup','Error: '+e.message); console.error('SHC backup:', e); }
-            try { this.checkOrphans(); } catch(e) { this.addIssue('database','critical','Check failed: orphans','Error: '+e.message); console.error('SHC orphans:', e); }
-            try { this.checkDuplicates(); } catch(e) { this.addIssue('database','critical','Check failed: duplicates','Error: '+e.message); console.error('SHC duplicates:', e); }
-            try { this.checkCrossModule(); } catch(e) { this.addIssue('database','critical','Check failed: cross-module','Error: '+e.message); console.error('SHC cross:', e); }
-            try { this.checkUnknownTypes(); } catch(e) { this.addIssue('transactions','critical','Check failed: unknown types','Error: '+e.message); console.error('SHC unknown types:', e); }
-            try { this.checkBalanceReconciliation(); } catch(e) { this.addIssue('accounts','critical','Check failed: balance reconciliation','Error: '+e.message); console.error('SHC balance:', e); }
-            try { this.checkDuplicateIMEI(); } catch(e) { this.addIssue('inventory','critical','Check failed: duplicate IMEI','Error: '+e.message); console.error('SHC IMEI:', e); }
-            this.modules['database'] = this.issues.filter(i => i.module === 'database').length;
-            this.modules['transactions'] = this.issues.filter(i => i.module === 'transactions').length;
-            this.modules['inventory'] = this.issues.filter(i => i.module === 'inventory').length;
-            this.modules['installments'] = this.issues.filter(i => i.module === 'installments').length;
-            this.modules['accounts'] = this.issues.filter(i => i.module === 'accounts').length;
-            this.modules['arabon'] = this.issues.filter(i => i.module === 'arabon').length;
-            this.modules['merchants'] = this.issues.filter(i => i.module === 'merchants').length;
-            this.modules['partners'] = this.issues.filter(i => i.module === 'partners').length;
-            this.modules['employees'] = this.issues.filter(i => i.module === 'employees').length;
-            this.modules['audit'] = this.issues.filter(i => i.module === 'audit').length;
-            this.modules['backup'] = this.issues.filter(i => i.module === 'backup').length;
+            const checks = [
+                ['checkDatabase','database'], ['checkTransactions','transactions'], ['checkInventory','inventory'],
+                ['checkInstallments','installments'], ['checkAccounts','accounts'], ['checkArabon','arabon'],
+                ['checkMerchants','merchants'], ['checkPartners','partners'], ['checkEmployees','employees'],
+                ['checkAudit','audit'], ['checkBackup','backup'], ['checkOrphans','database'],
+                ['checkDuplicates','transactions'], ['checkCrossModule','database'],
+                ['checkAccountReconciliation','accounts'], ['checkPartnerReconciliation','partners'],
+                ['checkMerchantReconciliation','merchants'], ['checkArabonReconciliation','arabon'],
+                ['checkIMEI','inventory']
+            ];
+            checks.forEach(([fn, mod]) => {
+                try { this[fn](); } catch(e) {
+                    this.addIssue(mod,'critical','Health Check Failed: '+fn,'Error: '+e.message,'','SYSTEM_CHECK','Success','Exception: '+e.message, fn.toUpperCase());
+                    console.error('SHC '+fn+':', e);
+                }
+            });
+            Object.keys(this._moduleLabels).forEach(k => { this.modules[k] = this.issues.filter(i => i.module === k).length; });
             this.scanTime = new Date().toISOString();
             console.log('SHC scan complete in ' + (Date.now() - t0) + 'ms, ' + this.issues.length + ' issues found');
         },
@@ -5334,60 +5328,66 @@
         },
         getStatus() {
             let crit = this.issues.filter(i => i.severity === 'critical').length;
-            let score = this.getScore();
-            if (crit > 0) return { label: 'توجد مشاكل حرجة', cls: 'text-danger', icon: '🔴', color: '#ef4444' };
-            if (score >= 90) return { label: 'النظام بحالة جيدة', cls: 'text-success', icon: '🟢', color: '#22c55e' };
-            if (score >= 70) return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b' };
-            return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b' };
+            let high = this.issues.filter(i => i.severity === 'high').length;
+            if (crit > 0) return { label: 'توجد مشاكل حرجة', cls: 'text-danger', icon: '🔴', color: '#ef4444', level: 'critical' };
+            if (high > 0) return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b', level: 'attention' };
+            let medLow = this.issues.filter(i => i.severity === 'medium' || i.severity === 'low').length;
+            if (medLow > 0) return { label: 'سليم مع تحذيرات', cls: 'text-success', icon: '🟢', color: '#22c55e', level: 'warnings' };
+            if (this.issues.length === 0) return { label: 'النظام بحالة ممتازة', cls: 'text-success', icon: '🟢', color: '#22c55e', level: 'healthy' };
+            return { label: 'يحتاج مراجعة', cls: 'text-warning', icon: '🟡', color: '#f59e0b', level: 'attention' };
         },
 
         // A. DATABASE INTEGRITY
         checkDatabase() {
             const stores = { products, transactions, installments, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, arabonSales, partners, accounts, employees, recurringExpenses, auditLog, stockMovements };
             Object.entries(stores).forEach(([name, arr]) => {
-                if (!Array.isArray(arr)) { this.addIssue('database','critical','Data store "'+name+'" is not an array','','','','','Array'); return; }
+                if (!Array.isArray(arr)) { this.addIssue('database','critical','Data store "'+name+'" is not an array','','','','','Array','DB_'+name.toUpperCase()+'_NOT_ARRAY'); return; }
                 const idMap = {};
                 arr.forEach((r, idx) => {
-                    if (!r || typeof r !== 'object') { this.addIssue('database','high', name+'['+idx+'] not an object','Record is null or invalid', idx+'','','Valid object','Invalid'); return; }
-                    if (!r.id && r.id !== 0) { this.addIssue('database','medium', name+' record #'+idx+' missing ID','No id field',idx+'','id','Present','Missing'); }
-                    else { if (idMap[r.id]) { this.addIssue('database','critical','Duplicate ID in '+name, 'ID '+r.id+' appears multiple times', String(r.id), 'id', 'Unique','Duplicate'); } idMap[r.id] = true; }
+                    if (!r || typeof r !== 'object') { this.addIssue('database','high', name+'['+idx+'] not an object','Record is null or invalid', idx+'','','Valid object','Invalid','DB_INVALID_RECORD'); return; }
+                    if (!r.id && r.id !== 0) { this.addIssue('database','medium', name+' record #'+idx+' missing ID','No id field',idx+'','id','Present','Missing','DB_MISSING_ID'); }
+                    else { if (idMap[r.id]) { this.addIssue('database','critical','Duplicate ID in '+name, 'ID '+r.id+' appears multiple times', String(r.id), 'id', 'Unique','Duplicate','DB_DUPLICATE_ID'); } idMap[r.id] = true; }
                 });
             });
         },
 
         // B. TRANSACTION INTEGRITY
         checkTransactions() {
-            const validTypes = ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_payment','installment_paid','arabon_payment','arabon_paid','partner_in','partner_out','opening_balance','payment_out','sell_cash','sell','merchant_sale','merchant_purchase','payment_in'];
             transactions.forEach(t => {
-                if (!t.sourceId && !t.sourceType) { /* ok - some trans have neither */ }
-                if (t.amount == null || isNaN(t.amount)) this.addIssue('transactions','critical','Transaction has invalid amount','Amount is NaN or null',String(t.id),'amount','Number',String(t.amount));
-                if (t.amount < 0 && !['sale_return','purchase_return','partner_withdrawal','transfer_out','payment_out','expense'].includes(t.type)) this.addIssue('transactions','medium','Negative amount on '+t.type,'Unexpected negative',String(t.id),'amount','Positive',String(t.amount));
-                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('transactions','high','Transaction references missing account','Account #'+t.accountId+' not found',String(t.id),'accountId','Existing account','Missing');
-                if (t.productId && !products.find(p => p.id == t.productId)) this.addIssue('transactions','medium','Transaction references missing product','Product #'+t.productId, String(t.id),'productId','Existing product','Missing');
-                if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('transactions','medium','Transaction references missing employee','Employee #'+t.employeeId, String(t.id),'employeeId','Existing employee','Missing');
+                if (t.amount == null || isNaN(t.amount)) { this.addIssue('transactions','critical','Transaction has invalid amount','Amount is NaN or null',String(t.id),'amount','Number',String(t.amount),'TX_INVALID_AMOUNT'); return; }
+                if (t.amount < 0 && !['sale_return','purchase_return','partner_withdrawal','transfer_out','payment_out','expense'].includes(t.type)) this.addIssue('transactions','medium','Negative amount on '+t.type,'Unexpected negative',String(t.id),'amount','Positive',String(t.amount),'TX_NEGATIVE_AMOUNT');
+                if (t.type && !this._VALID_TYPES.includes(t.type)) this.addIssue('transactions','high','Unknown transaction type: "'+t.type+'"','Type not in valid list', String(t.id), 'type', 'Known type', t.type,'TX_UNKNOWN_TYPE');
+                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('transactions','high','Transaction refs missing account','Account #'+t.accountId+' not found',String(t.id),'accountId','Existing account','Missing','TX_MISSING_ACCOUNT');
+                if (t.productId && !products.find(p => p.id == t.productId)) this.addIssue('transactions','medium','Transaction refs missing product','Product #'+t.productId, String(t.id),'productId','Existing product','Missing','TX_MISSING_PRODUCT');
+                if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('transactions','medium','Transaction refs missing employee','Employee #'+t.employeeId, String(t.id),'employeeId','Existing employee','Missing','TX_MISSING_EMPLOYEE');
+                if ((t.type === 'merchant_sale') && t.sourceId) {
+                    let base = t.sourceId.replace(/_[cb]$/,'');
+                    if (!merchantSales.find(s => s.transactionId == base || s.transactionId == t.id)) this.addIssue('transactions','high','Merchant sale tx #'+t.id+' not linked to merchant sale record','',String(t.id),'sourceType','merchantSales link','Missing','TX_MERCHANT_SALE_LINK');
+                }
+                if (t.instId && !installments.find(i => i.id == t.instId)) this.addIssue('transactions','high','Transaction #'+t.id+' refs missing installment #'+t.instId,'',String(t.id),'instId','Existing installment','Missing','TX_MISSING_INSTALLMENT');
+                if (t.arabonId && !arabonSales.find(a => a.id == t.arabonId)) this.addIssue('transactions','high','Transaction #'+t.id+' refs missing arabon #'+t.arabonId,'',String(t.id),'arabonId','Existing arabon','Missing','TX_MISSING_ARABON');
+                if (t.partnerId && !partners.find(p => p.id == t.partnerId)) this.addIssue('transactions','high','Transaction #'+t.id+' refs missing partner #'+t.partnerId,'',String(t.id),'partnerId','Existing partner','Missing','TX_MISSING_PARTNER');
             });
         },
 
         // C. INVENTORY INTEGRITY
         checkInventory() {
+            const movCounts = {};
+            stockMovements.forEach(sm => { movCounts[sm.productId] = (movCounts[sm.productId]||0) + 1; });
             products.forEach(p => {
-                if (p.stock < 0) this.addIssue('inventory','critical','Negative stock: '+p.name,'Stock is '+p.stock, String(p.id),'stock','>= 0',String(p.stock));
-                if (p.costPrice < 0) this.addIssue('inventory','high','Negative cost price: '+p.name, String(p.id),'costPrice','>= 0',String(p.costPrice));
-                if (!p.name || p.name.trim() === '') this.addIssue('inventory','medium','Product missing name','',String(p.id),'name','Present','Empty');
-                let expected = 0, hasMovements = false;
-                stockMovements.forEach(sm => {
-                    if (sm.productId == p.id) {
-                        hasMovements = true;
-                        if (sm.type === 'in') expected += (parseFloat(sm.qty) || 0);
-                        else if (sm.type === 'out') expected -= (parseFloat(sm.qty) || 0);
-                    }
-                });
-                if (hasMovements && Math.abs(expected - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+expected.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',expected.toFixed(0),String(p.stock));
+                if (p.stock < 0) this.addIssue('inventory','critical','Negative stock: '+p.name,'Stock is '+p.stock, String(p.id),'stock','>= 0',String(p.stock),'INV_NEGATIVE_STOCK');
+                if (p.costPrice < 0) this.addIssue('inventory','high','Negative cost price: '+p.name, String(p.id),'costPrice','>= 0',String(p.costPrice),'INV_NEGATIVE_COST');
+                if (!p.name || p.name.trim() === '') this.addIssue('inventory','medium','Product missing name','',String(p.id),'name','Present','Empty','INV_MISSING_NAME');
+                if (movCounts[p.id]) {
+                    let calcStock = BusinessLogic.calculateStockFromMovements(p.id);
+                    if (Math.abs(calcStock - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+calcStock.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',calcStock.toFixed(0),String(p.stock),'INV_STOCK_MISMATCH');
+                }
             });
             stockMovements.forEach(sm => {
-                if (!sm.productId) this.addIssue('inventory','high','Stock movement #'+sm.id+' has no product','',String(sm.id),'productId','Present','Missing');
-                if (!sm.sourceType && !sm.sourceId) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has no source reference','',String(sm.id),'sourceType','Present','Missing');
-                if (sm.qty == null || isNaN(sm.qty) || sm.qty <= 0) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has invalid qty','Qty: '+sm.qty, String(sm.id),'qty','Positive number',String(sm.qty));
+                if (!sm.productId || !products.find(p => p.id == sm.productId)) this.addIssue('inventory','high','Orphan stock movement #'+sm.id+' refs missing product #'+sm.productId,'',String(sm.id),'productId','Existing product','Missing','INV_ORPHAN_MOVEMENT');
+                if (!sm.sourceType && !sm.sourceId) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has no source reference','',String(sm.id),'sourceType','Present','Missing','INV_NO_SOURCE');
+                if (sm.qty == null || isNaN(sm.qty) || sm.qty <= 0) this.addIssue('inventory','medium','Stock movement #'+sm.id+' has invalid qty','Qty: '+sm.qty, String(sm.id),'qty','Positive number',String(sm.qty),'INV_INVALID_QTY');
+                if (sm.type !== 'in' && sm.type !== 'out') this.addIssue('inventory','medium','Stock movement #'+sm.id+' has invalid type','Type: '+sm.type, String(sm.id),'type','in|out',sm.type,'INV_INVALID_MOVEMENT_TYPE');
             });
         },
 
@@ -5395,94 +5395,127 @@
         checkInstallments() {
             installments.forEach(inst => {
                 let totalPaid = (inst.schedule || []).reduce((s, sl) => s + (sl.paidAmount || 0), 0);
-                let remaining = (inst.totalAfterInterest || inst.purchasePrice || 0) - totalPaid;
-                if (inst.remainingBalance != null && Math.abs(remaining - inst.remainingBalance) > 0.01) this.addIssue('installments','high','Balance mismatch: Contract #'+(inst.contractNo||inst.id),'Calculated '+remaining.toFixed(2)+' vs stored '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance',remaining.toFixed(2),String(inst.remainingBalance));
-                if (inst.remainingBalance != null && inst.remainingBalance < -0.01) this.addIssue('installments','critical','Negative remaining: Contract #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','>= 0',String(inst.remainingBalance));
-                if (totalPaid > (inst.totalAfterInterest || inst.purchasePrice) + 0.01 && !inst.isPaid) this.addIssue('installments','high','Overpaid contract: #'+(inst.contractNo||inst.id),'Paid '+totalPaid.toFixed(2)+' > total '+(inst.totalAfterInterest||inst.purchasePrice).toFixed(2), String(inst.id),'paidAmount','<= total',String(totalPaid.toFixed(2)));
-                if (!inst.merchantId) this.addIssue('installments','medium','Missing customer in #'+(inst.contractNo||inst.id),'No merchantId', String(inst.id),'merchantId','Present','Missing');
-                else if (!merchants.find(m => m.id == inst.merchantId)) this.addIssue('installments','high','Invalid customer in #'+(inst.contractNo||inst.id),'Merchant #'+inst.merchantId+' not found', String(inst.id),'merchantId','Existing merchant','Missing');
-                if (!inst.productId) this.addIssue('installments','medium','Missing product in #'+(inst.contractNo||inst.id),'No productId', String(inst.id),'productId','Present','Missing');
-                else if (!products.find(p => p.id == inst.productId)) this.addIssue('installments','high','Invalid product in #'+(inst.contractNo||inst.id),'Product #'+inst.productId+' not found', String(inst.id),'productId','Existing product','Missing');
-                if (inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) > 0.01) this.addIssue('installments','high','Completed contract with balance: #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','0 when paid',String(inst.remainingBalance));
-                if (!inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) < 0.01 && totalPaid > 0) this.addIssue('installments','medium','Open contract with zero balance: #'+(inst.contractNo||inst.id),'Should be marked paid','', 'isPaid','true','false');
-                if (!inst.schedule || inst.schedule.length === 0) this.addIssue('installments','medium','Missing schedule: #'+(inst.contractNo||inst.id),'No payment schedule', String(inst.id),'schedule','Present','Missing');
+                let expectedRemaining = Math.max((inst.totalAfterInterest || inst.purchasePrice || 0) - totalPaid, 0);
+                if (inst.remainingBalance != null && Math.abs(expectedRemaining - inst.remainingBalance) > 0.01) this.addIssue('installments','high','Balance mismatch: Contract #'+(inst.contractNo||inst.id),'Calculated '+expectedRemaining.toFixed(2)+' vs stored '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance',expectedRemaining.toFixed(2),String(inst.remainingBalance),'INST_BALANCE_MISMATCH');
+                if (inst.remainingBalance != null && inst.remainingBalance < -0.01) this.addIssue('installments','critical','Negative remaining: Contract #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','>= 0',String(inst.remainingBalance),'INST_NEGATIVE_REMAINING');
+                if (inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) > 0.01) this.addIssue('installments','high','Completed contract with balance: #'+(inst.contractNo||inst.id),'Remaining: '+inst.remainingBalance.toFixed(2), String(inst.id),'remainingBalance','0 when paid',String(inst.remainingBalance),'INST_PAID_WITH_BALANCE');
+                if (!inst.isPaid && inst.remainingBalance != null && Math.abs(inst.remainingBalance) < 0.01 && totalPaid > 0) this.addIssue('installments','medium','Open contract with zero balance: #'+(inst.contractNo||inst.id),'Should be marked paid','', 'isPaid','true','false','INST_ZERO_NOT_PAID');
+                if (!inst.merchantId) this.addIssue('installments','medium','Missing customer in #'+(inst.contractNo||inst.id),'No merchantId', String(inst.id),'merchantId','Present','Missing','INST_MISSING_CUSTOMER');
+                else if (!merchants.find(m => m.id == inst.merchantId)) this.addIssue('installments','high','Invalid customer in #'+(inst.contractNo||inst.id),'Merchant #'+inst.merchantId+' not found', String(inst.id),'merchantId','Existing merchant','Missing','INST_INVALID_CUSTOMER');
+                if (!inst.productId) this.addIssue('installments','medium','Missing product in #'+(inst.contractNo||inst.id),'No productId', String(inst.id),'productId','Present','Missing','INST_MISSING_PRODUCT');
+                else if (!products.find(p => p.id == inst.productId)) this.addIssue('installments','high','Invalid product in #'+(inst.contractNo||inst.id),'Product #'+inst.productId+' not found', String(inst.id),'productId','Existing product','Missing','INST_INVALID_PRODUCT');
+                if (!inst.schedule || inst.schedule.length === 0) this.addIssue('installments','medium','Missing schedule: #'+(inst.contractNo||inst.id),'No payment schedule', String(inst.id),'schedule','Present','Missing','INST_MISSING_SCHEDULE');
+                if (inst.totalAfterInterest != null && inst.purchasePrice != null) {
+                    let expectedTotal = Math.max((inst.purchasePrice - (inst.paidUpfront || 0)) * (1 + (inst.interestRate || 0) / 100), 0);
+                    if (Math.abs(expectedTotal - inst.totalAfterInterest) > 1) this.addIssue('installments','high','totalAfterInterest mismatch: #'+(inst.contractNo||inst.id),'Expected '+expectedTotal.toFixed(2)+' but stored '+inst.totalAfterInterest.toFixed(2), String(inst.id),'totalAfterInterest',expectedTotal.toFixed(2),String(inst.totalAfterInterest),'INST_TOTAL_MISMATCH');
+                }
             });
         },
 
-        // E. ACCOUNT INTEGRITY
+        // E. ACCOUNT INTEGRITY + RECONCILIATION
         checkAccounts() {
             const accIds = {};
             accounts.forEach(a => {
-                if (accIds[a.id]) this.addIssue('accounts','critical','Duplicate account ID: '+a.id,'',String(a.id),'id','Unique','Duplicate');
+                if (accIds[a.id]) this.addIssue('accounts','critical','Duplicate account ID: '+a.id,'',String(a.id),'id','Unique','Duplicate','ACC_DUPLICATE_ID');
                 accIds[a.id] = true;
-                if (typeof a.balance !== 'number' || isNaN(a.balance)) this.addIssue('accounts','high','Invalid balance: '+a.name,'Balance is '+a.balance, String(a.id),'balance','Number',String(a.balance));
-                if (!['cash','bank','vodafone'].includes(a.type)) this.addIssue('accounts','medium','Invalid account type: '+a.name,'Type: '+a.type, String(a.id),'type','cash|bank|vodafone',a.type);
-                if (!a.name) this.addIssue('accounts','medium','Account #'+a.id+' has no name','',String(a.id),'name','Present','Missing');
+                if (typeof a.balance !== 'number' || isNaN(a.balance)) this.addIssue('accounts','high','Invalid balance: '+a.name,'Balance is '+a.balance, String(a.id),'balance','Number',String(a.balance),'ACC_INVALID_BALANCE');
+                if (!['cash','bank','vodafone'].includes(a.type)) this.addIssue('accounts','medium','Invalid account type: '+a.name,'Type: '+a.type, String(a.id),'type','cash|bank|vodafone',a.type,'ACC_INVALID_TYPE');
+                if (!a.name) this.addIssue('accounts','medium','Account #'+a.id+' has no name','',String(a.id),'name','Present','Missing','ACC_MISSING_NAME');
             });
             transactions.forEach(t => {
-                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('accounts','high','Orphan transaction account ref: #'+t.id,'Account #'+t.accountId+' missing', String(t.id),'accountId','Existing',t.accountId);
+                if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('accounts','high','Orphan transaction account ref: #'+t.id,'Account #'+t.accountId+' missing', String(t.id),'accountId','Existing',String(t.accountId),'ACC_ORPHAN_REF');
             });
         },
 
         // F. ARABON INTEGRITY
         checkArabon() {
             arabonSales.forEach(a => {
-                if (!a.merchantId || !merchants.find(m => m.id == a.merchantId)) this.addIssue('arabon','high','Arabon #'+a.id+' missing customer','Merchant #'+a.merchantId, String(a.id),'merchantId','Existing','Missing');
-                if (!a.productId || !products.find(p => p.id == a.productId)) this.addIssue('arabon','medium','Arabon #'+a.id+' missing product','Product #'+a.productId, String(a.id),'productId','Existing','Missing');
-                if (a.remainingBalance != null && a.remainingBalance < -0.01) this.addIssue('arabon','critical','Negative remaining in arabon #'+a.id,'Remaining: '+a.remainingBalance, String(a.id),'remainingBalance','>= 0',String(a.remainingBalance));
-                if (a.depositAmount > (a.sellPrice || 0) + 0.01) this.addIssue('arabon','high','Deposit exceeds price: arabon #'+a.id,'Deposit '+a.depositAmount+' > price '+a.sellPrice, String(a.id),'depositAmount','<= sellPrice',String(a.depositAmount));
+                if (!a.merchantId || !merchants.find(m => m.id == a.merchantId)) this.addIssue('arabon','high','Arabon #'+a.id+' missing customer','Merchant #'+a.merchantId, String(a.id),'merchantId','Existing','Missing','ARB_MISSING_CUSTOMER');
+                if (!a.productId || !products.find(p => p.id == a.productId)) this.addIssue('arabon','medium','Arabon #'+a.id+' missing product','Product #'+a.productId, String(a.id),'productId','Existing','Missing','ARB_MISSING_PRODUCT');
+                if (a.remainingBalance != null && a.remainingBalance < -0.01) this.addIssue('arabon','critical','Negative remaining in arabon #'+a.id,'Remaining: '+a.remainingBalance, String(a.id),'remainingBalance','>= 0',String(a.remainingBalance),'ARB_NEGATIVE_REMAINING');
+                if (a.depositAmount > (a.sellPrice || 0) + 0.01) this.addIssue('arabon','high','Deposit exceeds price: arabon #'+a.id,'Deposit '+a.depositAmount+' > price '+a.sellPrice, String(a.id),'depositAmount','<= sellPrice',String(a.depositAmount),'ARB_DEPOSIT_EXCEEDS_PRICE');
+                let payments = transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in').reduce((s, t) => s + (t.amount || 0), 0);
+                let expectedRemaining = Math.max((a.sellPrice || 0) - (a.depositAmount || 0) - payments, 0);
+                if (a.remainingAmount != null && Math.abs(expectedRemaining - a.remainingAmount) > 1) this.addIssue('arabon','high','Remaining amount mismatch: arabon #'+a.id,'Expected '+expectedRemaining.toFixed(2)+' vs stored '+a.remainingAmount.toFixed(2), String(a.id),'remainingAmount',expectedRemaining.toFixed(2),String(a.remainingAmount),'ARB_REMAINING_MISMATCH');
+                if (!a.isPaid && a.remainingBalance != null && Math.abs(a.remainingBalance) < 0.01 && (a.depositAmount || 0) > 0) this.addIssue('arabon','medium','Completed arabon #'+a.id+' not marked paid','',String(a.id),'isPaid','true','false','ARB_SHOULD_BE_PAID');
             });
         },
 
-        // G. MERCHANT INTEGRITY
+        // G. MERCHANT INTEGRITY + RECONCILIATION
         checkMerchants() {
             const mIds = {};
-            merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing'); });
-            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing'); if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing'); });
-            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); });
-            merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount)); });
-            merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing'); });
+            merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate','MERCH_DUPLICATE_ID'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing','MERCH_MISSING_NAME'); });
+            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
+            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && !transactions.find(t => t.id == p.transactionId)) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
+            merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYMENT_ORPHAN'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount),'MERCH_ZERO_PAYMENT'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYMENT_TX_ORPHAN'); }); });
+            merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYOUT_ORPHAN'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYOUT_TX_ORPHAN'); }); });
+            merchants.forEach(m => {
+                let calcBalance = BusinessLogic.merchantBalanceFromTransactions(m.id);
+                let msTotal = merchantSales.filter(s => s.merchantId == m.id).reduce((sum, s) => sum + (s.sellPrice || 0) * (s.quantity || 1), 0);
+                let mpTotal = merchantPayments.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.amount || 0), 0);
+                let mprTotal = merchantPurchases.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.costPrice || 0) * (p.quantity || 1), 0);
+                let mpoTotal = merchantPaymentsOut.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.amount || 0), 0);
+                let expected = msTotal + mpoTotal - mpTotal - mprTotal;
+                if (Math.abs(expected - calcBalance) > 1) this.addIssue('merchants','high','Merchant balance calculation mismatch: '+m.name,'Expected '+expected.toFixed(2)+' vs calculated '+calcBalance.toFixed(2), String(m.id),'balance',expected.toFixed(2),String(calcBalance),'MERCH_BALANCE_MISMATCH');
+            });
         },
 
-        // H. PARTNER INTEGRITY
+        // H. PARTNER INTEGRITY + RECONCILIATION
         checkPartners() {
             partners.forEach(p => {
-                if (typeof p.balance !== 'number' || isNaN(p.balance)) this.addIssue('partners','high','Invalid partner balance: '+p.name,'Balance: '+p.balance, String(p.id),'balance','Number',String(p.balance));
-                if (!p.name) this.addIssue('partners','medium','Partner #'+p.id+' has no name','',String(p.id),'name','Present','Missing');
+                if (typeof p.balance !== 'number' || isNaN(p.balance)) this.addIssue('partners','high','Invalid partner balance: '+p.name,'Balance: '+p.balance, String(p.id),'balance','Number',String(p.balance),'PART_INVALID_BALANCE');
+                if (!p.name) this.addIssue('partners','medium','Partner #'+p.id+' has no name','',String(p.id),'name','Present','Missing','PART_MISSING_NAME');
+                let calcBal = 0;
+                transactions.forEach(t => {
+                    if (t.partnerId != p.id) return;
+                    const amt = parseFloat(t.amount) || 0;
+                    if (t.type === 'partner_deposit') calcBal += amt;
+                    else if (t.type === 'partner_withdrawal') calcBal -= amt;
+                });
+                if (Math.abs(calcBal - p.balance) > 1) this.addIssue('partners','high','Partner balance mismatch: '+p.name,'Calculated '+calcBal.toFixed(2)+' vs stored '+p.balance.toFixed(2), String(p.id),'balance',calcBal.toFixed(2),String(p.balance),'PART_BALANCE_MISMATCH');
             });
             transactions.forEach(t => {
-                if ((t.type === 'partner_in' || t.type === 'partner_out') && t.partnerId && !partners.find(p => p.id == t.partnerId)) this.addIssue('partners','high','Partner transaction #'+t.id+' refs missing partner','Partner #'+t.partnerId, String(t.id),'partnerId','Existing','Missing');
+                if ((t.type === 'partner_deposit' || t.type === 'partner_withdrawal') && t.partnerId && !partners.find(p => p.id == t.partnerId)) this.addIssue('partners','high','Partner tx #'+t.id+' refs missing partner','Partner #'+t.partnerId, String(t.id),'partnerId','Existing','Missing','PART_ORPHAN_TX');
             });
         },
 
         // I. EMPLOYEE INTEGRITY
         checkEmployees() {
             const eIds = {};
-            employees.forEach(e => { if (eIds[e.id]) this.addIssue('employees','critical','Duplicate employee ID: '+e.id,'',String(e.id),'id','Unique','Duplicate'); eIds[e.id] = true; if (!e.name) this.addIssue('employees','medium','Employee #'+e.id+' has no name','',String(e.id),'name','Present','Missing'); if (!['admin','employee'].includes(e.role)) this.addIssue('employees','low','Employee '+e.name+' has invalid role','Role: '+e.role, String(e.id),'role','admin|employee',e.role); });
-            transactions.forEach(t => { if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('employees','medium','Transaction #'+t.id+' refs missing employee #'+t.employeeId,'', String(t.id),'employeeId','Existing','Missing'); });
-            installments.forEach(i => { if (i.employeeId && !employees.find(e => e.id == i.employeeId)) this.addIssue('employees','medium','Installment #'+i.id+' refs missing employee #'+i.employeeId,'', String(i.id),'employeeId','Existing','Missing'); });
+            employees.forEach(e => { if (eIds[e.id]) this.addIssue('employees','critical','Duplicate employee ID: '+e.id,'',String(e.id),'id','Unique','Duplicate','EMP_DUPLICATE_ID'); eIds[e.id] = true; if (!e.name) this.addIssue('employees','medium','Employee #'+e.id+' has no name','',String(e.id),'name','Present','Missing','EMP_MISSING_NAME'); if (!['admin','employee'].includes(e.role)) this.addIssue('employees','low','Employee '+e.name+' has invalid role','Role: '+e.role, String(e.id),'role','admin|employee',e.role,'EMP_INVALID_ROLE'); });
+            transactions.forEach(t => { if (t.employeeId && !employees.find(e => e.id == t.employeeId)) this.addIssue('employees','medium','Transaction #'+t.id+' refs missing employee #'+t.employeeId,'', String(t.id),'employeeId','Existing','Missing','EMP_TX_ORPHAN'); });
+            installments.forEach(i => { if (i.employeeId && !employees.find(e => e.id == i.employeeId)) this.addIssue('employees','medium','Installment #'+i.id+' refs missing employee #'+i.employeeId,'', String(i.id),'employeeId','Existing','Missing','EMP_INST_ORPHAN'); });
         },
 
         // J. AUDIT INTEGRITY
         checkAudit() {
-            if (auditLog.length > 0) {
-                let missingTs = 0, missingAction = 0;
-                auditLog.forEach(a => { if (!a.ts) missingTs++; if (!a.action) missingAction++; });
-                if (missingTs > 0) this.addIssue('audit','low', missingTs+' audit entries missing timestamp','','','','',missingTs+' entries');
-                if (missingAction > 0) this.addIssue('audit','low', missingAction+' audit entries missing action','','','','',missingAction+' entries');
-            }
+            if (auditLog.length === 0) return;
+            let missingTs = 0, missingAction = 0, missingEntity = 0, invalidDate = 0, dupIds = {};
+            auditLog.forEach(a => {
+                if (!a.ts) missingTs++;
+                else { try { let d = new Date(a.ts); if (isNaN(d.getTime())) invalidDate++; } catch(e) { invalidDate++; } }
+                if (!a.action) missingAction++;
+                if (!a.entity) missingEntity++;
+                if (a.id) { if (dupIds[a.id]) this.addIssue('audit','high','Duplicate audit ID: '+a.id,'',String(a.id),'id','Unique','Duplicate','AUDIT_DUPLICATE_ID'); dupIds[a.id] = true; }
+            });
+            if (missingTs > 0) this.addIssue('audit','medium', missingTs+' audit entries missing ts field','','','ts','ISO date string',missingTs+' entries','AUDIT_MISSING_TS');
+            if (invalidDate > 0) this.addIssue('audit','medium', invalidDate+' audit entries have invalid date','','','ts','Valid ISO date',invalidDate+' entries','AUDIT_INVALID_DATE');
+            if (missingAction > 0) this.addIssue('audit','low', missingAction+' audit entries missing action','','','action','String',missingAction+' entries','AUDIT_MISSING_ACTION');
+            if (missingEntity > 0) this.addIssue('audit','low', missingEntity+' audit entries missing entity','','','entity','String',missingEntity+' entries','AUDIT_MISSING_ENTITY');
         },
 
         // K. BACKUP HEALTH
         checkBackup() {
             let lastBackup = localStorage.getItem('autoBackup_last');
-            if (!lastBackup) { this.addIssue('backup','info','No backup timestamp found','No auto-backup configured','','','','Never'); return; }
+            if (!lastBackup) { this.addIssue('backup','medium','No backup timestamp found','No auto-backup configured','','','','Never','BACKUP_NONE'); return; }
             let age = Date.now() - new Date(lastBackup).getTime();
             let days = Math.floor(age / 86400000);
-            if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 7 days',days+' days');
+            if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
+            else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 7 days',days+' days','BACKUP_OLD');
+            try { let data = JSON.parse(localStorage.getItem('salesAppData') || '{}'); if (data && Object.keys(data).length === 0) this.addIssue('backup','info','Backup data is empty','','','','','Empty','BACKUP_EMPTY'); } catch(e) { /* ok */ }
         },
 
-        // ORPHAN DETECTION
+        // L. ORPHAN DETECTION (expanded)
         checkOrphans() {
             const prodIds = new Set(products.map(p => String(p.id)));
             const merchIds = new Set(merchants.map(m => String(m.id)));
@@ -5490,82 +5523,116 @@
             const instIds = new Set(installments.map(i => String(i.id)));
             const empIds = new Set(employees.map(e => String(e.id)));
             const partIds = new Set(partners.map(p => String(p.id)));
-            stockMovements.forEach(sm => { if (sm.productId && !prodIds.has(String(sm.productId))) this.addIssue('inventory','high','Orphan stock movement #'+sm.id+' refs missing product #'+sm.productId,'',String(sm.id),'productId','Existing product','Missing'); });
-            transactions.forEach(t => { if (t.instId && !instIds.has(String(t.instId))) this.addIssue('installments','high','Transaction #'+t.id+' refs missing installment #'+t.instId,'',String(t.id),'instId','Existing installment','Missing'); if (t.arabonId && !arabonSales.find(a => a.id == t.arabonId)) this.addIssue('arabon','high','Transaction #'+t.id+' refs missing arabon #'+t.arabonId,'',String(t.id),'arabonId','Existing arabon','Missing'); });
-            merchantPayments.forEach(p => { if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing transaction #'+tid,'',String(p.id),'transactionIds','Existing','Missing'); }); });
-            merchantPaymentsOut.forEach(p => { if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing transaction #'+tid,'',String(p.id),'transactionIds','Existing','Missing'); }); });
+            const arabonIds = new Set(arabonSales.map(a => String(a.id)));
+            stockMovements.forEach(sm => { if (sm.productId && !prodIds.has(String(sm.productId))) this.addIssue('inventory','high','Orphan stock movement #'+sm.id+' refs missing product #'+sm.productId,'',String(sm.id),'productId','Existing product','Missing','ORPHAN_STOCK_MOVEMENT'); });
+            transactions.forEach(t => {
+                if (t.instId && !instIds.has(String(t.instId))) this.addIssue('installments','high','Transaction #'+t.id+' refs missing installment #'+t.instId,'',String(t.id),'instId','Existing installment','Missing','ORPHAN_TX_INSTALLMENT');
+                if (t.arabonId && !arabonIds.has(String(t.arabonId))) this.addIssue('arabon','high','Transaction #'+t.id+' refs missing arabon #'+t.arabonId,'',String(t.id),'arabonId','Existing arabon','Missing','ORPHAN_TX_ARABON');
+            });
+            installments.forEach(inst => {
+                if (inst.merchantId && !merchIds.has(String(inst.merchantId))) this.addIssue('installments','high','Installment #'+(inst.contractNo||inst.id)+' refs missing merchant #'+inst.merchantId,'',String(inst.id),'merchantId','Existing merchant','Missing','ORPHAN_INST_MERCHANT');
+                if (inst.productId && !prodIds.has(String(inst.productId))) this.addIssue('installments','high','Installment #'+(inst.contractNo||inst.id)+' refs missing product #'+inst.productId,'',String(inst.id),'productId','Existing product','Missing','ORPHAN_INST_PRODUCT');
+            });
+            arabonSales.forEach(a => {
+                if (a.merchantId && !merchIds.has(String(a.merchantId))) this.addIssue('arabon','high','Arabon #'+a.id+' refs missing merchant #'+a.merchantId,'',String(a.id),'merchantId','Existing merchant','Missing','ORPHAN_ARB_MERCHANT');
+                if (a.productId && !prodIds.has(String(a.productId))) this.addIssue('arabon','high','Arabon #'+a.id+' refs missing product #'+a.productId,'',String(a.id),'productId','Existing product','Missing','ORPHAN_ARB_PRODUCT');
+            });
+            merchantSales.forEach(s => {
+                if (s.merchantId && !merchIds.has(String(s.merchantId))) this.addIssue('merchants','high','MerchantSale #'+s.id+' refs missing merchant #'+s.merchantId,'',String(s.id),'merchantId','Existing merchant','Missing','ORPHAN_MS_MERCHANT');
+                if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','MerchantSale #'+s.id+' refs missing transaction #'+s.transactionId,'',String(s.id),'transactionId','Existing','Missing','ORPHAN_MS_TX');
+            });
+            merchantPurchases.forEach(p => {
+                if (p.merchantId && !merchIds.has(String(p.merchantId))) this.addIssue('merchants','high','MerchantPurchase #'+p.id+' refs missing merchant #'+p.merchantId,'',String(p.id),'merchantId','Existing merchant','Missing','ORPHAN_MP_MERCHANT');
+                if (p.transactionId && !transactions.find(t => t.id == p.transactionId)) this.addIssue('merchants','medium','MerchantPurchase #'+p.id+' refs missing transaction #'+p.transactionId,'',String(p.id),'transactionId','Existing','Missing','ORPHAN_MP_TX');
+            });
         },
 
-        // DUPLICATE DETECTION
+        // M. DUPLICATE DETECTION (improved)
         checkDuplicates() {
             const seen = {};
             transactions.forEach(t => {
-                let key = t.type + '|' + t.amount + '|' + t.date + '|' + (t.sourceId || '');
-                if (key !== '|') { if (seen[key]) this.addIssue('transactions','high','Possible duplicate transactions','#'+seen[key]+' and #'+t.id, String(t.id),'','Unique combination','Duplicate pattern'); seen[key] = t.id; }
-            });
-            const instSeen = {};
-            installments.forEach(i => { if (i.contractNo) { if (instSeen[i.contractNo]) this.addIssue('installments','high','Duplicate contract number: '+i.contractNo,'',String(i.id),'contractNo','Unique','Duplicate'); instSeen[i.contractNo] = true; } });
-        },
-
-        // CROSS-MODULE CONSISTENCY
-        checkCrossModule() {
-            transactions.filter(t => t.type === 'merchant_sale').forEach(t => {
-                let ms = merchantSales.find(s => { let base = t.sourceId ? t.sourceId.replace(/_[cb]$/,'') : ''; return s.transactionId == base || s.transactionId == t.id; });
-                if (!ms) this.addIssue('transactions','high','Merchant sale transaction #'+t.id+' not linked to merchant sale record','','','merchantSales link','Existing','Missing');
-            });
-            installments.forEach(inst => {
-                let paidSchedule = (inst.schedule || []).filter(s => s.isPaid || s.paidAmount > 0);
-                let hasPayment = transactions.some(t => t.instId == inst.id && (t.sourceType === 'installment_payment' || t.type === 'payment_in'));
-                if (paidSchedule.length > 0 && !hasPayment && inst.paidUpfront <= 0) this.addIssue('installments','medium','Installment #'+(inst.contractNo||inst.id)+' has paid schedule but no payment transaction','','','','','');
-            });
-        },
-
-        // L. UNKNOWN TRANSACTION TYPES
-        checkUnknownTypes() {
-            const validTypes = ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_payment','installment_paid','arabon_payment','arabon_paid','partner_in','partner_out','opening_balance','payment_out','sell_cash','sell','merchant_sale','merchant_purchase','payment_in'];
-            transactions.forEach(t => {
-                if (t.type && !validTypes.includes(t.type)) this.addIssue('transactions','high','Unknown transaction type: "'+t.type+'"','Type not in valid list', String(t.id), 'type', 'Known type', t.type);
-            });
-        },
-
-        // M. BALANCE RECONCILIATION
-        checkBalanceReconciliation() {
-            accounts.forEach(a => {
-                let calcBal = 0;
-                transactions.forEach(t => {
-                    if (t.accountId != a.id) return;
-                    const amt = parseFloat(t.amount) || 0;
-                    if (['sale','sell','sell_cash','merchant_sale','income','transfer_in','partner_in','installment_paid','arabon_paid','purchase_return','sale_return','payment_in','opening_balance'].includes(t.type)) calcBal += amt;
-                    else if (['purchase','expense','transfer_out','partner_out','payment_out','merchant_purchase','installment_payment','arabon_payment'].includes(t.type)) calcBal -= amt;
-                });
-                if (a.type !== 'vodafone' && Math.abs(calcBal - a.balance) > 1) {
-                    this.addIssue('accounts','high','Balance mismatch: '+a.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+a.balance.toFixed(2), String(a.id), 'balance', calcBal.toFixed(2), String(a.balance));
+                if (t.sourceId && t.sourceType) {
+                    let key = t.sourceType + '|' + t.sourceId + '|' + t.operationType;
+                    if (seen[key]) this.addIssue('transactions','high','Possible duplicate: same source','#'+seen[key]+' and #'+t.id, String(t.id),'sourceId','Unique source','Duplicate','DUP_TX_SOURCE');
+                    seen[key] = t.id;
                 }
             });
+            const instSeen = {};
+            installments.forEach(i => { if (i.contractNo && i.contractNo.trim()) { let c = i.contractNo.trim(); if (instSeen[c]) this.addIssue('installments','high','Duplicate contract number: '+c,'',String(i.id),'contractNo','Unique','Duplicate','DUP_CONTRACT_NO'); instSeen[c] = true; } });
+            const imeiMap = {};
+            products.forEach(p => { if (p.imei && p.imei.trim()) { let imei = p.imei.trim(); if (imeiMap[imei]) this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate','DUP_IMEI'); imeiMap[imei] = p.id; } });
+        },
+
+        // N. CROSS-MODULE CONSISTENCY
+        checkCrossModule() {
+            installments.forEach(inst => {
+                let paidSchedule = (inst.schedule || []).filter(s => s.isPaid || (s.paidAmount || 0) > 0);
+                if (paidSchedule.length > 0) {
+                    let hasPayment = transactions.some(t => t.instId == inst.id && (t.sourceType === 'installment_payment' || t.type === 'payment_in'));
+                    let hasUpfront = (inst.paidUpfront || 0) > 0;
+                    if (!hasPayment && !hasUpfront) this.addIssue('installments','high','Installment #'+(inst.contractNo||inst.id)+' has paid schedule but no payment tx','','','instId','payment tx exists','Missing','CROSS_INST_NO_PAYMENT');
+                }
+            });
+        },
+
+        // O. ACCOUNT BALANCE RECONCILIATION
+        checkAccountReconciliation() {
+            accounts.forEach(a => {
+                let calcBal = BusinessLogic.accountBalance(a.id);
+                if (a.type !== 'vodafone' && Math.abs(calcBal - a.balance) > 1) {
+                    this.addIssue('accounts','high','Balance mismatch: '+a.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+a.balance.toFixed(2), String(a.id), 'balance', calcBal.toFixed(2), String(a.balance),'ACC_BALANCE_MISMATCH');
+                }
+            });
+        },
+
+        // P. PARTNER BALANCE RECONCILIATION
+        checkPartnerReconciliation() {
             partners.forEach(p => {
                 let calcBal = 0;
                 transactions.forEach(t => {
                     if (t.partnerId != p.id) return;
                     const amt = parseFloat(t.amount) || 0;
-                    if (t.type === 'partner_in') calcBal += amt;
-                    else if (t.type === 'partner_out') calcBal -= amt;
+                    if (t.type === 'partner_deposit') calcBal += amt;
+                    else if (t.type === 'partner_withdrawal') calcBal -= amt;
                 });
-                if (Math.abs(calcBal - p.balance) > 1) {
-                    this.addIssue('partners','high','Partner balance mismatch: '+p.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+p.balance.toFixed(2), String(p.id), 'balance', calcBal.toFixed(2), String(p.balance));
+                if (Math.abs(calcBal - p.balance) > 1) this.addIssue('partners','high','Partner balance mismatch: '+p.name,'Calculated '+calcBal.toFixed(2)+' vs stored '+p.balance.toFixed(2), String(p.id),'balance',calcBal.toFixed(2),String(p.balance),'PART_BALANCE_RECON');
+            });
+        },
+
+        // Q. MERCHANT BALANCE RECONCILIATION
+        checkMerchantReconciliation() {
+            merchants.forEach(m => {
+                let calcBal = BusinessLogic.merchantBalanceFromTransactions(m.id);
+                if (Math.abs(calcBal) > 0.01) {
+                    let msCount = merchantSales.filter(s => s.merchantId == m.id).length;
+                    let mpCount = merchantPurchases.filter(p => p.merchantId == m.id).length;
+                    if (msCount + mpCount === 0 && Math.abs(calcBal) > 100) this.addIssue('merchants','medium','Unexpected merchant balance: '+m.name,'Balance: '+calcBal.toFixed(2), String(m.id),'balance','0 or consistent',String(calcBal.toFixed(2)),'MERCH_UNEXPECTED_BALANCE');
                 }
             });
         },
 
-        // N. DUPLICATE IMEI
-        checkDuplicateIMEI() {
+        // R. ARABON RECONCILIATION
+        checkArabonReconciliation() {
+            arabonSales.forEach(a => {
+                let expectedRemaining = Math.max((a.sellPrice || 0) - (a.depositAmount || 0), 0);
+                if (a.remainingAmount != null && !a.isPaid && a.remainingPaymentMethod !== 'installments') {
+                    if (Math.abs(expectedRemaining - a.remainingAmount) > 1) this.addIssue('arabon','high','Arabon remaining mismatch: #'+a.id,'Expected '+expectedRemaining.toFixed(2)+' vs stored '+a.remainingAmount.toFixed(2), String(a.id),'remainingAmount',expectedRemaining.toFixed(2),String(a.remainingAmount),'ARB_RECON_REMAINING');
+                }
+                if (a.remainingBalance != null && !a.isPaid && a.remainingPaymentMethod === 'installments') {
+                    let inst = installments.find(i => i.id == a.instId);
+                    if (inst && Math.abs(inst.remainingBalance - a.remainingBalance) > 1) this.addIssue('arabon','medium','Arabon-inst remaining mismatch: #'+a.id,'Arabon: '+a.remainingBalance+' vs inst: '+inst.remainingBalance, String(a.id),'remainingBalance',String(inst.remainingBalance),String(a.remainingBalance),'ARB_INST_BALANCE_MISMATCH');
+                }
+            });
+        },
+
+        // S. IMEI HEALTH CHECK
+        checkIMEI() {
             const imeiMap = {};
             products.forEach(p => {
                 if (p.imei && p.imei.trim()) {
                     let imei = p.imei.trim();
-                    if (imeiMap[imei]) {
-                        this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate');
-                    }
-                    imeiMap[imei] = p.id;
+                    if (imeiMap[imei]) this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate','IMEI_DUPLICATE');
+                    else imeiMap[imei] = p.id;
                 }
             });
         },
@@ -5640,6 +5707,7 @@
             items.forEach((issue, idx) => {
                 html += '<div class="shc-issue-card" style="--shc-sev-color:'+sevColors[sev]+'">';
                 html += '<div class="shc-issue-title"><span class="shc-badge shc-sev-'+sev+'">'+sevLabels[sev]+'</span> '+esc(issue.title)+'</div>';
+                if (issue.checkId) html += '<div style="font-size:.7rem;color:var(--text-muted);font-family:monospace;margin:2px 0 4px;">#'+esc(issue.checkId)+'</div>';
                 if (issue.description) html += '<div class="shc-issue-desc">'+esc(issue.description)+'</div>';
                 html += '<div class="shc-issue-meta">';
                 html += '<span>📦 '+esc(SHC._moduleLabels[issue.module] || issue.module)+'</span>';
@@ -5665,7 +5733,7 @@
             if (sev && i.severity !== sev) return false;
             if (mod && i.module !== mod) return false;
             if (search) {
-                let text = (i.title + ' ' + i.description + ' ' + i.recordId + ' ' + i.field).toLowerCase();
+                let text = (i.title + ' ' + i.description + ' ' + i.recordId + ' ' + i.field + ' ' + (i.checkId || '')).toLowerCase();
                 if (!text.includes(search)) return false;
             }
             return true;
