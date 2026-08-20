@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="إدارة المبيعات">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/svg+xml" href="icon-192.svg">
-    <link rel="apple-touch-icon" href="icon-192.svg">
+    <link rel="icon" type="image/png" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <title>نظام إدارة المبيعات</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -4617,10 +4617,10 @@
                 navigator.serviceWorker.controller.postMessage({
                     type: 'SHOW_NOTIFICATION',
                     title: title,
-                    options: { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false }
+                    options: { body, icon: 'icon-192.png', tag: tag || 'default', silent: false }
                 });
-            } else {
-                new Notification(title, { body, icon: 'icon-192.svg', tag: tag || 'default', silent: false });
+            } else if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, { body, icon: 'icon-192.png', tag: tag || 'default', silent: false });
             }
         } catch (e) { /* ignore */ }
     }
