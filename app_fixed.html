@@ -5296,20 +5296,23 @@
         runAllChecks() {
             this.issues = []; this.modules = {};
             const t0 = Date.now();
-            try { this.checkDatabase(); } catch(e) { console.error('SHC database:', e); }
-            try { this.checkTransactions(); } catch(e) { console.error('SHC transactions:', e); }
-            try { this.checkInventory(); } catch(e) { console.error('SHC inventory:', e); }
-            try { this.checkInstallments(); } catch(e) { console.error('SHC installments:', e); }
-            try { this.checkAccounts(); } catch(e) { console.error('SHC accounts:', e); }
-            try { this.checkArabon(); } catch(e) { console.error('SHC arabon:', e); }
-            try { this.checkMerchants(); } catch(e) { console.error('SHC merchants:', e); }
-            try { this.checkPartners(); } catch(e) { console.error('SHC partners:', e); }
-            try { this.checkEmployees(); } catch(e) { console.error('SHC employees:', e); }
-            try { this.checkAudit(); } catch(e) { console.error('SHC audit:', e); }
-            try { this.checkBackup(); } catch(e) { console.error('SHC backup:', e); }
-            try { this.checkOrphans(); } catch(e) { console.error('SHC orphans:', e); }
-            try { this.checkDuplicates(); } catch(e) { console.error('SHC duplicates:', e); }
-            try { this.checkCrossModule(); } catch(e) { console.error('SHC cross:', e); }
+            try { this.checkDatabase(); } catch(e) { this.addIssue('database','critical','Check failed: database','Error: '+e.message); console.error('SHC database:', e); }
+            try { this.checkTransactions(); } catch(e) { this.addIssue('transactions','critical','Check failed: transactions','Error: '+e.message); console.error('SHC transactions:', e); }
+            try { this.checkInventory(); } catch(e) { this.addIssue('inventory','critical','Check failed: inventory','Error: '+e.message); console.error('SHC inventory:', e); }
+            try { this.checkInstallments(); } catch(e) { this.addIssue('installments','critical','Check failed: installments','Error: '+e.message); console.error('SHC installments:', e); }
+            try { this.checkAccounts(); } catch(e) { this.addIssue('accounts','critical','Check failed: accounts','Error: '+e.message); console.error('SHC accounts:', e); }
+            try { this.checkArabon(); } catch(e) { this.addIssue('arabon','critical','Check failed: arabon','Error: '+e.message); console.error('SHC arabon:', e); }
+            try { this.checkMerchants(); } catch(e) { this.addIssue('merchants','critical','Check failed: merchants','Error: '+e.message); console.error('SHC merchants:', e); }
+            try { this.checkPartners(); } catch(e) { this.addIssue('partners','critical','Check failed: partners','Error: '+e.message); console.error('SHC partners:', e); }
+            try { this.checkEmployees(); } catch(e) { this.addIssue('employees','critical','Check failed: employees','Error: '+e.message); console.error('SHC employees:', e); }
+            try { this.checkAudit(); } catch(e) { this.addIssue('audit','critical','Check failed: audit','Error: '+e.message); console.error('SHC audit:', e); }
+            try { this.checkBackup(); } catch(e) { this.addIssue('backup','critical','Check failed: backup','Error: '+e.message); console.error('SHC backup:', e); }
+            try { this.checkOrphans(); } catch(e) { this.addIssue('database','critical','Check failed: orphans','Error: '+e.message); console.error('SHC orphans:', e); }
+            try { this.checkDuplicates(); } catch(e) { this.addIssue('database','critical','Check failed: duplicates','Error: '+e.message); console.error('SHC duplicates:', e); }
+            try { this.checkCrossModule(); } catch(e) { this.addIssue('database','critical','Check failed: cross-module','Error: '+e.message); console.error('SHC cross:', e); }
+            try { this.checkUnknownTypes(); } catch(e) { this.addIssue('transactions','critical','Check failed: unknown types','Error: '+e.message); console.error('SHC unknown types:', e); }
+            try { this.checkBalanceReconciliation(); } catch(e) { this.addIssue('accounts','critical','Check failed: balance reconciliation','Error: '+e.message); console.error('SHC balance:', e); }
+            try { this.checkDuplicateIMEI(); } catch(e) { this.addIssue('inventory','critical','Check failed: duplicate IMEI','Error: '+e.message); console.error('SHC IMEI:', e); }
             this.modules['database'] = this.issues.filter(i => i.module === 'database').length;
             this.modules['transactions'] = this.issues.filter(i => i.module === 'transactions').length;
             this.modules['inventory'] = this.issues.filter(i => i.module === 'inventory').length;
@@ -5371,14 +5374,15 @@
                 if (p.stock < 0) this.addIssue('inventory','critical','Negative stock: '+p.name,'Stock is '+p.stock, String(p.id),'stock','>= 0',String(p.stock));
                 if (p.costPrice < 0) this.addIssue('inventory','high','Negative cost price: '+p.name, String(p.id),'costPrice','>= 0',String(p.costPrice));
                 if (!p.name || p.name.trim() === '') this.addIssue('inventory','medium','Product missing name','',String(p.id),'name','Present','Empty');
-                let expected = 0;
+                let expected = 0, hasMovements = false;
                 stockMovements.forEach(sm => {
                     if (sm.productId == p.id) {
+                        hasMovements = true;
                         if (sm.type === 'in') expected += (parseFloat(sm.qty) || 0);
                         else if (sm.type === 'out') expected -= (parseFloat(sm.qty) || 0);
                     }
                 });
-                if (Math.abs(expected - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+expected.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',expected.toFixed(0),String(p.stock));
+                if (hasMovements && Math.abs(expected - p.stock) > 0.5) this.addIssue('inventory','critical','Stock mismatch: '+p.name,'Expected '+expected.toFixed(0)+' but stored '+p.stock, String(p.id),'stock',expected.toFixed(0),String(p.stock));
             });
             stockMovements.forEach(sm => {
                 if (!sm.productId) this.addIssue('inventory','high','Stock movement #'+sm.id+' has no product','',String(sm.id),'productId','Present','Missing');
@@ -5463,7 +5467,7 @@
         checkAudit() {
             if (auditLog.length > 0) {
                 let missingTs = 0, missingAction = 0;
-                auditLog.forEach(a => { if (!a.timestamp) missingTs++; if (!a.action) missingAction++; });
+                auditLog.forEach(a => { if (!a.ts) missingTs++; if (!a.action) missingAction++; });
                 if (missingTs > 0) this.addIssue('audit','low', missingTs+' audit entries missing timestamp','','','','',missingTs+' entries');
                 if (missingAction > 0) this.addIssue('audit','low', missingAction+' audit entries missing action','','','','',missingAction+' entries');
             }
@@ -5511,8 +5515,58 @@
             });
             installments.forEach(inst => {
                 let paidSchedule = (inst.schedule || []).filter(s => s.isPaid || s.paidAmount > 0);
-                let hasPayment = transactions.some(t => t.instId == inst.id && t.type === 'installment_payment');
+                let hasPayment = transactions.some(t => t.instId == inst.id && (t.sourceType === 'installment_payment' || t.type === 'payment_in'));
                 if (paidSchedule.length > 0 && !hasPayment && inst.paidUpfront <= 0) this.addIssue('installments','medium','Installment #'+(inst.contractNo||inst.id)+' has paid schedule but no payment transaction','','','','','');
+            });
+        },
+
+        // L. UNKNOWN TRANSACTION TYPES
+        checkUnknownTypes() {
+            const validTypes = ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_payment','installment_paid','arabon_payment','arabon_paid','partner_in','partner_out','opening_balance','payment_out','sell_cash','sell','merchant_sale','merchant_purchase','payment_in'];
+            transactions.forEach(t => {
+                if (t.type && !validTypes.includes(t.type)) this.addIssue('transactions','high','Unknown transaction type: "'+t.type+'"','Type not in valid list', String(t.id), 'type', 'Known type', t.type);
+            });
+        },
+
+        // M. BALANCE RECONCILIATION
+        checkBalanceReconciliation() {
+            accounts.forEach(a => {
+                let calcBal = 0;
+                transactions.forEach(t => {
+                    if (t.accountId != a.id) return;
+                    const amt = parseFloat(t.amount) || 0;
+                    if (['sale','sell','sell_cash','merchant_sale','income','transfer_in','partner_in','installment_paid','arabon_paid','purchase_return','sale_return','payment_in','opening_balance'].includes(t.type)) calcBal += amt;
+                    else if (['purchase','expense','transfer_out','partner_out','payment_out','merchant_purchase','installment_payment','arabon_payment'].includes(t.type)) calcBal -= amt;
+                });
+                if (a.type !== 'vodafone' && Math.abs(calcBal - a.balance) > 1) {
+                    this.addIssue('accounts','high','Balance mismatch: '+a.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+a.balance.toFixed(2), String(a.id), 'balance', calcBal.toFixed(2), String(a.balance));
+                }
+            });
+            partners.forEach(p => {
+                let calcBal = 0;
+                transactions.forEach(t => {
+                    if (t.partnerId != p.id) return;
+                    const amt = parseFloat(t.amount) || 0;
+                    if (t.type === 'partner_in') calcBal += amt;
+                    else if (t.type === 'partner_out') calcBal -= amt;
+                });
+                if (Math.abs(calcBal - p.balance) > 1) {
+                    this.addIssue('partners','high','Partner balance mismatch: '+p.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+p.balance.toFixed(2), String(p.id), 'balance', calcBal.toFixed(2), String(p.balance));
+                }
+            });
+        },
+
+        // N. DUPLICATE IMEI
+        checkDuplicateIMEI() {
+            const imeiMap = {};
+            products.forEach(p => {
+                if (p.imei && p.imei.trim()) {
+                    let imei = p.imei.trim();
+                    if (imeiMap[imei]) {
+                        this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate');
+                    }
+                    imeiMap[imei] = p.id;
+                }
             });
         },
 
