@@ -262,10 +262,10 @@
         .badge-primary { background: var(--primary-light); color: var(--primary); }
         .badge-info { background: var(--accent-light); color: var(--accent); }
 
-        .stat-card { background: var(--card-bg); border-radius: 16px; padding: 14px; text-align: center; border: 1px solid var(--card-border); flex: 1; min-width: 100px; box-shadow: var(--shadow-card); transition: transform 0.15s ease; position: relative; overflow: hidden; contain: layout style; }
+        .stat-card { background: var(--card-bg); border-radius: 16px; padding: 14px; text-align: center; border: 1px solid var(--card-border); flex: 1; min-width: 100px; box-shadow: var(--shadow-card); transition: transform 0.15s ease; position: relative; }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gradient-primary); }
         .stat-card:hover { transform: translateY(-3px); }
-        .stat-card .value { font-size: 1.3rem; font-weight: 800; margin-top: 6px; }
+        .stat-card .value { font-size: 1.3rem; font-weight: 800; margin-top: 6px; word-break: break-word; overflow-wrap: anywhere; }
         .stat-card.revenue .value { color: var(--primary); }
         .stat-card.profit .value { color: var(--success); }
         .stat-card.debt .value { color: var(--warning); }
@@ -1209,22 +1209,22 @@
                 <div class="stat-card" style="border-color:var(--primary);cursor:pointer;padding:16px 12px;" onclick="switchPage('transactions');toggleMenu(true);">
                     <div style="font-size:1.5rem;margin-bottom:4px;">💰</div>
                     <div style="font-size:0.78rem;color:var(--primary);margin-bottom:4px;">الخزينة النقدية</div>
-                    <div class="value" id="ccCash" style="color:var(--primary);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccCash" style="color:var(--primary);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--accent);cursor:pointer;padding:16px 12px;" onclick="switchPage('installments');toggleMenu(true);">
                     <div style="font-size:1.5rem;margin-bottom:4px;">📋</div>
                     <div style="font-size:0.78rem;color:var(--accent);margin-bottom:4px;">للتحصيل</div>
-                    <div class="value" id="ccDebt" style="color:var(--accent);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccDebt" style="color:var(--accent);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--success);cursor:pointer;padding:16px 12px;" onclick="switchPage('products');toggleMenu(true);">
                     <div style="font-size:1.5rem;margin-bottom:4px;">📦</div>
                     <div style="font-size:0.78rem;color:var(--success);margin-bottom:4px;">قيمة المخزون</div>
-                    <div class="value" id="ccStock" style="color:var(--success);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccStock" style="color:var(--success);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--warning);cursor:pointer;padding:16px 12px;" onclick="switchPage('partners');toggleMenu(true);">
                     <div style="font-size:1.5rem;margin-bottom:4px;">🤝</div>
                     <div style="font-size:0.78rem;color:var(--warning);margin-bottom:4px;">استثمارات الشركاء</div>
-                    <div class="value" id="ccPartnerInvest" style="color:var(--warning);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccPartnerInvest" style="color:var(--warning);font-size:0.95rem;">—</div>
                 </div>
             </div>
 
@@ -1232,22 +1232,22 @@
                 <div class="stat-card" style="border-color:var(--success);padding:16px 12px;">
                     <div style="font-size:1.5rem;margin-bottom:4px;">📈</div>
                     <div style="font-size:0.78rem;color:var(--success);margin-bottom:4px;">صافي الربح</div>
-                    <div class="value" id="ccNetProfit" style="color:var(--success);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccNetProfit" style="color:var(--success);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--primary);padding:16px 12px;">
                     <div style="font-size:1.5rem;margin-bottom:4px;">💵</div>
                     <div style="font-size:0.78rem;color:var(--primary);margin-bottom:4px;">الإيرادات</div>
-                    <div class="value" id="ccRevenue" style="color:var(--primary);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccRevenue" style="color:var(--primary);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--accent);padding:16px 12px;">
                     <div style="font-size:1.5rem;margin-bottom:4px;">📊</div>
                     <div style="font-size:0.78rem;color:var(--accent);margin-bottom:4px;">نسبة التحصيل</div>
-                    <div class="value" id="ccCollectionRate" style="color:var(--accent);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccCollectionRate" style="color:var(--accent);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--neon-blue);padding:16px 12px;">
                     <div style="font-size:1.5rem;margin-bottom:4px;">📅</div>
                     <div style="font-size:0.78rem;color:var(--neon-blue);margin-bottom:4px;">عقود نشطة</div>
-                    <div class="value" id="ccActiveInst" style="color:var(--neon-blue);font-size:1.05rem;">—</div>
+                    <div class="value" id="ccActiveInst" style="color:var(--neon-blue);font-size:0.95rem;">—</div>
                 </div>
             </div>
 
