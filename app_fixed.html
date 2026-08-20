@@ -5521,7 +5521,10 @@
             let days = Math.floor(age / 86400000);
             if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
             else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 7 days',days+' days','BACKUP_OLD');
-            try { let data = JSON.parse(localStorage.getItem('salesAppData') || '{}'); if (data && Object.keys(data).length === 0) this.addIssue('backup','info','Backup data is empty','','','','','Empty','BACKUP_EMPTY'); } catch(e) { /* ok */ }
+            try {
+                let hasData = (products.length + transactions.length + installments.length + merchants.length + accounts.length) > 0;
+                if (!hasData) this.addIssue('backup','info','No application data found in localStorage','','','','','All stores empty','BACKUP_EMPTY');
+            } catch(e) { /* ok */ }
         },
 
         // L. ORPHAN DETECTION (expanded)
