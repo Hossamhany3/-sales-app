@@ -6394,6 +6394,8 @@
             if (t.instId || t.arabonId || t.merchantId) return;
             if (t.type === 'sell_cash' || t.type === 'sell') {
                 rows.push({ date: t.date, desc: 'بيع نقدي | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'income') {
+                rows.push({ date: t.date, desc: 'إيراد | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
             } else if (t.type === 'expense') {
                 rows.push({ date: t.date, desc: 'مصروف | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
             } else if (t.type === 'purchase') {
