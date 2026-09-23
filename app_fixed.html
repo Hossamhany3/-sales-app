@@ -1396,6 +1396,10 @@
                             <label>الكمية (الرصيد الافتتاحي)</label>
                             <input type="number" id="stockQty" value="1" min="0" required>
                         </div>
+                        <div class="form-group">
+                            <label>⚠️ الحد الأدنى للمخزون (تنبيه عند النفاد)</label>
+                            <input type="number" id="minStock" value="0" min="0" placeholder="0">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>📱 الرقم التسلسلي / IMEI</label>
@@ -1476,6 +1480,10 @@
                     <option value="hide">📦 إخفاء المؤرشف</option>
                     <option value="show">📂 إظهار المؤرشف</option>
                 </select>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-muted);cursor:pointer;white-space:nowrap;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card-bg);">
+                    <input type="checkbox" id="lowStockOnly" onchange="renderProducts()" style="accent-color:var(--danger);">
+                    ⚠️ المنخفض فقط
+                </label>
             </div>
             <div id="productsList"></div>
         </div>
@@ -1582,6 +1590,21 @@
                 <select id="transCategoryFilter" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
                     <option value="">🏷️ كل التصنيفات</option>
                 </select>
+                <select id="transTypeFilter" onchange="renderTransactions()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);">
+                    <option value="">💰 كل الأنواع</option>
+                    <option value="sell_cash">💵 بيع نقدي</option>
+                    <option value="purchase">📦 شراء مخزون</option>
+                    <option value="expense">📉 مصروفات</option>
+                    <option value="payment_in">💰 تحصيل</option>
+                    <option value="partner_deposit">🤝 استثمار شريك</option>
+                    <option value="partner_withdrawal">🏦 سحب شريك</option>
+                    <option value="merchant_sale">🏪 بيع لتاجر</option>
+                    <option value="merchant_purchase">📥 شراء من تاجر</option>
+                    <option value="payment_out">💸 دفعة لتاجر</option>
+                    <option value="transfer_in">🔄 تحويل وارد</option>
+                    <option value="transfer_out">🔄 تحويل صادر</option>
+                </select>
+                <button onclick="exportTransactionsCSV()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;" title="تصدير الحركات المفلترة">📎 CSV</button>
             </div>
             <div id="transactionsLog"></div>
         </div>
@@ -1745,6 +1768,7 @@
                     <option value="installments">📅 أقساط</option>
                     <option value="paid">✅ مسدّد</option>
                 </select>
+                <button onclick="exportArabonCSV()" class="btn-sm btn-outline" style="padding:8px 12px;white-space:nowrap;" title="تصدير عقود العربون إلى CSV">📎 CSV</button>
             </div>
             <div id="arabonSalesList"></div>
         </div>
@@ -1900,6 +1924,9 @@
                 <!-- P&L -->
                 <div id="tabPnl" class="report-tab">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📊 قائمة الدخل</h3>
+                    <div style="display:flex;gap:8px;margin-bottom:10px;">
+                        <button onclick="exportPnlCSV()" class="btn-outline" style="flex:1;padding:8px 10px;font-size:0.85rem;">📎 تصدير CSV</button>
+                    </div>
                     <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
                         <div class="flex-between" style="padding:6px 0;"><span>💵 إجمالي المبيعات</span> <strong id="repRevenue">0</strong></div>
                         <div class="flex-between" style="padding:6px 0;"><span>🔻 خصومات البيوع</span> <strong id="repDiscounts" style="color:var(--accent)">0</strong></div>
@@ -2012,12 +2039,16 @@
                 <div id="tabDaily" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📅 التقرير اليومي</h3>
                     <div id="dailySummaryContent"></div>
-                    <button onclick="printDailySummary()" class="btn-outline" style="width:100%;margin-top:12px;">🖨️ طباعة التقرير اليومي</button>
+                    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                        <button onclick="printDailySummary()" class="btn-outline" style="flex:1;">🖨️ طباعة التقرير اليومي</button>
+                        <button onclick="exportDailySummaryCSV()" class="btn-outline" style="flex:1;">📎 تصدير CSV</button>
+                    </div>
                 </div>
 
                 <!-- 📦 أرباح الأصناف -->
                 <div id="tabProdProfit" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📦 أرباح الأصناف</h3>
+                    <div style="display:flex;gap:8px;margin-bottom:10px;"><button onclick="exportProductProfitCSV()" class="btn-outline" style="flex:1;padding:8px 10px;">📎 تصدير CSV</button></div>
                     <div id="prodProfitContent"></div>
                 </div>
 
@@ -2044,6 +2075,7 @@
                 <!-- 📋 حركة المخزون -->
                 <div id="tabStockMov" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📋 حركة المخزون</h3>
+                    <div style="display:flex;gap:8px;margin-bottom:10px;"><button onclick="exportStockMovementsCSV()" class="btn-outline" style="flex:1;padding:8px 10px;">📎 تصدير CSV</button></div>
                     <div id="stockMovContent"></div>
                 </div>
 
@@ -2064,6 +2096,7 @@
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <button onclick="createCommissionPayoutOrder()" class="btn-outline" style="flex:1;padding:8px 12px;">🧾 إنشاء أمر صرف شامل</button>
                         <button onclick="printPayoutOrder('')" class="btn-outline" style="flex:1;padding:8px 12px;">🖨️ طباعة آخر أمر صرف</button>
+                        <button onclick="exportCommissionsCSV()" class="btn-outline" style="flex:1;padding:8px 12px;">📎 تصدير CSV</button>
                     </div>
                     <div id="commissionsContent"></div>
                 </div>
@@ -5872,6 +5905,40 @@
         setTimeout(() => { drawCashTimeline(); drawExpensePie(); }, 200);
     }
 
+    // تصدير قائمة الدخل CSV (الفترة المختارة)
+    window.exportPnlCSV = function() {
+        const range = getDateRange();
+        const fin = getFinancials();
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG') : 'الآن';
+        const rows = [
+            ['قائمة الدخل — الفترة', fromLbl + ' → ' + toLbl],
+            [],
+            ['البند', 'القيمة (ج.م)'],
+            ['إجمالي المبيعات', fin.revenue.toFixed(2)],
+            ['خصومات البيوع', fin.totalDiscounts.toFixed(2)],
+            ['تكلفة البضاعة المباعة (COGS)', fin.cogs.toFixed(2)],
+            ['إجمالي الربح', fin.grossProfit.toFixed(2)],
+            ['هامش إجمالي الربح', fin.grossMargin.toFixed(2) + '%'],
+            ['إجمالي المصروفات التشغيلية', fin.expenses.toFixed(2)],
+            ['عمولات الموظفين', fin.totalCommissions.toFixed(2)],
+            ['صافي الربح التشغيلي', fin.operatingProfit.toFixed(2)],
+            ['أرباح فوائد التقسيط', fin.interestProfit.toFixed(2)],
+            ['صافي الربح الفعلي', fin.netProfit.toFixed(2)],
+            ['هامش صافي الربح', fin.netMargin.toFixed(2) + '%']
+        ];
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'قائمة_الدخل_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير قائمة الدخل');
+    };
+
     // ═══════════════════════════════════════════════════════
     //  لوحة التحكم الذكية — Command Center
     // ═══════════════════════════════════════════════════════
@@ -6371,6 +6438,44 @@
             '</div>';
     }
 
+    // تصدير تقرير العمولات CSV (حسب الفترة المختارة)
+    window.exportCommissionsCSV = function() {
+        const range = getDateRange();
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const rows = getCommissionRows(range).filter(r => r.emp.commissionType !== 'none');
+        const totalDue = rows.reduce((s, r) => s + r.due, 0);
+        const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
+        const totalRemaining = rows.reduce((s, r) => s + r.remaining, 0);
+        const csv = [];
+        csv.push(['تقرير عمولات الموظفين']);
+        csv.push([]);
+        csv.push(['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'الربح (قاعدة الحساب)', 'العمولة المستحقة', 'المصروف من العمولات', 'المتبقي للصرف']);
+        rows.forEach(r => {
+            const baseLabel = r.emp.commissionType === 'percent' ? (r.emp.commissionValue || 0) + '%' :
+                r.emp.commissionType === 'fixed' ? (r.emp.commissionValue || 0) + ' ج/عملية' : '—';
+            csv.push([r.emp.name, baseLabel, r.count, r.totalProfit.toFixed(2), r.due.toFixed(2), r.paid.toFixed(2), r.remaining.toFixed(2)]);
+        });
+        csv.push([]);
+        csv.push(['الإجمالي', '', '', '', totalDue.toFixed(2), totalPaid.toFixed(2), totalRemaining.toFixed(2)]);
+        const payouts = getCommissionPayouts(range).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+        csv.push([]);
+        csv.push(['أوامر الصرف المسجلة']);
+        csv.push(['رقم الأمر', 'التاريخ', 'الموظف', 'المبلغ']);
+        payouts.forEach(p => {
+            const emp = employees.find(e => e.id == p.employeeId);
+            csv.push([p.orderNo || p.sourceId || p.id, new Date(p.date).toLocaleDateString('ar-EG'), emp ? emp.name : '', (p.amount || 0).toFixed(2)]);
+        });
+        const blob = new Blob([BOM + csv.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'تقرير_العمولات_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير تقرير العمولات');
+    };
+
     function renderCommissionPayouts(range) {
         const payouts = getCommissionPayouts(range).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
         const groups = {};
@@ -6585,6 +6690,53 @@
             w.document.close();
             setTimeout(() => w.print(), 300);
     }
+
+    // تصدير التقرير اليومي CSV
+    window.exportDailySummaryCSV = function() {
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(startOfDay.getTime() + 86400000);
+        const todayTrans = transactions.filter(t => {
+            const d = new Date(t.date);
+            return d >= startOfDay && d < endOfDay;
+        });
+        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
+        todayTrans.forEach(t => {
+            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            else if (t.type === 'payment_in') collections += t.amount;
+            else if (t.type === 'expense') expenses += t.amount;
+            else if (t.type === 'purchase') purchases += t.amount;
+        });
+        const netFlow = cashSales + collections - expenses - purchases;
+        let cash = openingCapital;
+        transactions.forEach(t => {
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
+        });
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const dateLabel = today.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const rows = [
+            ['التقرير اليومي — ' + dateLabel],
+            [],
+            ['بند', 'القيمة (ج.م)'],
+            ['مبيعات نقدية', cashSales.toFixed(2)],
+            ['تحصيل أقساط', collections.toFixed(2)],
+            ['مصروفات', expenses.toFixed(2)],
+            ['مشتريات', purchases.toFixed(2)],
+            ['صافي التدفق النقدي', netFlow.toFixed(2)],
+            ['رصيد الخزينة الحالي', cash.toFixed(2)],
+            ['عدد الحركات اليوم', todayTrans.length]
+        ];
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'تقرير_يومي_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير التقرير اليومي');
+    };
 
     // ====== 📋 كشف الحساب العام ======
     function buildGeneralStatementRows() {
@@ -6918,6 +7070,67 @@
         document.getElementById('prodProfitContent').innerHTML = html;
     }
 
+    // تصدير أرباح الأصناف CSV (نفس حساب renderProductProfit)
+    window.exportProductProfitCSV = function() {
+        const range = getDateRange();
+        const prodMap = {};
+        function addSale(productId, name, qty, revenue) {
+            let p = productId ? products.find(x => x.id == productId) : null;
+            if (!p && name) p = products.find(x => x.name === name);
+            const key = p ? p.id : 'n:' + (name || 'حذف');
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
+            prodMap[key].qty += qty || 1;
+            prodMap[key].revenue += revenue;
+        }
+        transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
+            if (t.productId) addSale(t.productId, null, 1, t.amount);
+        });
+        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+            if (!inst.productId) return;
+            if (arabonSales.some(a => a.instId == inst.id)) {
+                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
+            } else {
+                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+            }
+        });
+        arabonSales.filter(a => inRange(a.date, range)).forEach(a => {
+            if (a.productId) addSale(a.productId, null, 1, a.sellPrice);
+        });
+        const countedMs = new Set();
+        transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
+            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            if (ms) { countedMs.add(ms.id); addSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
+        });
+        const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG') : 'الآن';
+        const rows = [
+            ['أرباح الأصناف — الفترة ' + fromLbl + ' → ' + toLbl],
+            [],
+            ['الصنف', 'الكمية المبيعة', 'التكلفة للوحدة (ج.م)', 'إجمالي التكلفة (ج.م)', 'الإيرادات (ج.م)', 'الربح (ج.م)', 'الهامش %']
+        ];
+        let totalCost = 0, totalRev = 0;
+        sorted.forEach(([id, d]) => {
+            const profit = d.revenue - (d.cost * d.qty);
+            const margin = d.revenue ? (profit / d.revenue * 100).toFixed(1) : 0;
+            totalCost += d.cost * d.qty;
+            totalRev += d.revenue;
+            rows.push([d.name, d.qty, d.cost.toFixed(2), (d.cost * d.qty).toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin]);
+        });
+        rows.push([]);
+        rows.push(['الإجمالي', '', '', totalCost.toFixed(2), totalRev.toFixed(2), (totalRev - totalCost).toFixed(2), '']);
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ارباح_الاصناف_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير أرباح الأصناف');
+    };
+
     // ====== 📊 مقارنة شهرية ======
     function populateCompareMonths() {
         const s1 = document.getElementById('compareMonth1');
@@ -7062,6 +7275,37 @@
             '</div>';
         });
         container.innerHTML = html;
+    }
+
+    // تصدير حركة المخزون CSV
+    window.exportStockMovementsCSV = function() {
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const sorted = [...stockMovements].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const rows = [
+            ['حركة المخزون'],
+            [],
+            ['التاريخ', 'الصنف', 'النوع', 'الكمية', 'ملاحظات']
+        ];
+        sorted.forEach(m => {
+            rows.push([
+                new Date(m.date).toLocaleString('ar-EG'),
+                m.productName || '',
+                (m.type === 'in' ? 'شراء' : 'بيع'),
+                m.qty,
+                m.notes || ''
+            ]);
+        });
+        rows.push([]);
+        rows.push(['إجمالي الحركات', sorted.length]);
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'حركة_المخزون_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير حركة المخزون');
     }
 
     function drawCashTimeline() {
@@ -7341,6 +7585,7 @@
                 expenses: expenses,
                 sellPrice: sell,
                 stock: parseInt(document.getElementById('stockQty').value) || 0,
+                minStock: parseInt(document.getElementById('minStock').value) || 0,
                 imei: document.getElementById('prodImei').value.trim() || '',
                 accountId: document.getElementById('prodAccountId').value ? parseInt(document.getElementById('prodAccountId').value) : undefined,
                 discount: 0,
@@ -7416,6 +7661,9 @@
         let filtered = filterList(products, term, ['name']);
         // إخفاء المؤرشف (إلا إذا فعّل المستخدم إظهارها)
         if (!showArchived) filtered = filtered.filter(p => !p.archived);
+        // فلتر المنخفض فقط
+        const lowOnly = document.getElementById('lowStockOnly')?.checked;
+        if (lowOnly) filtered = filtered.filter(p => p.stock <= (p.minStock || 0));
         // ترتيب الأصناف
         const sortVal = (document.getElementById('prodSort')?.value) || 'name';
         if (sortVal === 'name') filtered.sort((a, b) => a.name.localeCompare(b.name));
@@ -7436,13 +7684,15 @@
         const profitPct = totalCost ? (profit / totalCost * 100).toFixed(1) : 0;
         const badgeClass = p.stock > 5 ? 'badge-primary' : p.stock > 0 ? 'badge-warning' : 'badge-danger';
         const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
+        const isLowStock = (p.minStock || 0) > 0 && p.stock <= (p.minStock || 0);
+        const lowStockBadge = isLowStock ? ' <span class="badge" style="background:var(--danger);color:#fff;font-size:0.7rem;">⚠️ تحت الحد الأدنى</span>' : '';
         const disabledAttr = p.stock <= 0 ? 'disabled' : '';
         const profitColor = profit >= 0 ? 'text-success' : 'text-danger';
         const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
         html += '' +
         '<div class="card' + (p.archived ? ' opacity-50' : '') + '">' +
             '<div class="flex-between mb-2">' +
-                '<strong class="text-lg">📱 ' + esc(p.name) + archiveBadge + '</strong>' +
+                '<strong class="text-lg">📱 ' + esc(p.name) + archiveBadge + lowStockBadge + '</strong>' +
                 '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
             '</div>' +
             '<div class="grid-2 gap-2 border-t pt-3 text-sm">' +
@@ -7491,6 +7741,7 @@
             document.getElementById('prodExpenses').value = p.expenses || 0;
             document.getElementById('sellPrice').value = p.sellPrice;
             document.getElementById('stockQty').value = p.stock;
+            document.getElementById('minStock').value = p.minStock || 0;
             document.getElementById('prodImei').value = p.imei || '';
             const accSel = document.getElementById('prodAccountId');
             if (accSel) accSel.value = p.accountId || '';
@@ -7788,7 +8039,11 @@
     window.toggleProductForm = function() { setFormVisible('productForm', 'productToggleIcon', document.getElementById('productForm').style.display === 'none'); };
     window.toggleInstallmentForm = function() { setFormVisible('installmentForm', 'instToggleIcon', document.getElementById('installmentForm').style.display === 'none'); };
     window.toggleArabonForm = function() { setFormVisible('arabonForm', 'arabonToggleIcon', document.getElementById('arabonForm').style.display === 'none'); };
-    window.togglePartnerForm = function() { setFormVisible('partnerForm', 'partnerToggleIcon', document.getElementById('partnerForm').style.display === 'none'); };
+    window.togglePartnerForm = function() {
+        setFormVisible('partnerForm', 'partnerToggleIcon', document.getElementById('partnerForm').style.display === 'none');
+        const amt = document.getElementById('partnerAmount');
+        if (amt && document.getElementById('partnerForm').style.display !== 'none' && !document.getElementById('partnerId').value) amt.disabled = false;
+    };
     window.toggleAccountForm = function() { setFormVisible('accountForm', 'accountToggleIcon', document.getElementById('accountForm').style.display === 'none'); };
 
     document.getElementById('expenseForm').addEventListener('submit', (e) => {
@@ -8264,6 +8519,46 @@
         ).join('') + '</div>';
     }
 
+    window.exportTransactionsCSV = function() {
+        if (!transactions.length) { showToast('لا توجد حركات', 'error'); return; }
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const catFilter = document.getElementById('transCategoryFilter')?.value;
+        let list = [...transactions];
+        if (catFilter) list = list.filter(t => t.category === catFilter);
+        const typeFilter = document.getElementById('transTypeFilter')?.value;
+        if (typeFilter) list = list.filter(t => t.type === typeFilter);
+        const rows = [['التاريخ', 'نوع الحركة', 'المبلغ', '+,−', 'الحساب', 'التاجر/الشريك', 'المنتج', 'التصنيف', 'الموظف', 'ملاحظات']];
+        list.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+            const isInc = isIncomeTransType(t.type);
+            let m = merchants.find(x => x.id == t.merchantId);
+            let pr = partners.find(x => x.id == t.partnerId);
+            let a = accounts.find(x => x.id == t.accountId);
+            let p = products.find(x => x.id == t.productId);
+            let emp = t.employeeId ? employees.find(x => x.id == t.employeeId) : null;
+            rows.push([
+                new Date(t.date).toLocaleString('ar-EG'),
+                transTypeMap[t.type] || t.type,
+                t.amount.toLocaleString(),
+                isInc ? '+' : '-',
+                a ? a.name : '',
+                pr?.name || m?.name || '',
+                p?.name || '',
+                t.category || '',
+                emp?.name || '',
+                t.notes || ''
+            ]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'الحركات_المالية_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير الحركات (' + list.length + ')');
+    };
+
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
         const typeMap = transTypeMap;
@@ -8285,6 +8580,9 @@
 
         const catFilter = document.getElementById('transCategoryFilter')?.value;
         if (catFilter) filtered = filtered.filter(t => t.category === catFilter);
+
+        const typeFilter = document.getElementById('transTypeFilter')?.value;
+        if (typeFilter) filtered = filtered.filter(t => t.type === typeFilter);
 
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد حركات</div><div class="empty-sub">الحركات تظهر تلقائياً عند البيع أو الشراء أو التحصيل</div></div>';
@@ -8740,6 +9038,8 @@
                 /* شريط الأزرار */
                 '<div class="inst-actionbar">' +
                     (nextUnpaidIdx >= 0 ? '<button class="btn-sm btn-success wide" onclick="openSlotPay(' + inst.id + ', ' + nextUnpaidIdx + ')">💵 تحصيل</button>' : '') +
+                    (!inst.isPaid ? '<button class="btn-sm btn-outline" onclick="settleInstallmentFull(' + inst.id + ')">💳 سداد كامل المتبقي</button>' : '') +
+                    (paidCount > 0 ? '<button class="btn-sm btn-outline" onclick="undoLastInstPayment(' + inst.id + ')">↩️ تراجع آخر دفعة</button>' : '') +
                     '<button class="btn-sm btn-outline" onclick="toggleInstDetails(' + inst.id + ')">📄 التفاصيل</button>' +
                     '<button class="btn-sm btn-outline" onclick="printInstallmentMergedPDF(' + inst.id + ')">📋 PDF</button>' +
                     '<button class="btn-sm btn-outline" onclick="showCustomerInstallmentStatement(' + inst.merchantId + ')">📊 كشف</button>' +
@@ -9006,6 +9306,88 @@
         }
     };
 
+    // سداد كامل المتبقي دفعة واحدة (يولّد حركة واحدة ويمسح الجدول المتبقي)
+    window.settleInstallmentFull = async (id) => {
+        try {
+            let inst = installments.find(i => i.id == id);
+            if (!inst) return;
+            if (inst.isPaid || inst.remainingBalance <= 0) { showToast('العقد مسدد بالكامل', 'error'); return; }
+            let remaining = parseFloat(inst.remainingBalance.toFixed(2));
+            let ok = await showConfirmModal('سداد كامل المتبقي (' + remaining.toFixed(2) + ' ج) لعقد رقم ' + (inst.contractNo || id) + '؟', '💳 تسوية نهائية');
+            if (!ok) return;
+
+            let result = await showPaymentModal('تسوية العقد بالكامل\nالمطلوب: ' + remaining.toFixed(2) + ' ج.م\n' + (inst.deviceName || 'جهاز'), remaining.toFixed(2), '💳 سداد كامل', { showDate: true, defaultDate: new Date().toISOString().split('T')[0] });
+            if (!result || isNaN(result.amount) || result.amount <= 0) return;
+            let val = Math.min(parseFloat(result.amount), remaining);
+            let payDate = (result.date || new Date().toISOString().split('T')[0]).slice(0, 10);
+            let nowTime = new Date();
+            let timeStr = [nowTime.getHours(), nowTime.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
+            let transDateISO = new Date(payDate + 'T' + timeStr + ':00').toISOString();
+
+            let payResult = BusinessLogic.recordInstallmentPayment({
+                installmentId: id, amount: val,
+                accountId: result.accountId || null,
+                cashAmount: result.cashAmount || 0,
+                bankAmount: result.bankAmount || 0,
+                cashAccountId: result.cashAccountId || null,
+                bankAccountId: result.bankAccountId || null,
+                date: transDateISO
+            });
+            if (!payResult.success) { showToast('فشل التسوية: ' + payResult.reason, 'error'); return; }
+
+            renderInstallments(); renderTransactions(); renderDashboard();
+            showToast('✅ تم تسوية عقد رقم ' + (inst.contractNo || id) + ' بالكامل (' + val.toFixed(2) + ' ج)');
+        } catch (err) {
+            showError('حدث خطأ أثناء تسوية العقد', err.message);
+        }
+    };
+
+    // تراجع عن آخر دفعة مسجلة في العقد (إلغاء حركة السداد + فك آخر قسط)
+    window.undoLastInstPayment = async (id) => {
+        try {
+            if (!requireAdmin()) return;
+            let inst = installments.find(i => i.id == id);
+            if (!inst) return;
+            let schedule = inst.schedule && inst.schedule.length === inst.numInstallments ? inst.schedule : getInstSchedule(inst);
+            let lastPaid = [...schedule].reverse().find(s => s.isPaid || (s.paidAmount || 0) > 0);
+            if (!lastPaid) { showToast('لا توجد دفعات مسجلة', 'error'); return; }
+
+            let paidDate = lastPaid.paidDate;
+            let ok = await showConfirmModal('التراجع عن آخر دفعة (القسط رقم ' + lastPaid.index + ')' + (paidDate ? ' بتاريخ ' + paidDate : '') + '؟\nسيتم حذف حركة السداد وإعادتها للمتبقي.', '↩️ تراجع عن الدفعة');
+            if (!ok) return;
+
+            // حذف حركات السداد المرتبطة بهذه الدفعة (تاريخ السداد + رابط العقد)
+            let removedAmt = 0;
+            transactions = transactions.filter(t => {
+                if (t.instId == id && t.sourceType === 'installment_payment' &&
+                    t.notes && (t.notes.includes('القسط ' + lastPaid.index) || (paidDate && t.date && String(t.date).slice(0, 10) === paidDate))) {
+                    removedAmt += (t.amount || 0);
+                    return false;
+                }
+                return true;
+            });
+            if (removedAmt <= 0) { showToast('لم يتم العثور على حركة السداد المرتبطة', 'error'); return; }
+
+            // فك الأقساط التي تم سدادها في نفس تاريخ هذه الدفعة
+            schedule.forEach(s => {
+                if (s.paidDate === paidDate) {
+                    s.isPaid = false;
+                    s.paidAmount = 0;
+                    delete s.paidDate;
+                }
+            });
+            inst.remainingBalance = parseFloat((inst.remainingBalance + removedAmt).toFixed(2));
+            if (inst.remainingBalance > 0.01) inst.isPaid = false;
+            else inst.remainingBalance = 0;
+
+            saveData(); renderInstallments(); renderTransactions(); renderDashboard();
+            logAudit('delete', 'سداد قسط', id + ' | ' + lastPaid.index, 'تراجع عن دفعة بقيمة ' + removedAmt.toFixed(2) + ' ج');
+            showToast('↩️ تم التراجع عن الدفعة (' + removedAmt.toFixed(2) + ' ج)');
+        } catch (err) {
+            showError('حدث خطأ أثناء التراجع', err.message);
+        }
+    };
+
     // ====== مبيعات العربون ======
     window.calcArabonPrice = function() {
         let pId = document.getElementById('arabonProductId').value;
@@ -9082,6 +9464,48 @@
             showError('حدث خطأ أثناء حفظ العقد', err.message);
         }
     });
+
+    window.exportArabonCSV = function() {
+        if (!arabonSales.length) { showToast('لا توجد عقود عربون', 'error'); return; }
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const term = getSearchTerm('Arabon');
+        const filterVal = (document.getElementById('arabonFilter')?.value) || 'all';
+        let list = [...arabonSales];
+        if (filterVal === 'paid') list = list.filter(a => a.isPaid);
+        else if (filterVal === 'unpaid') list = list.filter(a => !a.isPaid && a.remainingPaymentMethod !== 'installments');
+        else if (filterVal === 'installments') list = list.filter(a => a.remainingPaymentMethod === 'installments' && !a.isPaid);
+        if (term) list = list.filter(a => {
+            let mName = merchants.find(x => x.id == a.merchantId)?.name || '';
+            return mName.toLowerCase().includes(term) || (a.deviceName || '').toLowerCase().includes(term);
+        });
+        const rows = [['التاريخ', 'العميل', 'رقم الهاتف', 'الجهاز', 'سعر البيع', 'العربون المدفوع', 'المتبقي', 'الحالة', 'طريقة السداد', 'استحقاق', 'ملاحظات']];
+        list.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(a => {
+            let m = merchants.find(x => x.id == a.merchantId);
+            let status = a.isPaid ? 'مسدد' : (a.remainingPaymentMethod === 'installments' ? 'أقساط' : 'متبقي');
+            let method = a.remainingPaymentMethod === 'cash' ? 'كاش' : a.remainingPaymentMethod === 'bank' ? 'بنك' : a.remainingPaymentMethod === 'vodafone' ? 'فودافون' : a.remainingPaymentMethod === 'installments' ? 'أقساط' : '—';
+            rows.push([
+                a.date ? new Date(a.date).toLocaleDateString('ar-EG') : '',
+                m?.name || '',
+                m?.phone || '',
+                a.deviceName || '',
+                (a.sellPrice || 0).toLocaleString(),
+                (a.depositAmount || 0).toLocaleString(),
+                (a.remainingAmount || 0).toLocaleString(),
+                status, method,
+                a.dueDate || '',
+                a.notes || ''
+            ]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'عقود_العربون_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير عقود العربون (' + list.length + ')');
+    };
 
     window.renderArabonSales = function() {
         const container = document.getElementById('arabonSalesList');
@@ -10508,6 +10932,10 @@
             html += '</div>';
             html += '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">';
             html += '<span style="font-weight:700;font-size:0.85rem;color:' + balColor + ';background:' + balBg + ';padding:4px 10px;border-radius:8px;white-space:nowrap;">' + balLabel + ' ج</span>';
+            if (s.phone) {
+                let waMsg = b > 0 ? 'تذكير: يا أستاذ ' + s.name + ' رصيدك المستحق لدينا ' + b.toFixed(2) + ' ج.م — يرجى السداد' : 'مرحباً ' + s.name + '، رصيدك معنا: ' + Math.abs(b).toFixed(2) + ' ج.م';
+                html += '<button onclick="event.stopPropagation();sendWhatsApp(\'' + String(s.phone).replace(/'/g, '') + '\',\'' + waMsg.replace(/'/g, '') + '\')" class="btn-sm" style="background:#25D366;color:#fff;border:none;white-space:nowrap;">📲</button>';
+            }
             html += '</div>';
             html += '</div></div>';
         });
@@ -10660,6 +11088,20 @@
         }
     };
 
+    window.editPartner = (id) => {
+        let p = partners.find(x => x.id == id);
+        if (!p) { showToast('الشريك غير موجود', 'error'); return; }
+        document.getElementById('partnerId').value = p.id;
+        document.getElementById('partnerName').value = p.name || '';
+        document.getElementById('partnerPhone').value = p.phone || '';
+        document.getElementById('partnerAmount').value = p.balance || 0;
+        document.getElementById('partnerAmount').disabled = true;
+        document.getElementById('partnerNotes').value = p.notes || '';
+        setFormVisible('partnerForm', 'partnerToggleIcon', true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast('✏️ جارٍ تعديل بيانات «' + p.name + '» (المبلغ مقفل — يُعدَّل عبر الإيداع/السحب)');
+    };
+
     window.deletePartner = async (id) => {
         try {
             let p = partners.find(x => x.id == id);
@@ -10717,6 +11159,7 @@
                     '<button class="btn-sm btn-success flex-1" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')">💵 إيداع</button>' +
                     '<button class="btn-sm btn-outline flex-1" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')">💰 سحب</button>' +
                     '<button class="btn-sm flex-shrink-0" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
+                    '<button class="btn-sm btn-outline flex-shrink-0" onclick="editPartner(' + p.id + ')">✏️</button>' +
                     '<button class="btn-sm btn-danger flex-shrink-0" onclick="deletePartner(' + p.id + ')">🗑️</button>' +
                 '</div>' +
             '</div>';
@@ -10912,6 +11355,8 @@
             }
             document.getElementById('partnerForm').reset();
             document.getElementById('partnerId').value = '';
+            const amtField = document.getElementById('partnerAmount');
+            if (amtField) amtField.disabled = false;
             saveData(); renderPartners();
             setFormVisible('partnerForm', 'partnerToggleIcon', false);
         } catch (err) {
@@ -11188,6 +11633,7 @@
                 '</div></div>' +
                 '<div class="header-actions">' +
                     '<button onclick="printAccountStatement(' + accountId + ')">' + ASI.print + ' طباعة</button>' +
+                    '<button onclick="exportAccountStatementCSV(' + accountId + ')">📎 CSV</button>' +
                     '<button onclick="document.getElementById(\'accountStatementOverlay\').remove()">' + ASI.close + ' إغلاق</button>' +
                 '</div>' +
             '</div>' +
@@ -11283,6 +11729,37 @@
             '</body></html>');
         printWindow.document.close();
         showToast('تم فتح نافذة الطباعة');
+    };
+
+    window.exportAccountStatementCSV = (accountId) => {
+        let a = accounts.find(x => x.id == accountId);
+        if (!a) { showToast('الحساب غير موجود', 'error'); return; }
+        let accTxns = transactions.filter(t => t.accountId == accountId).slice().sort((x, y) => x.date.localeCompare(y.date));
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const rows = [['التاريخ', 'البيان', 'وارد', 'منصرف', 'الرصيد']];
+        let running = a.balance || 0;
+        accTxns.forEach(t => {
+            let isIn = INCOME_TRANS_TYPES.includes(t.type);
+            let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
+            if (isIn) running += t.amount;
+            if (isOut) running -= t.amount;
+            rows.push([
+                new Date(t.date).toLocaleString('ar-EG'),
+                (t.notes || t.type || ''),
+                isIn ? t.amount.toLocaleString() : '',
+                isOut ? t.amount.toLocaleString() : '',
+                running.toLocaleString()
+            ]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const dl = document.createElement('a');
+        dl.href = url;
+        dl.download = 'كشف_حساب_' + a.name.replace(/[^\w\u0600-\u06FF]+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.csv';
+        dl.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير كشف الحساب');
     };
 
     function generateFullInstallmentPDF(inst) {
