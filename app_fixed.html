@@ -1535,11 +1535,7 @@
                     </div>
                     <div class="form-group">
                         <label>التصنيف</label>
-                        <select id="incomeCategory">
-                            <option value="مبيعات">مبيعات</option>
-                            <option value="تحصيل">تحصيل</option>
-                            <option value="أخرى">أخرى</option>
-                        </select>
+                        <select id="incomeCategory"></select>
                     </div>
                     <div class="form-group">
                         <label>ملاحظات</label>
@@ -2456,6 +2452,15 @@
                 </div>
                 <div id="expenseCategoriesList" style="margin-top:12px;"></div>
             </div>
+
+            <h2>💰 تصنيفات الإيرادات</h2>
+            <div class="card">
+                <div style="display:flex; gap:8px; margin-bottom:4px;">
+                    <input type="text" id="newIncomeCategoryInput" placeholder="اسم تصنيف جديد (مثال: مبيعات، تحصيل، فوائد...)" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);">
+                    <button onclick="addIncomeCategory()" class="btn btn-success" style="white-space:nowrap;">➕ إضافة</button>
+                </div>
+                <div id="incomeCategoriesList" style="margin-top:12px;"></div>
+            </div>
         </div>
 
     </div>
@@ -2803,7 +2808,7 @@
 
     const DB_NAME = 'SalesManagementDB';
     const DB_VERSION = 6;
-    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements', 'arabonSales', 'employees', 'recurringExpenses', 'auditLog', 'expenseCategories'];
+    const STORE_NAMES = ['products', 'merchants', 'transactions', 'installments', 'msgTemplates', 'merchantSales', 'merchantPayments', 'merchantPurchases', 'merchantPaymentsOut', 'partners', 'accounts', 'stockMovements', 'arabonSales', 'employees', 'recurringExpenses', 'auditLog', 'expenseCategories', 'incomeCategories'];
 
     let db = null;
     let dbReady = null;
@@ -2917,11 +2922,12 @@
         else if (name === 'recurringExpenses') recurringExpenses = data;
         else if (name === 'auditLog') auditLog = data;
         else if (name === 'expenseCategories') expenseCategories = data;
+        else if (name === 'incomeCategories') incomeCategories = data;
     }
 
     async function saveAllToIDB() {
         if (!db) return;
-        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, employees, recurringExpenses, auditLog, expenseCategories };
+        const allData = { products, merchants, transactions, installments, msgTemplates, merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, employees, recurringExpenses, auditLog, expenseCategories, incomeCategories };
         for (const name of STORE_NAMES) {
             const data = allData[name];
             if (data === undefined) continue;
@@ -3005,7 +3011,9 @@
     let auditLog = [];
     const AUDIT_LOG_MAX = 1000;
     const DEFAULT_EXPENSE_CATEGORIES = ['إيجار', 'رواتب', 'كهرباء', 'شحن/جمارك', 'صيانة', 'تسويق/إعلانات', 'أخرى'];
+    const DEFAULT_INCOME_CATEGORIES = ['مبيعات', 'تحصيل', 'فوائد تقسيط', 'إيرادات إضافية', 'أخرى'];
     let expenseCategories = safeParse(localStorage.getItem('expenseCategories'), []);
+    let incomeCategories = safeParse(localStorage.getItem('incomeCategories'), []);
     let lockInputAttempts = 0;
     let receiptData = null;
     let currentPage = {};
@@ -3058,6 +3066,7 @@
         auditLog = safeParse(localStorage.getItem('auditLog'), []);
         if (!Array.isArray(auditLog)) auditLog = [];
         expenseCategories = safeParse(localStorage.getItem('expenseCategories'), []);
+        incomeCategories = safeParse(localStorage.getItem('incomeCategories'), []);
         openingCapital = parseFloat(localStorage.getItem('openingCapital')) || 0;
         if (!Array.isArray(products)) products = [];
         if (!Array.isArray(merchants)) merchants = [];
@@ -3074,6 +3083,7 @@
         if (!Array.isArray(employees)) employees = [];
         if (!Array.isArray(recurringExpenses)) recurringExpenses = [];
         if (!Array.isArray(expenseCategories) || expenseCategories.length === 0) expenseCategories = [...DEFAULT_EXPENSE_CATEGORIES];
+        if (!Array.isArray(incomeCategories) || incomeCategories.length === 0) incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
         recordInitDiag('afterLS', 'accounts', accounts.length);
 
         // الـ localStorage هو المصدر الأساسي. الـ IndexedDB مجرد نسخة احتياطية:
@@ -5007,6 +5017,7 @@
             recurringExpenses = data.recurringExpenses || [];
             auditLog = data.auditLog || [];
             expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
+            incomeCategories = (data.incomeCategories && data.incomeCategories.length) ? data.incomeCategories : [...DEFAULT_INCOME_CATEGORIES];
             if (data.openingCapital !== undefined) {
                 openingCapital = data.openingCapital;
                 localStorage.setItem('openingCapital', String(openingCapital));
@@ -5074,6 +5085,7 @@
         lsSet('recurringExpenses', JSON.stringify(recurringExpenses));
         lsSet('auditLog', JSON.stringify(auditLog));
         lsSet('expenseCategories', JSON.stringify(expenseCategories));
+        lsSet('incomeCategories', JSON.stringify(incomeCategories));
         lsSet('openingCapital', String(openingCapital));
         try { await saveAllToIDB(); } catch (e) { console.warn('saveAllToIDB فشل', e); }
         updateStorageInfo();
@@ -5173,10 +5185,12 @@
         if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
         if (document.getElementById('arabonProductId')) document.getElementById('arabonProductId').innerHTML = prodOptions;
         if (document.getElementById('arabonAccountId')) document.getElementById('arabonAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
+        if (document.getElementById('incomeCategory')) document.getElementById('incomeCategory').innerHTML = incomeCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         if (document.getElementById('expenseCategory')) document.getElementById('expenseCategory').innerHTML = expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
         if (document.getElementById('transCategoryFilter')) {
             const cur = document.getElementById('transCategoryFilter').value;
-            document.getElementById('transCategoryFilter').innerHTML = '<option value="">🏷️ كل التصنيفات</option>' + expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+            const allCats = [...new Set([...incomeCategories, ...expenseCategories, ...transactions.filter(t => t.category).map(t => t.category)])];
+            document.getElementById('transCategoryFilter').innerHTML = '<option value="">🏷️ كل التصنيفات</option>' + allCats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
             document.getElementById('transCategoryFilter').value = cur;
         }
         if (document.getElementById('recAccount')) document.getElementById('recAccount').innerHTML = accountOptions;
@@ -8297,10 +8311,49 @@
         }).join('');
     }
 
+    window.addIncomeCategory = function() {
+        const input = document.getElementById('newIncomeCategoryInput');
+        const val = input.value.trim();
+        if (!val) { showToast('اكتب اسم التصنيف أولاً', 'error'); return; }
+        if (incomeCategories.some(c => c === val)) { showToast('التصنيف موجود بالفعل', 'error'); return; }
+        incomeCategories.push(val);
+        input.value = '';
+        saveData(); renderIncomeCategories(); refreshSelectors();
+        logAudit('create', 'تصنيف إيرادات', val, 'إضافة تصنيف إيرادات');
+        showToast('✅ تم إضافة التصنيف: ' + val);
+    };
+
+    window.removeIncomeCategory = async (name) => {
+        if (name === 'أخرى') { showToast('لا يمكن حذف تصنيف «أخرى»', 'error'); return; }
+        const used = transactions.filter(t => t.type === 'income' && t.category === name).length;
+        const ok = await showConfirmModal('حذف التصنيف «' + name + '»؟' + (used ? '\n' + used + ' حركة ستُعاد إلى «أخرى».' : ''), '🗑️ تأكيد الحذف');
+        if (!ok) return;
+        incomeCategories = incomeCategories.filter(c => c !== name);
+        transactions.forEach(t => { if (t.type === 'income' && t.category === name) t.category = 'أخرى'; });
+        saveData(); renderIncomeCategories(); renderTransactions(); renderDashboard();
+        logAudit('delete', 'تصنيف إيرادات', name, 'حذف تصنيف (' + used + ' حركة أُعيدت لأخرى)');
+        showToast('✅ تم حذف التصنيف');
+    };
+
+    function renderIncomeCategories() {
+        const list = document.getElementById('incomeCategoriesList');
+        if (!list) return;
+        const used = {};
+        transactions.forEach(t => { if (t.type === 'income' && t.category) used[t.category] = (used[t.category] || 0) + t.amount; });
+        list.innerHTML = incomeCategories.map(cat => {
+            const total = used[cat] || 0;
+            return '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">' +
+                '<div style="flex:1;"><strong>' + esc(cat) + '</strong>' + (total ? ' <span style="color:var(--text-muted);font-size:0.8rem;">— ' + total.toFixed(2) + ' ج</span>' : '') + '</div>' +
+                (cat !== 'أخرى' ? '<button class="btn-sm" style="background:var(--danger);color:#fff;" onclick="removeIncomeCategory(\'' + cat.replace(/'/g, '') + '\')">🗑️</button>' : '') +
+            '</div>';
+        }).join('');
+    }
+
     function renderAdminPage() {
         renderEmployees();
         renderRecurring();
         renderExpenseCategories();
+        renderIncomeCategories();
     }
 
     function checkRecurringExpenses() {
@@ -12476,7 +12529,7 @@
                 version: 3,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement('a');
@@ -12526,7 +12579,8 @@
                     employees = data.employees || [];
                     recurringExpenses = data.recurringExpenses || [];
                     auditLog = data.auditLog || [];
-                    expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
+expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
+                    incomeCategories = (data.incomeCategories && data.incomeCategories.length) ? data.incomeCategories : [...DEFAULT_INCOME_CATEGORIES];
                     if (data.openingCapital !== undefined) {
                         openingCapital = data.openingCapital;
                         localStorage.setItem('openingCapital', String(openingCapital));
@@ -12963,6 +13017,7 @@
         recurringExpenses = data.recurringExpenses || [];
         auditLog = data.auditLog || [];
         expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? data.expenseCategories : [...DEFAULT_EXPENSE_CATEGORIES];
+        incomeCategories = (data.incomeCategories && data.incomeCategories.length) ? data.incomeCategories : [...DEFAULT_INCOME_CATEGORIES];
         if (data.openingCapital !== undefined) {
             openingCapital = data.openingCapital;
             localStorage.setItem('openingCapital', String(openingCapital));
