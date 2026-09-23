@@ -1234,8 +1234,8 @@
 
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;" class="cc-kpi-grid">
                 <div class="stat-card" style="border-color:var(--success);padding:16px 12px;">
-                    <div style="font-size:1.5rem;margin-bottom:4px;">📈</div>
-                    <div style="font-size:0.78rem;color:var(--success);margin-bottom:4px;">صافي الربح</div>
+                    <div style="font-size:1.5rem;margin-bottom:4px;" id="ccNetProfitIcon">📈</div>
+                    <div style="font-size:0.78rem;color:var(--success);margin-bottom:4px;" id="ccNetProfitLabel">صافي الربح</div>
                     <div class="value" id="ccNetProfit" style="color:var(--success);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--primary);padding:16px 12px;">
@@ -1273,7 +1273,7 @@
                         <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthExpensesChange">—</div>
                     </div>
                     <div class="stat-card" style="border-color:var(--success);padding:12px;">
-                        <div style="font-size:0.78rem;color:var(--success);margin-bottom:3px;">✅ صافي الربح</div>
+                        <div style="font-size:0.78rem;color:var(--success);margin-bottom:3px;" id="ccMonthProfitLabel">✅ صافي الربح</div>
                         <div style="font-size:1.15rem;font-weight:800;color:var(--success);" id="ccMonthProfit">0</div>
                         <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthProfitChange">—</div>
                     </div>
@@ -1456,7 +1456,7 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>الربح المتوقع (للقطعة)</label>
+                        <label id="profitMarginLabel">الربح المتوقع (للقطعة)</label>
                         <input type="text" id="profitMargin" readonly>
                     </div>
                     <button type="submit">💾 حفظ الصنف</button>
@@ -1905,10 +1905,10 @@
                         <div class="flex-between" style="padding:6px 0;"><span>🔻 خصومات البيوع</span> <strong id="repDiscounts" style="color:var(--accent)">0</strong></div>
                         <div class="flex-between" style="padding:6px 0;"><span>🏭 تكلفة البضاعة المباعة (COGS)</span> <strong id="repCOGS" style="color:var(--danger)">0</strong></div>
                         <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--primary);">
-                            <span>📈 إجمالي الربح</span> <strong id="repGrossProfit">0</strong>
+                            <span id="repGrossProfitLabel">📈 إجمالي الربح</span> <strong id="repGrossProfit">0</strong>
                         </div>
                         <div class="flex-between" style="padding:2px 0 6px 0;font-size:0.85rem;color:var(--text-muted);">
-                            <span>هامش إجمالي الربح</span> <strong id="repGrossMargin">0%</strong>
+                            <span id="repGrossMarginLabel">هامش إجمالي الربح</span> <strong id="repGrossMargin">0%</strong>
                         </div>
                     </div>
                     <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
@@ -1916,16 +1916,16 @@
                         <div id="repExpenseBreakdown" style="padding:4px 0 2px 8px;"></div>
                         <div class="flex-between" style="padding:6px 0;"><span>🧑‍💼 عمولات الموظفين</span> <strong id="repCommissions" style="color:var(--danger)">0</strong></div>
                         <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:var(--primary);">
-                            <span>⚙️ صافي الربح التشغيلي</span> <strong id="repOperatingProfit">0</strong>
+                            <span id="repOperatingProfitLabel">⚙️ صافي الربح التشغيلي</span> <strong id="repOperatingProfit">0</strong>
                         </div>
                     </div>
                     <div style="margin-bottom:10px;">
                         <div class="flex-between" style="padding:6px 0;"><span>💰 أرباح فوائد التقسيط</span> <strong id="repInterest" style="color:var(--success)">0</strong></div>
                         <div class="flex-between" style="padding:10px 0 6px;font-size:1.15rem;font-weight:800;border-top:2px solid var(--primary);color:var(--primary);">
-                            <span>🎯 صافي الربح الفعلي</span> <strong id="repNetProfit">0</strong>
+                            <span id="repNetProfitLabel">🎯 صافي الربح الفعلي</span> <strong id="repNetProfit">0</strong>
                         </div>
                         <div class="flex-between" style="padding:2px 0 6px 0;font-size:0.85rem;color:var(--text-muted);">
-                            <span>هامش صافي الربح</span> <strong id="repNetMargin">0%</strong>
+                            <span id="repNetMarginLabel">هامش صافي الربح</span> <strong id="repNetMargin">0%</strong>
                         </div>
                     </div>
                 </div>
@@ -1997,7 +1997,7 @@
                         <div class="chart-legend">
                             <span><span class="dot" style="background:var(--success)"></span> الإيرادات</span>
                             <span><span class="dot" style="background:var(--danger)"></span> المصروفات</span>
-                            <span><span class="dot" style="background:var(--primary)"></span> صافي الربح</span>
+                            <span><span class="dot" style="background:var(--primary)"></span> صافي الربح/الخسارة</span>
                         </div>
                     </div>
                     <div style="margin-top:20px;">
@@ -5786,6 +5786,10 @@
         if (grossProfitEl) grossProfitEl.innerHTML = fin.grossProfit.toFixed(2) + ' ج';
         const grossMarginEl = document.getElementById('repGrossMargin');
         if (grossMarginEl) grossMarginEl.innerHTML = fin.grossMargin.toFixed(1) + '%';
+        const rgl = document.getElementById('repGrossProfitLabel');
+        if (rgl) rgl.textContent = fin.grossProfit >= 0 ? '📈 إجمالي الربح' : '📉 إجمالي الخسارة';
+        const rgml = document.getElementById('repGrossMarginLabel');
+        if (rgml) rgml.textContent = fin.grossProfit >= 0 ? 'هامش إجمالي الربح' : 'هامش إجمالي الخسارة';
         if (document.getElementById('repExpenses')) document.getElementById('repExpenses').innerHTML = fin.expenses.toFixed(2) + ' ج';
         const repCommEl = document.getElementById('repCommissions');
         if (repCommEl) repCommEl.innerHTML = fin.totalCommissions.toFixed(2) + ' ج';
@@ -5807,8 +5811,14 @@
         }
         const operatingProfitEl = document.getElementById('repOperatingProfit');
         if (operatingProfitEl) operatingProfitEl.innerHTML = fin.operatingProfit.toFixed(2) + ' ج';
+        const opl = document.getElementById('repOperatingProfitLabel');
+        if (opl) opl.textContent = fin.operatingProfit >= 0 ? '⚙️ صافي الربح التشغيلي' : '⚙️ صافي الخسارة التشغيلية';
         if (document.getElementById('repInterest')) document.getElementById('repInterest').innerHTML = fin.interestProfit.toFixed(2) + ' ج';
         if (document.getElementById('repNetProfit')) document.getElementById('repNetProfit').innerHTML = fin.netProfit.toFixed(2) + ' ج';
+        const npl = document.getElementById('repNetProfitLabel');
+        if (npl) npl.textContent = fin.netProfit >= 0 ? '🎯 صافي الربح الفعلي' : '🎯 صافي الخسارة الفعلية';
+        const npml = document.getElementById('repNetMarginLabel');
+        if (npml) npml.textContent = fin.netProfit >= 0 ? 'هامش صافي الربح' : 'هامش صافي الخسارة';
         const netMarginEl = document.getElementById('repNetMargin');
         if (netMarginEl) netMarginEl.innerHTML = fin.netMargin.toFixed(1) + '%';
 
@@ -5879,6 +5889,14 @@
         setTxt('ccStock', fin.stockValue.toFixed(2) + ' ج');
         setTxt('ccPartnerInvest', fin.partnerInvest.toFixed(2) + ' ج');
         setTxt('ccNetProfit', fin.netProfit.toFixed(2) + ' ج');
+        const ccNetLabel = document.getElementById('ccNetProfitLabel');
+        const ccNetCard = document.getElementById('ccNetProfit');
+        const ccNetIcon = document.getElementById('ccNetProfitIcon');
+        if (ccNetLabel) { ccNetLabel.textContent = fin.netProfit >= 0 ? 'صافي الربح' : 'صافي الخسارة'; ccNetLabel.style.color = fin.netProfit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+        if (ccNetCard) ccNetCard.style.color = fin.netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
+        if (ccNetIcon) ccNetIcon.textContent = fin.netProfit >= 0 ? '📈' : '📉';
+        const ccNetCardBox = ccNetCard ? ccNetCard.closest('.stat-card') : null;
+        if (ccNetCardBox) ccNetCardBox.style.borderColor = fin.netProfit >= 0 ? 'var(--success)' : 'var(--danger)';
         setTxt('ccRevenue', fin.revenue.toFixed(2) + ' ج');
         setTxt('ccCollectionRate', fin.collectionRate.toFixed(1) + '%');
         const activeInstCount = installments.filter(i => !i.isPaid).length;
@@ -5927,6 +5945,12 @@
             setTxt('ccMonthExpenses', curr.expenses.toFixed(2) + ' ج');
             setTxt('ccMonthExpensesChange', fmtCh(curr.expenses, prev.expenses));
             setTxt('ccMonthProfit', curr.profit.toFixed(2) + ' ج');
+            const mpLabel = document.getElementById('ccMonthProfitLabel');
+            const mpVal = document.getElementById('ccMonthProfit');
+            const mpCard = mpVal ? mpVal.closest('.stat-card') : null;
+            if (mpLabel) { mpLabel.textContent = curr.profit >= 0 ? '✅ صافي الربح' : '❌ صافي الخسارة'; mpLabel.style.color = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
+            if (mpVal) mpVal.style.color = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)';
+            if (mpCard) mpCard.style.borderColor = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)';
             setTxt('ccMonthProfitChange', fmtCh(curr.profit, prev.profit));
             setTxt('ccMonthCollections', curr.collections.toFixed(2) + ' ج');
             setTxt('ccMonthCollectionsChange', fmtCh(curr.collections, prev.collections));
@@ -6279,7 +6303,7 @@
                             '<div style="font-weight:700;font-size:0.95rem;">' + r.count + '</div>' +
                         '</div>' +
                         '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
-                            '<div style="font-size:0.7rem;color:var(--text-muted);">إجمالي الربح (قاعدة الحساب)</div>' +
+                            '<div style="font-size:0.7rem;color:var(--text-muted);">' + (r.totalProfit >= 0 ? 'إجمالي الربح (قاعدة الحساب)' : 'إجمالي الخسارة (قاعدة الحساب)') + '</div>' +
                             '<div style="font-weight:700;font-size:0.95rem;">' + r.totalProfit.toFixed(0) + ' ج</div>' +
                         '</div>' +
                         '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);">' +
@@ -6692,7 +6716,7 @@
         let html = '<div style="margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap;">' +
             '<span class="badge badge-primary">إجمالي الإيرادات: ' + totalRev.toFixed(2) + ' ج</span>' +
             '<span class="badge" style="background:var(--danger);color:#fff;">إجمالي التكلفة: ' + totalCost.toFixed(2) + ' ج</span>' +
-            '<span class="badge" style="background:' + (totalProfit >= 0 ? 'var(--success)' : 'var(--danger)') + ';color:#fff;">صافي الربح: ' + totalProfit.toFixed(2) + ' ج</span>' +
+            '<span class="badge" style="background:' + (totalProfit >= 0 ? 'var(--success)' : 'var(--danger)') + ';color:#fff;">' + (totalProfit >= 0 ? 'صافي الربح' : 'صافي الخسارة') + ': ' + totalProfit.toFixed(2) + ' ج</span>' +
         '</div>';
         sorted.forEach(([id, d]) => {
             const profit = d.revenue - (d.cost * d.qty);
@@ -6702,7 +6726,7 @@
                 '<div style="display:flex;gap:16px;font-size:0.85rem;margin-top:4px;color:var(--text-muted);">' +
                     '<span>💰 إيرادات: ' + d.revenue.toFixed(2) + ' ج</span>' +
                     '<span>📦 تكلفة: ' + (d.cost * d.qty).toFixed(2) + ' ج</span>' +
-                    '<span style="color:' + (profit >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">📈 ربح: ' + profit.toFixed(2) + ' ج (' + margin + '%)</span>' +
+                    '<span style="color:' + (profit >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">' + (profit >= 0 ? '📈 ربح' : '📉 خسارة') + ': ' + profit.toFixed(2) + ' ج (' + margin + '%)</span>' +
                 '</div></div>';
         });
         if (sorted.length === 0) html = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">لا توجد مبيعات في هذه الفترة</div></div>';
@@ -6772,7 +6796,7 @@
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d1.expenses.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d2.expenses.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + (pctExpenses <= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctExpenses >= 0 ? '+' : '') + pctExpenses + '%</td></tr>' +
-                '<tr><td style="padding:8px;font-weight:700;border-top:2px solid var(--primary);">🎯 صافي الربح</td>' +
+                '<tr><td style="padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + ((d1.net >= 0 && d2.net >= 0) ? '🎯 صافي الربح' : (d1.net < 0 && d2.net < 0 ? '🎯 صافي الخسارة' : '🎯 صافي الربح/الخسارة')) + '</td>' +
                 '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d1.net.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d2.net.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);color:' + (pctNet >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctNet >= 0 ? '+' : '') + pctNet + '%</td></tr>' +
@@ -6795,7 +6819,7 @@
         const data = [
             { label: 'الإيرادات', v1: d1.revenue, v2: d2.revenue, color1: '#22c55e', color2: '#16a34a' },
             { label: 'المصروفات', v1: d1.expenses, v2: d2.expenses, color1: '#ef4444', color2: '#dc2626' },
-            { label: 'صافي الربح', v1: d1.net, v2: d2.net, color1: '#3b82f6', color2: '#2563eb' }
+            { label: 'صافي الربح/الخسارة', v1: d1.net, v2: d2.net, color1: '#3b82f6', color2: '#2563eb' }
         ];
         const maxVal = Math.max(...data.flatMap(d => [d.v1, d.v2, 1]));
         const pad = { top: 20, bottom: 30, left: 10, right: 10 };
@@ -7052,6 +7076,8 @@
         let profit = sell - totalCost;
         let margin = totalCost ? (profit / totalCost * 100).toFixed(1) : 0;
         document.getElementById('profitMargin').value = profit + ' ج (' + margin + '%)';
+        const pml = document.getElementById('profitMarginLabel');
+        if (pml) pml.textContent = profit >= 0 ? 'الربح المتوقع (للقطعة)' : 'الخسارة المتوقعة (للقطعة)';
     }
     document.getElementById('costPrice').addEventListener('input', calcProfitMargin);
     document.getElementById('prodExpenses').addEventListener('input', calcProfitMargin);
@@ -7238,7 +7264,7 @@
                 '<div><span class="text-muted">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
                 '<div><span class="text-muted">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
                 '<div><span class="text-muted">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
-                '<div><span class="text-muted">📈 ربح</span><br><strong class="' + profitColor + '">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
+                '<div><span class="text-muted">' + (profit >= 0 ? '📈 ربح' : '📉 خسارة') + '</span><br><strong class="' + profitColor + '">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
                 (p.imei ? '<div class="col-span-2" style="grid-column:1/-1;"><span class="text-muted">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + esc(p.imei) + '</strong></div>' : '') +
             '</div>' +
             '<div class="flex flex-wrap gap-1 mt-3 pt-3 border-t">' +
@@ -11554,7 +11580,7 @@
         });
         sheets.push({
             title: 'أرباح الأصناف (' + dateLabel + ')',
-            header: ['#', 'الصنف', 'الكمية المباعة', 'التكلفة الكلية', 'الإيرادات', 'الربح', 'هامش الربح %'],
+            header: ['#', 'الصنف', 'الكمية المباعة', 'التكلفة الكلية', 'الإيرادات', 'الربح/الخسارة', 'الهامش %'],
             rows: Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue).map(([id, d], i) => {
                 const profit = d.revenue - (d.cost * d.qty);
                 const margin = d.revenue ? (profit / d.revenue * 100) : 0;
@@ -11565,7 +11591,7 @@
             const events = getCommissionEvents(range);
             sheets.push({
                 title: 'عمولات الموظفين',
-                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي الربح (قاعدة الحساب)', 'العمولة المستحقة'],
+                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي الربح/الخسارة (قاعدة الحساب)', 'العمولة المستحقة'],
                 rows: employees.map(emp => {
                     const empEvents = events.filter(e => e.empId == emp.id);
                     const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
@@ -11677,12 +11703,12 @@
                 '<table><tr><td>💵 إجمالي المبيعات</td><td style="font-weight:700;">' + fin.revenue.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>🔻 خصومات البيوع</td><td>' + fin.totalDiscounts.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>🏭 تكلفة البضاعة المباعة</td><td>' + fin.cogs.toFixed(2) + ' ج</td></tr>' +
-                '<tr class="total-row"><td>📈 إجمالي الربح</td><td class="profit">' + fin.grossProfit.toFixed(2) + ' ج (' + fin.grossMargin.toFixed(1) + '%)</td></tr>' +
+                '<tr class="total-row"><td>' + (fin.grossProfit >= 0 ? '📈 إجمالي الربح' : '📉 إجمالي الخسارة') + '</td><td class="' + (fin.grossProfit >= 0 ? 'profit' : 'loss') + '">' + fin.grossProfit.toFixed(2) + ' ج (' + fin.grossMargin.toFixed(1) + '%)</td></tr>' +
                 '<tr><td>📉 المصروفات التشغيلية</td><td>' + fin.expenses.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>🧑‍💼 عمولات الموظفين</td><td>' + fin.totalCommissions.toFixed(2) + ' ج</td></tr>' +
-                '<tr class="total-row"><td>⚙️ صافي الربح التشغيلي</td><td class="' + (fin.operatingProfit >= 0 ? 'profit' : 'loss') + '">' + fin.operatingProfit.toFixed(2) + ' ج</td></tr>' +
+                '<tr class="total-row"><td>' + (fin.operatingProfit >= 0 ? '⚙️ صافي الربح التشغيلي' : '⚙️ صافي الخسارة التشغيلية') + '</td><td class="' + (fin.operatingProfit >= 0 ? 'profit' : 'loss') + '">' + fin.operatingProfit.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>💰 أرباح فوائد التقسيط</td><td class="profit">' + fin.interestProfit.toFixed(2) + ' ج</td></tr>' +
-                '<tr class="total-row"><td>🎯 صافي الربح الفعلي</td><td class="' + (fin.netProfit >= 0 ? 'profit' : 'loss') + '" style="font-size:1.1rem;">' + fin.netProfit.toFixed(2) + ' ج (' + fin.netMargin.toFixed(1) + '%)</td></tr></table>' +
+                '<tr class="total-row"><td>' + (fin.netProfit >= 0 ? '🎯 صافي الربح الفعلي' : '🎯 صافي الخسارة الفعلية') + '</td><td class="' + (fin.netProfit >= 0 ? 'profit' : 'loss') + '" style="font-size:1.1rem;">' + fin.netProfit.toFixed(2) + ' ج (' + fin.netMargin.toFixed(1) + '%)</td></tr></table>' +
 
                 '<div class="section-title">🏦 المركز المالي</div>' +
                 '<table><tr><td>💰 الخزينة النقدية</td><td>' + fin.cash.toFixed(2) + ' ج</td></tr>' +
