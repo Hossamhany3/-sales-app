@@ -2060,7 +2060,11 @@
                 <!-- تقرير العمولات -->
                 <div id="tabCommissions" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">🧑‍💼 تقرير عمولات الموظفين</h3>
-                    <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:12px;">يُحسب حسب قاعدة العمولة المحددة لكل موظف (نسبة % من المبيعات أو مبلغ ثابت لكل عملية بيع).</p>
+                    <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:12px;">يُحسب حسب قاعدة العمولة المحددة لكل موظف (نسبة % من الربح أو مبلغ ثابت لكل عملية بيع). عند عمل «أمر صرف» تُسجَّل العمولة كمصروف فعلي يخصم من الخزينة.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button onclick="createCommissionPayoutOrder()" class="btn-outline" style="flex:1;padding:8px 12px;">🧾 إنشاء أمر صرف شامل</button>
+                        <button onclick="printPayoutOrder('')" class="btn-outline" style="flex:1;padding:8px 12px;">🖨️ طباعة آخر أمر صرف</button>
+                    </div>
                     <div id="commissionsContent"></div>
                 </div>
 
@@ -5218,7 +5222,8 @@
                 }
             }
             // شراء المخزون من تاجر ليس مصروفاً (البضاعة تدخل المخزون وتُخصم كتكلفة عند البيع)
-            if (t.type === 'expense') expenses += t.amount;
+            // صرف العمولات يخصم الخزينة فقط — العمولة مُخصومة أصلاً كتكلفة مستحقة عبر totalCommissions
+            if (t.type === 'expense' && t.sourceType !== 'commission_payout') expenses += t.amount;
         });
 
         filteredInst.forEach(inst => {
@@ -5798,7 +5803,7 @@
             const range = getDateRange();
             const expByCat = {};
             transactions.forEach(t => {
-                if (t.type === 'expense' && inRange(t.date, range)) {
+                if (t.type === 'expense' && t.sourceType !== 'commission_payout' && inRange(t.date, range)) {
                     const c = t.category || 'أخرى';
                     expByCat[c] = (expByCat[c] || 0) + t.amount;
                 }
@@ -6227,6 +6232,44 @@
     }
 
     // أحداث العمولة (بيع واحد = حدث واحد حتى لو انقسم على أكثر من حركة)
+    function getCommissionPayouts(range) {
+        return transactions.filter(t => t.sourceType === 'commission_payout' && inRange(t.date, range));
+    }
+
+    function getCommissionPaidForEmp(empId, range) {
+        return getCommissionPayouts(range).filter(t => t.employeeId == empId)
+            .reduce((s, t) => s + (t.amount || 0), 0);
+    }
+
+    function getCommissionRows(range) {
+        const events = getCommissionEvents(range);
+        return employees.map(emp => {
+            const empEvents = events.filter(e => e.empId == emp.id);
+            const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
+            const due = empEvents.reduce((s, e) => s + calcCommission(emp, e.profit), 0);
+            const paid = getCommissionPaidForEmp(emp.id, range);
+            return { emp, totalProfit, due, paid, remaining: Math.max(due - paid, 0), count: empEvents.length };
+        });
+    }
+
+    function nextPayoutOrderNo() {
+        const nums = transactions.filter(t => t.sourceType === 'commission_payout' && t.orderNo)
+            .map(t => parseInt(String(t.orderNo).replace(/\D/g, '')) || 0);
+        const max = nums.length ? Math.max(...nums) : 0;
+        return 'SRF-' + String(max + 1).padStart(4, '0');
+    }
+
+    function getTotalCommissions(range) {
+        const events = getCommissionEvents(range);
+        let total = 0;
+        events.forEach(e => {
+            const emp = employees.find(x => x.id == e.empId);
+            total += calcCommission(emp, e.profit);
+        });
+        return total;
+    }
+
+    // أحداث العمولة (بيع واحد = حدث واحد حتى لو انقسم على أكثر من حركة)
     function getCommissionEvents(range) {
         const events = [];
         const counted = new Set();
@@ -6260,16 +6303,6 @@
         return events;
     }
 
-    function getTotalCommissions(range) {
-        const events = getCommissionEvents(range);
-        let total = 0;
-        events.forEach(e => {
-            const emp = employees.find(x => x.id == e.empId);
-            total += calcCommission(emp, e.profit);
-        });
-        return total;
-    }
-
     function renderCommissions() {
         const container = document.getElementById('commissionsContent');
         if (!container) return;
@@ -6279,15 +6312,10 @@
             return;
         }
         // أحداث العمولة (بيع = حدث واحد، والعمولة من الربح وليس من إجمالي البيع)
-        const events = getCommissionEvents(range);
-        const rows = employees.map(emp => {
-            const empEvents = events.filter(e => e.empId == emp.id);
-            const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
-            const commission = empEvents.reduce((s, e) => s + calcCommission(emp, e.profit), 0);
-            const count = empEvents.length;
-            return { emp, totalProfit, commission, count };
-        });
-        const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
+        const rows = getCommissionRows(range).filter(r => r.emp.commissionType !== 'none');
+        const totalDue = rows.reduce((s, r) => s + r.due, 0);
+        const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
+        const totalRemaining = rows.reduce((s, r) => s + r.remaining, 0);
         container.innerHTML =
             rows.map(r => {
                 const baseLabel = r.emp.commissionType === 'percent' ? (r.emp.commissionValue || 0) + '%' :
@@ -6308,16 +6336,173 @@
                         '</div>' +
                         '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:rgba(34,197,94,0.08);border-color:rgba(34,197,94,0.25);">' +
                             '<div style="font-size:0.7rem;color:var(--text-muted);">العمولة المستحقة</div>' +
-                            '<div style="font-weight:800;font-size:0.95rem;color:var(--success);">' + r.commission.toFixed(0) + ' ج</div>' +
+                            '<div style="font-weight:800;font-size:0.95rem;color:var(--success);">' + r.due.toFixed(0) + ' ج</div>' +
                         '</div>' +
                     '</div>' +
+                    (r.paid > 0 || r.remaining > 0 ?
+                        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">' +
+                            '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
+                                '<div style="font-size:0.7rem;color:var(--text-muted);">المصروف من العمولات</div>' +
+                                '<div style="font-weight:700;font-size:0.95rem;color:var(--danger);">' + r.paid.toFixed(0) + ' ج</div>' +
+                            '</div>' +
+                            '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);">' +
+                                '<div style="font-size:0.7rem;color:var(--text-muted);">المتبقي للصرف</div>' +
+                                '<div style="font-weight:800;font-size:0.95rem;color:' + (r.remaining > 0 ? 'var(--danger)' : 'var(--success)') + ';">' + r.remaining.toFixed(0) + ' ج</div>' +
+                            '</div>' +
+                            '<div style="padding:8px;border:1px solid var(--border);border-radius:8px;text-align:center;background:var(--bg);display:flex;align-items:center;justify-content:center;">' +
+                                (r.remaining > 0 ?
+                                    (isAdminSession() ?
+                                        '<button class="btn-sm btn-success" style="border:none;margin:0;" onclick="payoutCommission(' + r.emp.id + ', ' + r.remaining.toFixed(2) + ')">💸 صرف</button>' :
+                                        '<span style="font-size:0.7rem;color:var(--text-muted);">مدير فقط</span>') :
+                                    '<span style="font-size:0.7rem;color:var(--success);">✅ مُسدَّد</span>') +
+                            '</div>' +
+                        '</div>' : '') +
                     '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;text-align:center;">العمولة تُحسب من الربح (قيمة البيع − التكلفة) وليس من إجمالي المبيعات</div>' +
                 '</div>';
             }).join('') +
-            '<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;color:var(--primary);font-size:0.95rem;">' +
-                '<span>إجمالي العمولات المستحقة</span><span style="white-space:nowrap;">' + totalCommission.toFixed(2) + ' ج</span>' +
+            '<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(79,70,229,0.08);border:1px solid rgba(79,70,229,0.2);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-weight:800;font-size:0.85rem;">' +
+                '<div style="text-align:center;color:var(--primary);"><div style="font-size:0.7rem;font-weight:400;color:var(--text-muted);">المستحق</div>' + totalDue.toFixed(2) + ' ج</div>' +
+                '<div style="text-align:center;color:var(--danger);"><div style="font-size:0.7rem;font-weight:400;color:var(--text-muted);">المصروف</div>' + totalPaid.toFixed(2) + ' ج</div>' +
+                '<div style="text-align:center;color:' + (totalRemaining > 0 ? 'var(--danger)' : 'var(--success)') + ';"><div style="font-size:0.7rem;font-weight:400;color:var(--text-muted);">المتبقي للصرف</div>' + totalRemaining.toFixed(2) + ' ج</div>' +
+            '</div>' +
+            '<div style="margin-top:14px;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--card-bg);">' +
+                '<div style="font-size:0.85rem;font-weight:800;margin-bottom:10px;">🧾 أوامر الصرف المسجلة</div>' +
+                (renderCommissionPayouts(range) || '<p style="font-size:0.8rem;color:var(--text-muted);">لا توجد أوامر صرف في هذه الفترة.</p>') +
             '</div>';
     }
+
+    function renderCommissionPayouts(range) {
+        const payouts = getCommissionPayouts(range).slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+        const groups = {};
+        payouts.forEach(p => {
+            const key = p.orderNo || p.sourceId || p.id;
+            if (!groups[key]) groups[key] = { amount: 0, date: p.date, emps: new Set() };
+            groups[key].amount += (p.amount || 0);
+            const emp = employees.find(e => e.id == p.employeeId);
+            if (emp) groups[key].emps.add(emp.name);
+        });
+        return Object.keys(groups).map(key => {
+            const g = groups[key];
+            const empNames = [...g.emps].join('، ');
+            return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border);">' +
+                '<div style="flex:1;min-width:0;">' +
+                    '<div style="font-weight:700;font-size:0.82rem;">🧾 ' + esc(key) + '</div>' +
+                    '<div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + new Date(g.date).toLocaleDateString('ar-EG') + ' · ' + empNames + '</div>' +
+                '</div>' +
+                '<div style="font-weight:800;color:var(--danger);white-space:nowrap;">' + g.amount.toFixed(2) + ' ج</div>' +
+                '<button class="btn-sm btn-outline" style="margin:0;" onclick="printPayoutOrder(' + JSON.stringify(key) + ')">🖨️ أمر الصرف</button>' +
+            '</div>';
+        }).join('');
+    }
+
+    // ─── صرف عمولة لموظف واحد (جزئي/كامل) ───
+    window.payoutCommission = async function(empId, maxAmount) {
+        if (!isAdminSession()) { showToast('⚠️ صرف العمولات للمديرين فقط', 'error'); return; }
+        const emp = employees.find(e => e.id == empId);
+        if (!emp) return;
+        maxAmount = parseFloat(maxAmount) || 0;
+        const amount = await showNumberPromptModal('المبلغ المطلوب صرفه لـ ' + emp.name + ' (الحد الأقصى ' + maxAmount.toFixed(2) + ' ج):', maxAmount.toFixed(2), '💸 صرف عمولة');
+        if (!amount || amount <= 0) return;
+        if (amount > maxAmount + 0.01) { showToast('المبلغ أكبر من المستحق (' + maxAmount.toFixed(2) + ' ج)', 'error'); return; }
+        const ok = await showConfirmModal('تأكيد صرف عمولة لـ ' + emp.name + ' بمبلغ ' + amount.toFixed(2) + ' ج؟\nسيتم خصم المبلغ من الخزينة.', '💸 تأكيد الصرف');
+        if (!ok) return;
+        const orderNo = nextPayoutOrderNo();
+        let txn = BusinessLogic.postTransaction({
+            type: 'expense', amount: amount, employeeId: emp.id,
+            notes: 'صرف عمولة | أمر رقم ' + orderNo + ' | ' + emp.name,
+            category: 'عمولات', sourceType: 'commission_payout', sourceId: orderNo + '-' + emp.id, operationType: 'payout',
+            date: new Date().toISOString()
+        });
+        if (!txn) { showToast('فشل تسجيل العملية', 'error'); return; }
+        txn.orderNo = orderNo;
+        logAudit('create', 'أمر صرف عمولات', orderNo, 'صرف عمولة ' + emp.name + ' بمبلغ ' + amount.toFixed(2) + ' ج');
+        await saveData();
+        renderCommissions();
+        showToast('✅ تم تسجيل أمر الصرف رقم ' + orderNo);
+        setTimeout(() => printPayoutOrder(orderNo), 400);
+    };
+
+    // ─── أمر صرف شامل لجميع الموظفين بالمبالغ المستحقة ───
+    window.createCommissionPayoutOrder = async function() {
+        if (!isAdminSession()) { showToast('⚠️ إنشاء أمر الصرف للمديرين فقط', 'error'); return; }
+        const range = getDateRange();
+        const rows = getCommissionRows(range).filter(r => r.emp.commissionType !== 'none' && r.remaining > 0);
+        if (!rows.length) { showToast('لا توجد عمولات متبقية للصرف في هذه الفترة', 'error'); return; }
+        const total = rows.reduce((s, r) => s + r.remaining, 0);
+        const lines = rows.map(r => '🧑‍💼 ' + r.emp.name + ' — ' + r.remaining.toFixed(2) + ' ج').join('\n');
+        const ok = await showConfirmModal('الموظفون الجاهزون للصرف:\n' + lines + '\n\nالإجمالي: ' + total.toFixed(2) + ' ج\n\nسيتم تسجيل أمر صرف واحد لكامل المبالغ المتبقية، وتخصم من الخزينة.', '🧾 أمر صرف شامل');
+        if (!ok) return;
+        const orderNo = nextPayoutOrderNo();
+        let created = 0;
+        rows.forEach(r => {
+            let txn = BusinessLogic.postTransaction({
+                type: 'expense', amount: r.remaining, employeeId: r.emp.id,
+                notes: 'صرف عمولة | أمر رقم ' + orderNo + ' | ' + r.emp.name,
+                category: 'عمولات', sourceType: 'commission_payout', sourceId: orderNo + '-' + r.emp.id, operationType: 'payout',
+                date: new Date().toISOString()
+            });
+            if (txn) { txn.orderNo = orderNo; created++; }
+        });
+        if (!created) { showToast('فشل تسجيل أمر الصرف', 'error'); return; }
+        logAudit('create', 'أمر صرف عمولات', orderNo, 'صرف عمولات لـ ' + created + ' موظف بإجمالي ' + total.toFixed(2) + ' ج');
+        await saveData();
+        renderCommissions();
+        showToast('✅ تم تسجيل أمر الصرف رقم ' + orderNo + ' (' + created + ' موظف)');
+        setTimeout(() => printPayoutOrder(orderNo), 400);
+    };
+
+    // ─── طباعة أمر صرف ───
+    window.printPayoutOrder = function(orderNo) {
+        let list = transactions.filter(t => t.sourceType === 'commission_payout');
+        if (!list.length) { showToast('لا توجد أوامر صرف مسجلة', 'error'); return; }
+        if (!orderNo) {
+            list.sort((a, b) => new Date(b.date) - new Date(a.date));
+            orderNo = list[0].orderNo || list[0].sourceId;
+        }
+        const rows = transactions.filter(t => t.sourceType === 'commission_payout' && (t.orderNo === orderNo || t.sourceId === orderNo));
+        if (!rows.length) { showToast('لم يتم العثور على أمر الصرف', 'error'); return; }
+        const total = rows.reduce((s, t) => s + (t.amount || 0), 0);
+        const orderDate = rows[0].date ? new Date(rows[0].date) : new Date();
+        const dateLabel = orderDate.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+        const nowLabel = new Date().toLocaleString('ar-EG');
+        const rowsHtml = rows.map(t => {
+            const emp = employees.find(e => e.id == t.employeeId);
+            return '<tr style="border-bottom:1px solid #e2e8f0;">' +
+                '<td style="padding:10px;text-align:right;">' + esc(emp ? emp.name : 'موظف') + '</td>' +
+                '<td style="padding:10px;text-align:center;">' + (emp ? (emp.commissionType === 'percent' ? (emp.commissionValue || 0) + '% من الربح' : emp.commissionType === 'fixed' ? (emp.commissionValue || 0) + ' ج/عملية' : '—') : '—') + '</td>' +
+                '<td style="padding:10px;text-align:center;">' + t.amount.toFixed(2) + ' ج</td>' +
+                '</tr>';
+        }).join('');
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة أمر الصرف', 'error'); return; }
+        printWindow.document.write('<!DOCTYPE html>\n' +
+            '<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>أمر صرف عمولات ' + orderNo + '</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}body{background:#f8fafc;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;padding:30px;}' +
+            '@media print{body{background:white}@page{margin:1cm;size:A4}}' +
+            '</style></head><body>' +
+            '<div style="text-align:center;border-bottom:3px solid #4f46e5;padding-bottom:14px;margin-bottom:20px;">' +
+                '<div style="font-size:1.5rem;font-weight:bold;color:#0f172a;">🧾 أمر صرف عمولات الموظفين</div>' +
+                '<div style="color:#64748b;font-size:0.9rem;margin-top:6px;">نظام إدارة المبيعات والتقسيط</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;font-size:0.95rem;">' +
+                '<div><span style="color:#64748b;">رقم الأمر: </span><strong>' + esc(orderNo) + '</strong></div>' +
+                '<div><span style="color:#64748b;">التاريخ: </span><strong>' + dateLabel + '</strong></div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #cbd5e1;">' +
+                '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">الموظف</th><th style="padding:10px 8px;text-align:center;">قاعدة العمولة</th><th style="padding:10px 8px;text-align:center;">المبلغ</th></tr></thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+                '<tfoot><tr style="background:#eef2ff;"><td colspan="2" style="padding:10px 8px;text-align:left;font-weight:bold;">الإجمالي</td><td style="padding:10px 8px;text-align:center;font-weight:bold;">' + total.toFixed(2) + ' ج</td></tr></tfoot>' +
+            '</table>' +
+            '<div style="display:flex;justify-content:space-between;margin-top:60px;gap:20px;">' +
+                '<div style="flex:1;border-top:1px solid #94a3b8;padding-top:6px;text-align:center;color:#64748b;font-size:0.85rem;">توقيع المحاسب</div>' +
+                '<div style="flex:1;border-top:1px solid #94a3b8;padding-top:6px;text-align:center;color:#64748b;font-size:0.85rem;">توقيع مسؤول الصرف</div>' +
+            '</div>' +
+            '<div style="text-align:center;margin-top:40px;color:#94a3b8;font-size:0.8rem;">تمت الطباعة آلياً — ' + nowLabel + '</div>' +
+            '<div style="position:fixed;top:12px;left:12px;"><button onclick="window.print()" style="padding:10px 20px;background:#4f46e5;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;">🖨️ طباعة / حفظ PDF</button></div>' +
+            '</body></html>');
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
+    };
 
     // ====== 📅 التقرير اليومي ======
     function renderDailySummary() {
@@ -11591,13 +11776,15 @@
             const events = getCommissionEvents(range);
             sheets.push({
                 title: 'عمولات الموظفين',
-                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي الربح/الخسارة (قاعدة الحساب)', 'العمولة المستحقة'],
-                rows: employees.map(emp => {
+                header: ['الموظف', 'قاعدة العمولة', 'عدد العمليات', 'إجمالي الربح/الخسارة (قاعدة الحساب)', 'العمولة المستحقة', 'المصروف', 'المتبقي للصرف'],
+                rows: employees.filter(e => e.commissionType !== 'none').map(emp => {
                     const empEvents = events.filter(e => e.empId == emp.id);
                     const totalProfit = empEvents.reduce((s, e) => s + e.profit, 0);
                     const commission = empEvents.reduce((s, e) => s + calcCommission(emp, e.profit), 0);
+                    const paid = getCommissionPaidForEmp(emp.id, range);
+                    const remaining = Math.max(commission - paid, 0);
                     const base = emp.commissionType === 'percent' ? (emp.commissionValue||0) + '%' : emp.commissionType === 'fixed' ? (emp.commissionValue||0) + ' ج/عملية' : '—';
-                    return [emp.name, base, empEvents.length, totalProfit.toFixed(2), commission.toFixed(2)];
+                    return [emp.name, base, empEvents.length, totalProfit.toFixed(2), commission.toFixed(2), paid.toFixed(2), remaining.toFixed(2)];
                 })
             });
         }
