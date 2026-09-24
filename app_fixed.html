@@ -2923,8 +2923,8 @@
         else if (name === 'employees') employees = data;
         else if (name === 'recurringExpenses') recurringExpenses = data;
         else if (name === 'auditLog') auditLog = data;
-        else if (name === 'expenseCategories') expenseCategories = data;
-        else if (name === 'incomeCategories') incomeCategories = data;
+        else if (name === 'expenseCategories') expenseCategories = Array.isArray(data) && data[0] && Array.isArray(data[0].items) ? data[0].items : data;
+        else if (name === 'incomeCategories') incomeCategories = Array.isArray(data) && data[0] && Array.isArray(data[0].items) ? data[0].items : data;
     }
 
     async function saveAllToIDB() {
@@ -2936,6 +2936,9 @@
             await idbClear(name);
             if (!Array.isArray(data)) {
                 await idbPut(name, data);
+            } else if (name === 'expenseCategories' || name === 'incomeCategories') {
+                // الفئات نصية بلا .id — تُحفظ كسجل غلاف واحد حتى لا تُسقط من IndexedDB
+                await idbPut(name, { id: '__categories__', items: data });
             } else {
                 for (const item of data) {
                     if (item && item.id !== undefined) await idbPut(name, item);
@@ -2956,8 +2959,12 @@
             const idbData = await idbGetAll(name);
             if (idbData && idbData.length > 0) continue;
             if (Array.isArray(parsed)) {
-                for (const item of parsed) {
-                    if (item && item.id !== undefined) await idbPut(name, item);
+                if (name === 'expenseCategories' || name === 'incomeCategories') {
+                    await idbPut(name, { id: '__categories__', items: parsed });
+                } else {
+                    for (const item of parsed) {
+                        if (item && item.id !== undefined) await idbPut(name, item);
+                    }
                 }
             } else {
                 await idbPut(name, parsed);
@@ -3125,6 +3132,7 @@
         ensureContractNumbers();
         migrateTransactionNotes();
         migrateNewFields();
+        migrateLegacyMerchantTransactionIds();
     }
 
     function getNextContractNo() {
@@ -4512,9 +4520,33 @@
         if (changed) saveData();
     }
 
-    initializeData();
+    // ترحيل: ربط مبيعات/مشتريات التجار القديمة (نقل transactionId رقمي بلا sourceId) إلى المخطط الجديد
+    // حتى لا تُيتَّم الحركة الشقيقة (transId+2) عند الحذف أو تظل غير مرئية لحارس التكرار
+    function migrateLegacyMerchantTransactionIds() {
+        let changed = false;
+        const linkLegacy = (records, sourceType, colonne) => {
+            records.forEach(r => {
+                if (typeof r[colonne] !== 'number') return;
+                const base = String(r[colonne]);
+                let updated = false;
+                transactions.forEach(t => {
+                    if (t.id == r[colonne] || t.id == r[colonne] + 2) {
+                        if (t.sourceType === sourceType && t.sourceId) return;
+                        t.sourceType = sourceType;
+                        t.sourceId = t.id == r[colonne] ? base : base + '_b';
+                        if (t.operationType === undefined) t.operationType = 'create';
+                        updated = true;
+                    }
+                });
+                if (updated) { r[colonne] = base; changed = true; }
+            });
+        };
+        linkLegacy(merchantSales, 'merchant_sale', 'transactionId');
+        linkLegacy(merchantPurchases, 'merchant_purchase', 'transactionId');
+        if (changed) saveData();
+    }
 
-    // التحقق من المصروفات المتكررة عند فتح التطبيق
+    initializeData();
     setTimeout(() => { checkRecurringExpenses(); }, 800);
 
     // ====== قفل الحماية ======
@@ -4993,7 +5025,7 @@
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
                 const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog };
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog };
                 lsSet('autoBackup_last', JSON.stringify(backup));
             }, 300000);
         }
@@ -5057,6 +5089,7 @@
                 localStorage.setItem('openingCapital', String(openingCapital));
             }
             migrateNewFields();
+            migrateLegacyMerchantTransactionIds();
             await saveData();
             refreshSelectors();
             renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderArabonSales(); renderDashboard(); initSettingsPage();
@@ -5407,7 +5440,7 @@
                 ['checkDuplicates','transactions'], ['checkCrossModule','database'],
                 ['checkAccountReconciliation','accounts'], ['checkPartnerReconciliation','partners'],
                 ['checkMerchantReconciliation','merchants'], ['checkArabonReconciliation','arabon'],
-                ['checkIMEI','inventory']
+                ['checkIMEI','inventory'], ['checkLedgerConsistency','transactions']
             ];
             checks.forEach(([fn, mod]) => {
                 try { this[fn](); } catch(e) {
@@ -5548,8 +5581,8 @@
         checkMerchants() {
             const mIds = {};
             merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate','MERCH_DUPLICATE_ID'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing','MERCH_MISSING_NAME'); });
-            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && this.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
-            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && this.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
+            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
+            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
             merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYMENT_ORPHAN'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount),'MERCH_ZERO_PAYMENT'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYMENT_TX_ORPHAN'); }); });
             merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYOUT_ORPHAN'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYOUT_TX_ORPHAN'); }); });
             merchants.forEach(m => {
@@ -5611,10 +5644,18 @@
         checkBackup() {
             let lastBackup = localStorage.getItem('autoBackup_last');
             if (!lastBackup) { this.addIssue('backup','medium','No backup timestamp found','No auto-backup configured','','','','Never','BACKUP_NONE'); return; }
-            let age = Date.now() - new Date(lastBackup).getTime();
+            let lastDate = null;
+            try {
+                const parsed = typeof lastBackup === 'string' ? JSON.parse(lastBackup) : lastBackup;
+                lastDate = (parsed && parsed.date) ? new Date(parsed.date) : new Date(parsed);
+            } catch(e) {
+                lastDate = new Date(lastBackup);
+            }
+            if (isNaN(lastDate.getTime())) { this.addIssue('backup','medium','Invalid backup timestamp','Cannot parse stored auto-backup date','','','','Valid date','BACKUP_INVALID_DATE'); return; }
+            let age = Date.now() - lastDate.getTime();
             let days = Math.floor(age / 86400000);
-            if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
-            else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+new Date(lastBackup).toLocaleDateString('ar-EG'),'','','< 7 days',days+' days','BACKUP_OLD');
+            if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
+            else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG'),'','','< 7 days',days+' days','BACKUP_OLD');
             try {
                 let hasData = (products.length + transactions.length + installments.length + merchants.length + accounts.length) > 0;
                 if (!hasData) this.addIssue('backup','info','No application data found in localStorage','','','','','All stores empty','BACKUP_EMPTY');
@@ -5645,11 +5686,11 @@
             });
             merchantSales.forEach(s => {
                 if (s.merchantId && !merchIds.has(String(s.merchantId))) this.addIssue('merchants','high','MerchantSale #'+s.id+' refs missing merchant #'+s.merchantId,'',String(s.id),'merchantId','Existing merchant','Missing','ORPHAN_MS_MERCHANT');
-                if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','MerchantSale #'+s.id+' refs missing transaction #'+s.transactionId,'',String(s.id),'transactionId','Existing','Missing','ORPHAN_MS_TX');
+                if (s.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','MerchantSale #'+s.id+' refs missing transaction #'+s.transactionId,'',String(s.id),'transactionId','Existing','Missing','ORPHAN_MS_TX');
             });
             merchantPurchases.forEach(p => {
                 if (p.merchantId && !merchIds.has(String(p.merchantId))) this.addIssue('merchants','high','MerchantPurchase #'+p.id+' refs missing merchant #'+p.merchantId,'',String(p.id),'merchantId','Existing merchant','Missing','ORPHAN_MP_MERCHANT');
-                if (p.transactionId && !transactions.find(t => t.id == p.transactionId)) this.addIssue('merchants','medium','MerchantPurchase #'+p.id+' refs missing transaction #'+p.transactionId,'',String(p.id),'transactionId','Existing','Missing','ORPHAN_MP_TX');
+                if (p.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','MerchantPurchase #'+p.id+' refs missing transaction #'+p.transactionId,'',String(p.id),'transactionId','Existing','Missing','ORPHAN_MP_TX');
             });
         },
 
@@ -5753,6 +5794,65 @@
                     if (imeiMap[imei]) this.addIssue('inventory','high','Duplicate IMEI: "'+imei+'"','Product #'+imeiMap[imei]+' and #'+p.id, String(p.id), 'imei', 'Unique', 'Duplicate','IMEI_DUPLICATE');
                     else imeiMap[imei] = p.id;
                 }
+            });
+        },
+
+        // T. LEDGER CONSISTENCY (split-sums, payment sums, stock-movement links, payout orders)
+        checkLedgerConsistency() {
+            // (1) مجموع شقي بيع/شراء التاجر يساوي قيمة السجل
+            const checkSplitSum = (records, sourceType, expectedVal, recLabel) => {
+                records.forEach(r => {
+                    if (!r.transactionId) return;
+                    const linked = BusinessLogic.findTransactionsBySourcePrefix(sourceType, r.transactionId);
+                    if (!linked.length) return;
+                    const total = linked.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+                    const expected = expectedVal(r);
+                    if (expected == null) return;
+                    if (Math.abs(total - expected) > 1) this.addIssue(sourceType === 'merchant_sale' ? 'merchants' : 'merchants','high', recLabel(r)+' sum mismatch', 'Transactions total '+total.toFixed(2)+' vs expected '+expected.toFixed(2), String(r.id), 'transactionIds', expected.toFixed(2), total.toFixed(2),'LEDGER_SPLIT_SUM');
+                });
+            };
+            checkSplitSum(merchantSales, 'merchant_sale', r => (parseFloat(r.sellPrice)||0) * (parseFloat(r.quantity)||1), r => 'MerchantSale #'+r.id);
+            checkSplitSum(merchantPurchases, 'merchant_purchase', r => (parseFloat(r.costPrice)||0) * (parseFloat(r.quantity)||1), r => 'MerchantPurchase #'+r.id);
+            // (2) مجموع حركات الدفعات = مبلغ الدفعة
+            const checkPaySums = (pays, isOut) => {
+                pays.forEach(pay => {
+                    const tids = (pay.transactionIds || []);
+                    if (!tids.length) return;
+                    const linked = transactions.filter(t => tids.includes(t.id));
+                    if (!linked.length) return;
+                    const total = linked.reduce((s, t) => s + (parseFloat(t.amount)||0), 0);
+                    if (Math.abs(total - (parseFloat(pay.amount)||0)) > 1) this.addIssue('merchants','medium',(isOut?'Payout':'Payment')+' #'+pay.id+' sum mismatch','Linked txs '+total.toFixed(2)+' vs amount '+pay.amount, String(pay.id), 'amount', String(pay.amount), total.toFixed(2),'LEDGER_PAY_SUM');
+                });
+            };
+            checkPaySums(merchantPayments, false);
+            checkPaySums(merchantPaymentsOut, true);
+            // (3) كل حركة مخزون مرتبطة بأصل حي (بيع/شراء/تحويل/أمر)
+            const liveSources = new Set();
+            transactions.forEach(t => { if (t.sourceType) liveSources.add(t.sourceType + '|' + String(t.sourceId)); });
+            stockMovements.forEach(sm => {
+                if (!sm.sourceType || !sm.sourceId) return;
+                if (liveSources.has(sm.sourceType + '|' + String(sm.sourceId))) return;
+                if (sm.sourceType === 'installment') {
+                    // حركة عقد قسـط مرتبطة بعقد حي
+                    const parts = String(sm.sourceId).split('_');
+                    const instId = parts[0];
+                    if (installments.find(i => i.id == instId)) return;
+                }
+                this.addIssue('inventory','medium','Orphan stock movement #'+(sm.id||'?')+' refs missing parent '+sm.sourceType+'#'+sm.sourceId,'',String(sm.id||''),'sourceId','Live parent','Missing','STOCK_ORPHAN_PARENT');
+            });
+            // (4) أوامر صرف العمولات: كل الحركات بنفس orderNo تحمل sourceId مطابق (orderNo-employeeId)
+            const orderGroups = {};
+            transactions.forEach(t => {
+                if (t.sourceType === 'commission_payout' && t.orderNo) {
+                    if (!orderGroups[t.orderNo]) orderGroups[t.orderNo] = { count: 0, bad: 0 };
+                    orderGroups[t.orderNo].count++;
+                    const prefix = String(t.orderNo) + '-';
+                    if (String(t.sourceId) !== prefix + String(t.employeeId)) orderGroups[t.orderNo].bad++;
+                }
+            });
+            Object.keys(orderGroups).forEach(orderNo => {
+                const g = orderGroups[orderNo];
+                if (g.bad > 0) this.addIssue('employees','medium','Payout order '+orderNo+' has '+g.bad+' txs with mismatched sourceId','',String(orderNo),'sourceId','orderNo-employeeId','Mismatch','LEDGER_PAYOUT_SOURCEID');
             });
         },
 
@@ -12735,6 +12835,7 @@ expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? 
                         localStorage.setItem('openingCapital', String(openingCapital));
                     }
                     migrateNewFields();
+                    migrateLegacyMerchantTransactionIds();
                     await saveData();
                     refreshSelectors();
                     renderProducts(); renderTransactions();
@@ -12756,11 +12857,11 @@ expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? 
     document.getElementById('shareBackupBtn')?.addEventListener('click', async () => {
         try {
             if (!requireAdmin()) return;
-            const backup = {
+const backup = {
                 version: 3,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             if (navigator.share && navigator.canShare) {
@@ -13083,7 +13184,7 @@ expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? 
                 version: 3,
                 date: new Date().toISOString(),
                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
+                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog
             };
             const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
             const metadata = {
@@ -13172,6 +13273,7 @@ expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? 
             localStorage.setItem('openingCapital', String(openingCapital));
         }
         migrateNewFields();
+        migrateLegacyMerchantTransactionIds();
         await saveData();
         refreshSelectors();
         renderProducts(); renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderAccounts(); renderArabonSales(); renderDashboard(); initSettingsPage();
@@ -13236,7 +13338,7 @@ expenseCategories = (data.expenseCategories && data.expenseCategories.length) ? 
             version: 3,
             date: new Date().toISOString(),
             products, merchants, transactions, installments, msgTemplates,
-            merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, auditLog
+            merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog
         };
     }
 
