@@ -1484,6 +1484,7 @@
                     <input type="checkbox" id="lowStockOnly" onchange="renderProducts()" style="accent-color:var(--danger);">
                     ⚠️ المنخفض فقط
                 </label>
+                <button onclick="exportProductsCSV()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;white-space:nowrap;" title="تصدير الأصناف إلى CSV">📎 CSV</button>
             </div>
             <div id="productsList"></div>
         </div>
@@ -1688,6 +1689,7 @@
                     <option value="all">📋 الكل (تشمل المغلقة)</option>
                     <option value="paid">✅ المسددة / المغلقة</option>
                 </select>
+                <button onclick="exportInstallmentsCSV()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;" title="تصدير العقود إلى CSV">📎 CSV</button>
             </div>
             <div id="installmentsList"></div>
         </div>
@@ -3249,6 +3251,31 @@
             return count - stockMovements.length;
         },
 
+        // ─── حذف معاملات برابط مصدر (مع الأطراف المجزأة _c/_b والبيانات القديمة) ───
+        deleteTransactionsBySourcePrefix(sourceType, sourceId) {
+            sourceId = String(sourceId);
+            let count = transactions.length;
+            transactions = transactions.filter(t => {
+                if (t.sourceType === sourceType) {
+                    const sid = String(t.sourceId);
+                    if (sid === sourceId || sid === sourceId + '_c' || sid === sourceId + '_b') return false;
+                }
+                if (String(t.id) === sourceId) return false;
+                return true;
+            });
+            return count - transactions.length;
+        },
+
+        // ─── معاملات برابط مصدر (مع الأطراف المجزأة _c/_b والبيانات القديمة) ───
+        findTransactionsBySourcePrefix(sourceType, sourceId) {
+            sourceId = String(sourceId);
+            return transactions.filter(t =>
+                (t.sourceType === sourceType &&
+                 (String(t.sourceId) === sourceId || String(t.sourceId) === sourceId + '_c' || String(t.sourceId) === sourceId + '_b')) ||
+                (String(t.id) === sourceId)
+            );
+        },
+
         // ─── رصيد حساب من المعاملات ───
         accountBalance(accountId) {
             let acc = accounts.find(a => a.id == accountId);
@@ -3532,6 +3559,10 @@
             inst.remainingBalance = parseFloat(Math.max(inst.remainingBalance - val, 0).toFixed(2));
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
 
+            // مزامنة رصيد العربون المحوّل إلى أقساط (لتجنب إنذار SHC الخاطئ)
+            let linkedArabon = arabonSales.find(a => a.instId == inst.id);
+            if (linkedArabon) linkedArabon.remainingBalance = inst.remainingBalance;
+
             // Sync schedule: apply payment to next unpaid slots
             if (inst.schedule && inst.schedule.length > 0) {
                 let remaining = val;
@@ -3618,6 +3649,9 @@
 
             inst.remainingBalance = parseFloat(Math.max(inst.remainingBalance - val, 0).toFixed(2));
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
+
+            let linkedArabon = arabonSales.find(a => a.instId == inst.id);
+            if (linkedArabon) linkedArabon.remainingBalance = inst.remainingBalance;
 
             let txns = [];
             let transNotes = 'سداد القسط ' + slot.index + ' | ' + mName + ' - ' + pName;
@@ -4240,14 +4274,14 @@
                 type: 'transfer_out', amount, accountId: fromAccountId,
                 toAccountId: toAccountId,
                 notes: '🔄 تحويل من ' + fromAcc.name + ' → ' + toAcc.name + (transferNotes ? ' (' + transferNotes + ')' : ''),
-                sourceType: 'transfer', sourceId: sourceId, operationType: 'create',
+                sourceType: 'transfer', sourceId: sourceId, operationType: 'out',
                 date: txnDate
             });
             let t2 = this.postTransaction({
                 type: 'transfer_in', amount, accountId: toAccountId,
                 fromAccountId: fromAccountId,
                 notes: '🔄 تحويل وارد من ' + fromAcc.name + ' → ' + toAcc.name + (transferNotes ? ' (' + transferNotes + ')' : ''),
-                sourceType: 'transfer', sourceId: sourceId, operationType: 'create',
+                sourceType: 'transfer', sourceId: sourceId, operationType: 'in',
                 date: txnDate
             });
 
@@ -5244,13 +5278,21 @@
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
                 let prod = products.find(p => p.id == t.productId);
-                if (prod) cogs += prod.costPrice + (prod.expenses || 0);
+                if (prod) {
+                    let qty = 1;
+                    if (t.sourceId) {
+                        let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
+                        if (mv && mv.qty) qty = mv.qty;
+                    }
+                    cogs += (prod.costPrice + (prod.expenses || 0)) * qty;
+                }
             }
             if (t.type === 'merchant_sale') {
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
                 // التكلفة تُحسب مرة واحدة للبيع حتى لو تم التقسيم على أكثر من حركة
-                let ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMerchantSaleIds.has(s.id));
+                let base = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
+                let ms = merchantSales.find(s => (s.transactionId == base || s.transactionId == t.id) && !countedMerchantSaleIds.has(s.id));
                 if (ms) {
                     countedMerchantSaleIds.add(ms.id);
                     let prod = products.find(p => p.name === ms.deviceName);
@@ -5506,8 +5548,8 @@
         checkMerchants() {
             const mIds = {};
             merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate','MERCH_DUPLICATE_ID'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing','MERCH_MISSING_NAME'); });
-            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && !transactions.find(t => t.id == s.transactionId)) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
-            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && !transactions.find(t => t.id == p.transactionId)) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
+            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && this.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
+            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && this.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
             merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYMENT_ORPHAN'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount),'MERCH_ZERO_PAYMENT'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYMENT_TX_ORPHAN'); }); });
             merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYOUT_ORPHAN'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYOUT_TX_ORPHAN'); }); });
             merchants.forEach(m => {
@@ -6289,11 +6331,16 @@
     function calcTransactionProfit(t) {
         if (t.type === 'sell_cash' || t.type === 'sell') {
             let prod = products.find(p => p.id == t.productId);
-            if (prod) return t.amount - (prod.costPrice + (prod.expenses || 0));
-            return t.amount;
+            if (!prod) return t.amount;
+            let qty = 1;
+            if (t.sourceId) {
+                let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
+                if (mv && mv.qty) qty = mv.qty;
+            }
+            return t.amount - (prod.costPrice + (prod.expenses || 0)) * qty;
         }
         if (t.type === 'merchant_sale') {
-            let baseSource = t.sourceId ? t.sourceId.replace(/_[cb]$/, '') : t.sourceId;
+            let baseSource = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
             let ms = merchantSales.find(s => s.transactionId == baseSource || s.transactionId == t.id);
             if (!ms) return 0;
             let prod = products.find(p => p.name === ms.deviceName);
@@ -7033,7 +7080,13 @@
 
         // 1) مبيعات نقدية
         transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
-            if (t.productId) addSale(t.productId, null, 1, t.amount);
+            if (!t.productId) return;
+            let qty = 1;
+            if (t.sourceId) {
+                let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
+                if (mv && mv.qty) qty = mv.qty;
+            }
+            addSale(t.productId, null, qty, t.amount);
         });
 
         // 2) عقود التقسيط (تشمل ربح الفوائد)
@@ -7056,7 +7109,8 @@
         // 4) مبيعات التجار (التكلفة تُحسب مرة واحدة حتى مع التقسيم)
         const countedMs = new Set();
         transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
-            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            const msBase = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
+            const ms = merchantSales.find(s => (s.transactionId == msBase || s.transactionId == t.id) && !countedMs.has(s.id));
             if (ms) { countedMs.add(ms.id); addSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
         });
 
@@ -7112,7 +7166,8 @@
         });
         const countedMs = new Set();
         transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
-            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            const msBase = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
+            const ms = merchantSales.find(s => (s.transactionId == msBase || s.transactionId == t.id) && !countedMs.has(s.id));
             if (ms) { countedMs.add(ms.id); addSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
         });
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
@@ -7667,6 +7722,43 @@
             showError('حدث خطأ أثناء حفظ الصنف', err.message);
         }
     });
+
+    window.exportProductsCSV = function() {
+        if (!products.length) { showToast('لا توجد أصناف في المخزون', 'error'); return; }
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const term = getSearchTerm('Products');
+        const showArchived = document.getElementById('showArchivedToggle')?.value === 'show';
+        let list = filterList(products, term, ['name']);
+        if (!showArchived) list = list.filter(p => !p.archived);
+        const lowOnly = document.getElementById('lowStockOnly')?.checked;
+        if (lowOnly) list = list.filter(p => p.stock <= (p.minStock || 0));
+        const rows = [['الصنف', 'سعر الشراء', 'المصروفات', 'سعر البيع', 'الربح/القطعة', 'المخزون', 'الحد الأدنى', 'قيمة المخزون (تكلفة)', 'قيمة البيع المتوقع', 'IMEI', 'الحالة']];
+        list.slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+            const totalCost = (p.costPrice || 0) + (p.expenses || 0);
+            rows.push([
+                p.name,
+                (p.costPrice || 0).toLocaleString(),
+                (p.expenses || 0).toLocaleString(),
+                (p.sellPrice || 0).toLocaleString(),
+                ((p.sellPrice || 0) - totalCost).toLocaleString(),
+                p.stock || 0,
+                p.minStock || 0,
+                (totalCost * (p.stock || 0)).toLocaleString(),
+                ((p.sellPrice || 0) * (p.stock || 0)).toLocaleString(),
+                p.imei || '',
+                p.archived ? 'مؤرشف' : ((p.minStock || 0) > 0 && p.stock <= (p.minStock || 0) ? '⚠️ تحت الحد الأدنى' : 'نشط')
+            ]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'المخزون_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير الأصناف (' + list.length + ')');
+    };
 
     function renderProducts() {
         const container = document.getElementById('productsList');
@@ -8528,7 +8620,8 @@
         let a = accounts.find(x => x.id == t.accountId);
         let inst = installments.find(i => i.id == t.instId);
         let arabon = arabonSales.find(x => x.id == t.arabonId);
-        let sale = merchantSales.find(s => s.transactionId == t.id || (s.transactionId && s.transactionId + 2 == t.id));
+        let saleBase = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.id;
+        let sale = merchantSales.find(s => s.transactionId == saleBase || s.transactionId == t.id);
         let toAcc = t.toAccountId ? accounts.find(x => x.id == t.toAccountId) : null;
         let fromAcc = t.fromAccountId ? accounts.find(x => x.id == t.fromAccountId) : null;
         let accLabel = (x) => x ? (x.type === 'bank' ? '🏦' : x.type === 'vodafone' ? '📱' : '💵') + ' ' + x.name : null;
@@ -9433,6 +9526,9 @@
             if (inst.remainingBalance > 0.01) inst.isPaid = false;
             else inst.remainingBalance = 0;
 
+            let linkedArabon = arabonSales.find(a => a.instId == id);
+            if (linkedArabon) linkedArabon.remainingBalance = inst.remainingBalance;
+
             saveData(); renderInstallments(); renderTransactions(); renderDashboard();
             logAudit('delete', 'سداد قسط', id + ' | ' + lastPaid.index, 'تراجع عن دفعة بقيمة ' + removedAmt.toFixed(2) + ' ج');
             showToast('↩️ تم التراجع عن الدفعة (' + removedAmt.toFixed(2) + ' ج)');
@@ -9558,6 +9654,52 @@
         a.click();
         URL.revokeObjectURL(url);
         showToast('✅ تم تصدير عقود العربون (' + list.length + ')');
+    };
+
+    window.exportInstallmentsCSV = function() {
+        if (!installments.length) { showToast('لا توجد عقود تقسيط', 'error'); return; }
+        const BOM = '\uFEFF';
+        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const term = document.getElementById('searchInstallments')?.value.trim().toLowerCase() || '';
+        const filterVal = document.getElementById('instFilter')?.value || 'active';
+        let list = [...installments];
+        if (filterVal === 'active') list = list.filter(i => !i.isPaid);
+        else if (filterVal === 'paid') list = list.filter(i => i.isPaid);
+        if (term) list = list.filter(i => {
+            let m = merchants.find(x => x.id == i.merchantId);
+            return (m?.name || '').toLowerCase().includes(term) ||
+                (m?.phone || '').toLowerCase().includes(term) ||
+                (i.deviceName || '').toLowerCase().includes(term) ||
+                String(i.contractNo || i.id).includes(term);
+        });
+        const rows = [['رقم العقد', 'العميل', 'رقم الهاتف', 'الجهاز', 'سعر الشراء', 'المقدم', 'إجمالي بعد الفائدة', 'المتبقي', 'عدد الشهور', 'القسط الشهري', 'نسبة الفائدة', 'البداية', 'أول استحقاق', 'الحالة']];
+        list.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(i => {
+            let m = merchants.find(x => x.id == i.merchantId);
+            rows.push([
+                i.contractNo || i.id,
+                m?.name || '',
+                m?.phone || '',
+                i.deviceName || '',
+                (i.purchasePrice || 0).toLocaleString(),
+                (i.paidUpfront || 0).toLocaleString(),
+                (i.totalAfterInterest || 0).toLocaleString(),
+                (i.remainingBalance || 0).toLocaleString(),
+                i.numInstallments || '',
+                (i.monthlyAmount || 0).toLocaleString(),
+                (i.interestRate || 0) + '%',
+                i.date ? new Date(i.date).toLocaleDateString('ar-EG') : '',
+                i.firstDueDate || '',
+                i.isPaid ? 'مسدد' : 'نشط'
+            ]);
+        });
+        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'عقود_التقسيط_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ تم تصدير عقود التقسيط (' + list.length + ')');
     };
 
     window.renderArabonSales = function() {
@@ -9918,7 +10060,7 @@
                             accountId: splitCashAccId ? parseInt(splitCashAccId) : undefined,
                             notes: 'سداد جزئي عربون (كاش) | ' + (a.deviceName || ''),
                             arabonId: a.id,
-                            sourceType: 'arabon_payment', sourceId: sourceId, operationType: 'pay',
+                            sourceType: 'arabon_payment', sourceId: sourceId + '_c', operationType: 'pay',
                             date: new Date().toISOString()
                         });
                     }
@@ -9929,13 +10071,14 @@
                             accountId: splitAccId ? parseInt(splitAccId) : undefined,
                             notes: 'سداد جزئي عربون (بنك/فودافون) | ' + (a.deviceName || ''),
                             arabonId: a.id,
-                            sourceType: 'arabon_payment', sourceId: sourceId, operationType: 'pay',
+                            sourceType: 'arabon_payment', sourceId: sourceId + '_b', operationType: 'pay',
                             date: new Date().toISOString()
                         });
                     }
                     a.remainingAmount = Math.max(remaining - payAmt, 0);
                     a.remainingPaymentMethod = 'split';
                     a.accountId = splitAccId ? parseInt(splitAccId) : undefined;
+                    a.remainingBalance = a.remainingAmount;
                     if (a.remainingAmount <= 0) { a.isPaid = true; a.remainingBalance = 0; }
                 } else {
                     let finalAccId = accId ? parseInt(accId) : undefined;
@@ -9952,6 +10095,7 @@
                     a.remainingAmount = Math.max(remaining - payAmt, 0);
                     a.remainingPaymentMethod = payMethod;
                     a.accountId = finalAccId;
+                    a.remainingBalance = a.remainingAmount;
                     if (a.remainingAmount <= 0) { a.isPaid = true; a.remainingBalance = 0; }
                 }
 
@@ -10719,7 +10863,7 @@
                 if (p.stock < 0) p.stock = 0;
             }
             merchantPurchases = merchantPurchases.filter(p => p.id != id);
-            if (purchase.transactionId) transactions = transactions.filter(t => t.id != purchase.transactionId && t.id != (purchase.transactionId + 2));
+            if (purchase.transactionId) BusinessLogic.deleteTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('تم حذف الشراء');
         } catch (err) {
@@ -10749,18 +10893,12 @@
             purchase.costPrice = newPrice;
             let newTotal = (purchase.costPrice || 0) * (purchase.quantity || 1);
             if (purchase.transactionId) {
-                let tids = [purchase.transactionId];
-                let second = transactions.find(t => t.id == purchase.transactionId + 2);
-                if (second) tids.push(purchase.transactionId + 2);
-                if (tids.length === 1) {
-                    let trans = transactions.find(t => t.id == purchase.transactionId);
-                    if (trans) trans.amount = Math.round(newTotal * 100) / 100;
-                } else if (oldTotal > 0) {
+                let linked = BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
+                if (linked.length === 1) {
+                    linked[0].amount = Math.round(newTotal * 100) / 100;
+                } else if (linked.length > 1 && oldTotal > 0) {
                     let ratio = newTotal / oldTotal;
-                    tids.forEach(tid => {
-                        let trans = transactions.find(t => t.id == tid);
-                        if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
-                    });
+                    linked.forEach(tr => tr.amount = Math.round(tr.amount * ratio * 100) / 100);
                 }
             }
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard();
@@ -10862,18 +11000,12 @@
 
             let newTotal = (sale.sellPrice || 0) * (sale.quantity || 1);
             if (sale.transactionId) {
-                let tids = [sale.transactionId];
-                let second = transactions.find(t => t.id == sale.transactionId + 2);
-                if (second) tids.push(sale.transactionId + 2);
-                if (tids.length === 1) {
-                    let trans = transactions.find(t => t.id == sale.transactionId);
-                    if (trans) trans.amount = Math.round(newTotal * 100) / 100;
-                } else if (oldTotal > 0) {
+                let linked = BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
+                if (linked.length === 1) {
+                    linked[0].amount = Math.round(newTotal * 100) / 100;
+                } else if (linked.length > 1 && oldTotal > 0) {
                     let ratio = newTotal / oldTotal;
-                    tids.forEach(tid => {
-                        let trans = transactions.find(t => t.id == tid);
-                        if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
-                    });
+                    linked.forEach(tr => tr.amount = Math.round(tr.amount * ratio * 100) / 100);
                 }
             }
             saveData(); renderMerchantSales(); renderDashboard();
@@ -10894,7 +11026,7 @@
             if (p) p.stock += (sale.quantity || 1);
 
             merchantSales = merchantSales.filter(s => s.id != id);
-            if (sale.transactionId) transactions = transactions.filter(t => t.id != sale.transactionId && t.id != (sale.transactionId + 2));
+            if (sale.transactionId) BusinessLogic.deleteTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('تم حذف بيع ' + (sale.deviceName || ''));
         } catch (err) {
@@ -10905,23 +11037,31 @@
     window.deleteMerchant = async (merchantId) => {
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
+        let linkedInsts = installments.filter(i => i.merchantId == merchantId);
+        let linkedArabons = arabonSales.filter(a => a.merchantId == merchantId);
         let hasTransactions = merchantSales.some(s => s.merchantId == merchantId) ||
             merchantPurchases.some(p => p.merchantId == merchantId) ||
             merchantPayments.some(p => p.merchantId == merchantId) ||
-            merchantPaymentsOut.some(p => p.merchantId == merchantId);
+            merchantPaymentsOut.some(p => p.merchantId == merchantId) ||
+            linkedInsts.length > 0 || linkedArabons.length > 0;
         let msg = '🗑️ حذف التاجر "' + m.name + '"؟\n';
-        if (hasTransactions) msg += '⚠️ يوجد معاملات مرتبطة بهذا التاجر سيتم حذفها أيضًا!';
+        if (hasTransactions) msg += '⚠️ يوجد معاملات مرتبطة بهذا التاجر سيتم حذفها أيضًا' + (linkedInsts.length ? ' (منها ' + linkedInsts.length + ' عقد تقسيط)' : '') + (linkedArabons.length ? ' (منها ' + linkedArabons.length + ' عقد عربون)' : '') + '!';
         let ok = await showConfirmModal(msg, 'تأكيد الحذف');
         if (!ok) return;
+        let instIds = new Set(linkedInsts.map(i => i.id));
+        let arabonIds = new Set(linkedArabons.map(a => a.id));
+        installments = installments.filter(i => i.merchantId != merchantId);
+        arabonSales = arabonSales.filter(a => a.merchantId != merchantId);
+        transactions = transactions.filter(t => t.merchantId != merchantId && !instIds.has(t.instId) && !arabonIds.has(t.arabonId));
         merchantSales = merchantSales.filter(s => s.merchantId != merchantId);
         merchantPurchases = merchantPurchases.filter(p => p.merchantId != merchantId);
         merchantPayments = merchantPayments.filter(p => p.merchantId != merchantId);
         merchantPaymentsOut = merchantPaymentsOut.filter(p => p.merchantId != merchantId);
-        transactions = transactions.filter(t => t.merchantId != merchantId);
         merchants = merchants.filter(x => x.id != merchantId);
-        saveData(); renderMerchantSales(); renderDashboard();
+        refreshSelectors();
+        saveData(); renderMerchantSales(); renderInstallments(); renderArabonSales(); renderDashboard();
         switchPage('merchantSales');
-        showToast('✅ تم حذف التاجر ' + m.name);
+        showToast('✅ تم حذف التاجر ' + m.name + (linkedInsts.length || linkedArabons.length ? ' مع متعلقاته' : ''));
     };
 
     function renderMerchantSales() {
@@ -12281,7 +12421,15 @@
             prodMap[key].qty += qty || 1;
             prodMap[key].revenue += revenue;
         }
-        transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => { if (t.productId) addProdSale(t.productId, null, 1, t.amount); });
+        transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
+            if (!t.productId) return;
+            let qty = 1;
+            if (t.sourceId) {
+                let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
+                if (mv && mv.qty) qty = mv.qty;
+            }
+            addProdSale(t.productId, null, qty, t.amount);
+        });
         installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
@@ -12290,7 +12438,8 @@
         arabonSales.filter(a => inRange(a.date, range)).forEach(a => { if (a.productId) addProdSale(a.productId, null, 1, a.sellPrice); });
         const countedMs = new Set();
         transactions.filter(t => inRange(t.date, range) && t.type === 'merchant_sale').forEach(t => {
-            const ms = merchantSales.find(s => (s.transactionId == t.id || s.transactionId + 2 == t.id) && !countedMs.has(s.id));
+            const msBase = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
+            const ms = merchantSales.find(s => (s.transactionId == msBase || s.transactionId == t.id) && !countedMs.has(s.id));
             if (ms) { countedMs.add(ms.id); addProdSale(null, ms.deviceName, ms.quantity || 1, t.amount); }
         });
         sheets.push({
