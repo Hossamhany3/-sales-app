@@ -3170,6 +3170,15 @@
                 inst.schedule = getInstSchedule(inst);
                 changed = true;
             }
+            // استرجاع تاريخ دخول الدفعة الفعلي للقساط المسددة (من قيود الحسابات)
+            if (inst.schedule && inst.schedule.length) {
+                inst.schedule.forEach(sl => {
+                    if (sl.isPaid && !sl.paidDate && (sl.paidAmount || 0) > 0) {
+                        let d = slotPaidDate(inst, sl);
+                        if (d) { sl.paidDate = d; changed = true; }
+                    }
+                });
+            }
         });
         if (changed) localStorage.setItem('installments', JSON.stringify(installments));
     }
@@ -5360,6 +5369,33 @@
         return true;
     }
 
+    // تاريخ دخول قيد الدفعة الفعلي (من قيود الحسابات) — وليس تاريخ الاستحقاق
+    function slotPaidDate(inst, slot) {
+        if (!slot) return '';
+        if (slot.paidDate) return slot.paidDate;
+        if (!(slot.paidAmount > 0)) return slot.dueDate || '';
+        try {
+            let all = (typeof transactions !== 'undefined' && transactions) ? transactions : [];
+            let txns = all
+                .filter(t => t.instId == inst.id && t.type === 'payment_in' && (t.amount || 0) > 0
+                          && t.sourceType !== 'installment' && t.operationType !== 'upfront')
+                .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+            if (!txns.length) return slot.dueDate || '';
+            let schedule = getInstSchedule(inst);
+            let idx = schedule.findIndex(x => x.index == slot.index);
+            if (idx < 0) idx = 0;
+            let target = 0;
+            for (let i = 0; i <= idx; i++) target += (schedule[i].paidAmount || 0);
+            if (!(target > 0)) target = slot.paidAmount || 0;
+            let cum = 0;
+            for (let t of txns) {
+                cum += (t.amount || 0);
+                if (cum >= target - 0.01) return String(t.date || '').slice(0, 10);
+            }
+        } catch (e) { }
+        return slot.dueDate || '';
+    }
+
     function getFinancials() {
         const range = getDateRange();
         let cash = 0;
@@ -5379,7 +5415,7 @@
 
         // الإيرادات والمصروفات تحسب ضمن النطاق التاريخي فقط
         const filteredTrans = transactions.filter(t => inRange(t.date, range));
-        const filteredInst = installments.filter(i => inRange(i.firstDueDate || i.date, range));
+        const filteredInst = installments.filter(i => inRange(i.date || i.firstDueDate, range));
 
         let countedArabonIds = new Set();
         let countedMerchantSaleIds = new Set();
@@ -7077,7 +7113,7 @@
             }
             let schedule = inst.schedule || getInstSchedule(inst);
             schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
+                rows.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -7316,7 +7352,7 @@
         });
 
         // 2) عقود التقسيط (تشمل ربح الفوائد)
-        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+        installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) {
                 // محوّل من عربون: الإيراد محسوب ضمن العربون، تضاف الفائدة فقط
@@ -7379,7 +7415,7 @@
         transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
             if (t.productId) addSale(t.productId, null, 1, t.amount);
         });
-        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+        installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) {
                 addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
@@ -7457,7 +7493,7 @@
             else if (t.type === 'payment_in') collections += t.amount;
         });
         const instRev = installments.filter(i => {
-            const d = new Date(i.firstDueDate || i.date);
+            const d = new Date(i.date || i.firstDueDate);
             return d >= from && d < to;
         }).reduce((s, i) => s + i.purchasePrice, 0);
         revenue += instRev;
@@ -9176,7 +9212,7 @@
             if (paidSlots.length > 0) {
                 html += '<div class="inst-details-list"><div class="inst-details-list-title">💳 سجل السداد</div>';
                 paidSlots.forEach(s => {
-                    let payDate = s.paidDate ? new Date(s.paidDate).toLocaleDateString('ar-EG') : '—';
+                    let payDate = slotPaidDate(inst, s) ? new Date(slotPaidDate(inst, s) + 'T00:00:00').toLocaleDateString('ar-EG') : '—';
                     html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString() + ' ج</b></div>';
                 });
                 html += '</div>';
@@ -9347,11 +9383,12 @@
                 let remaining = monthlyAmt - slot.paidAmount;
                 let isOverdue = !slot.isPaid && new Date(slot.dueDate) < today;
                 let paidInfo = '';
-                if (slot.isPaid && slot.paidDate) {
+                let sPaidDate = slot.isPaid ? slotPaidDate(inst, slot) : '';
+                if (sPaidDate) {
                     let dueD = new Date(slot.dueDate + 'T00:00:00');
-                    let paidD = new Date(slot.paidDate + 'T00:00:00');
+                    let paidD = new Date(sPaidDate + 'T00:00:00');
                     let delayDays = Math.round((paidD - dueD) / 86400000);
-                    let paidLabel = 'تم السداد: ' + new Date(slot.paidDate).toLocaleDateString('ar-EG');
+                    let paidLabel = 'تم السداد: ' + paidD.toLocaleDateString('ar-EG');
                     let delayLabel = delayDays > 0
                         ? '<span style="color:#ef4444;font-weight:700;"> — متأخر ' + delayDays + ' يوم</span>'
                         : (delayDays < 0 ? '<span style="color:#059669;font-weight:700;"> — قبل الموعد</span>' : '<span style="color:#059669;font-weight:700;"> — في الموعد</span>');
@@ -10403,14 +10440,14 @@
                 if (interest > 0) rows.push({ date: inst.date || inst.firstDueDate || convArabon.date, desc: 'فوائد تحويل عربون إلى أقساط - ' + dev, debit: interest, credit: 0 });
             } else {
                 let upTxn = transactions.find(t => t.instId == inst.id && t.type === 'payment_in' && (t.amount || 0) > 0);
-                let cDate = (upTxn && upTxn.date) || inst.date || inst.firstDueDate || new Date().toISOString();
+                let cDate = inst.date || inst.firstDueDate || (upTxn && upTxn.date) || new Date().toISOString();
                 let total = (inst.totalAfterInterest || 0) + (inst.paidUpfront || 0);
                 rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev, debit: total, credit: 0 });
                 if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev, debit: 0, credit: inst.paidUpfront });
             }
             let schedule = inst.schedule || getInstSchedule(inst);
             schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
+                rows.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -12224,7 +12261,8 @@
 
         let cardsHtml = schedule.map(slot => {
             let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
-            let paidDate = slot.paidDate ? new Date(slot.paidDate).toLocaleDateString('ar-EG') : dueDate;
+            let paidRaw = slot.isPaid ? slotPaidDate(inst, slot) : '';
+            let paidDate = paidRaw ? new Date(paidRaw + 'T00:00:00').toLocaleDateString('ar-EG') : dueDate;
             let statusColor = slot.isPaid ? '#059669' : '#f97316';
             let statusText = slot.isPaid ? '✅ مسدد' : '⏳ غير مسدد';
             let payDateRow = slot.isPaid
@@ -12377,7 +12415,7 @@
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
                 allPayments.push({
-                    date: s.paidDate || s.dueDate,
+                    date: slotPaidDate(inst, s),
                     desc: 'قسط رقم ' + s.index + ' - ' + deviceName,
                     amount: s.paidAmount,
                     instId: inst.id
@@ -12511,7 +12549,7 @@
             schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
-                allPayments.push({ date: s.paidDate || s.dueDate, desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
+                allPayments.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
             });
         });
 
@@ -12690,7 +12728,7 @@
             }
             addProdSale(t.productId, null, qty, t.amount);
         });
-        installments.filter(i => inRange(i.firstDueDate || i.date, range)).forEach(inst => {
+        installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
             else addProdSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
