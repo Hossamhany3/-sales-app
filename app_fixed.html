@@ -1212,7 +1212,7 @@
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;" class="cc-kpi-grid">
                 <div class="stat-card" style="border-color:var(--primary);cursor:pointer;padding:16px 12px;" onclick="switchPage('transactions');toggleMenu(true);">
                     <div style="font-size:1.5rem;margin-bottom:4px;">💰</div>
-                    <div style="font-size:0.78rem;color:var(--primary);margin-bottom:4px;">الخزينة النقدية</div>
+                    <div style="font-size:0.78rem;color:var(--primary);margin-bottom:4px;">السيولة (خزينة + بنوك)</div>
                     <div class="value" id="ccCash" style="color:var(--primary);font-size:0.95rem;">—</div>
                 </div>
                 <div class="stat-card" style="border-color:var(--accent);cursor:pointer;padding:16px 12px;" onclick="switchPage('installments');toggleMenu(true);">
@@ -1960,6 +1960,9 @@
                     <h3 style="font-size:1rem;margin-bottom:12px;">🏦 المركز المالي</h3>
                     <div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">
                         <div class="flex-between" style="padding:6px 0;"><span>💰 الخزينة النقدية</span> <strong id="balCash" style="color:var(--success)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>🏦 الحسابات البنكية</span> <strong id="balBank" style="color:var(--primary)">0</strong></div>
+                        <div class="flex-between" style="padding:6px 0;"><span>📱 محافظ الدفع (فودافون كاش)</span> <strong id="balVodafone" style="color:#25D366">0</strong></div>
+                        <div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px dashed var(--border);"><span>💵 إجمالي النقدي والأرصدة</span> <strong id="balLiquid" style="color:var(--primary)">0</strong></div>
                         <div class="flex-between" style="padding:6px 0;"><span>📦 قيمة المخزون</span> <strong id="balStock" style="color:var(--primary)">0</strong></div>
                         <div class="flex-between" style="padding:6px 0;"><span>📋 مديونية العملاء (أقساط)</span> <strong id="balDebt" style="color:var(--accent)">0</strong></div>
                         <div class="flex-between" style="padding:6px 0;"><span>🏪 مديونية التجار</span> <strong id="balMerchantDebt" style="color:var(--accent)">0</strong></div>
@@ -3133,6 +3136,7 @@
         migrateTransactionNotes();
         migrateNewFields();
         migrateLegacyMerchantTransactionIds();
+        repairInstallments();
     }
 
     function getNextContractNo() {
@@ -3145,6 +3149,27 @@
         installments.filter(i => !i.contractNo).sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0)).forEach(i => {
             i.contractNo = ++maxNo;
             changed = true;
+        });
+        if (changed) localStorage.setItem('installments', JSON.stringify(installments));
+    }
+
+    // ─── إصلاح سجلات التقسيط الناقصة (بيانات قديمة أو غير مكتملة) ───
+    function repairInstallments() {
+        let changed = false;
+        installments.forEach(inst => {
+            if (inst.paidUpfront == null || isNaN(inst.paidUpfront)) { inst.paidUpfront = 0; changed = true; }
+            if (!(inst.numInstallments > 0) && inst.monthlyAmount > 0 && inst.totalAfterInterest > 0) {
+                inst.numInstallments = Math.max(1, Math.round(inst.totalAfterInterest / inst.monthlyAmount));
+                changed = true;
+            }
+            if (!(inst.monthlyAmount > 0) && inst.numInstallments > 0 && inst.totalAfterInterest > 0) {
+                inst.monthlyAmount = parseFloat((inst.totalAfterInterest / inst.numInstallments).toFixed(2));
+                changed = true;
+            }
+            if ((!inst.schedule || !inst.schedule.length) && inst.numInstallments > 0 && inst.monthlyAmount > 0) {
+                inst.schedule = getInstSchedule(inst);
+                changed = true;
+            }
         });
         if (changed) localStorage.setItem('installments', JSON.stringify(installments));
     }
@@ -3284,17 +3309,63 @@
             );
         },
 
+        // ─── الحساب الذي تستوعب إليه الحركات غير المسندة (أو المسندة لحساب محذوف) ───
+        defaultAccountId() {
+            if (!accounts.length) return null;
+            const cash = accounts.find(a => a.type === 'cash');
+            return (cash || accounts[0]).id;
+        },
+
+        // ─── رأس المال الافتتاحي الكلي: رأس المال في الإعدادات + أرصدة الافتتاح للحسابات ───
+        openingLiquid() {
+            return (parseFloat(openingCapital) || 0) + accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+        },
+
+        // ─── كل الحركات التي تنتمي إلى حساب معيّن (تشمل غير المسندة والمحذوف للحساب الافتراضي) ───
+        accountTransactions(accountId) {
+            const defId = this.defaultAccountId();
+            return transactions.filter(t => {
+                const hasAccount = t.accountId != null && t.accountId !== '' && accounts.some(a => a.id == t.accountId);
+                if (hasAccount) return t.accountId == accountId;
+                return defId != null && accountId == defId;
+            });
+        },
+
         // ─── رصيد حساب من المعاملات ───
         accountBalance(accountId) {
             let acc = accounts.find(a => a.id == accountId);
-            let balance = (acc && acc.balance) || 0;
-            transactions.forEach(t => {
-                if (t.accountId == accountId) {
-                    if (INCOME_TRANS_TYPES.includes(t.type)) balance += t.amount;
-                    if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= t.amount;
-                }
+            let balance = (acc && parseFloat(acc.balance)) || 0;
+            this.accountTransactions(accountId).forEach(t => {
+                if (INCOME_TRANS_TYPES.includes(t.type)) balance += t.amount;
+                if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= t.amount;
             });
             return balance;
+        },
+
+        // ─── إجمالي السيولة موزّعة حسب نوع الحساب (الخزينة / البنك / المحفظة) ───
+        liquidTotals() {
+            const t = { cash: 0, bank: 0, vodafone: 0 };
+            t.cash += parseFloat(openingCapital) || 0;
+            accounts.forEach(a => {
+                const k = a.type === 'bank' ? 'bank' : a.type === 'vodafone' ? 'vodafone' : 'cash';
+                t[k] += parseFloat(a.balance) || 0;
+            });
+            const defId = this.defaultAccountId();
+            const keyOf = (accId) => {
+                let a = accounts.find(x => x.id == accId);
+                if (!a && defId != null) a = accounts.find(x => x.id == defId);
+                if (!a) return 'cash';
+                return a.type === 'bank' ? 'bank' : a.type === 'vodafone' ? 'vodafone' : 'cash';
+            };
+            transactions.forEach(t2 => {
+                // التحويلات تُحسب على الحسابين (منصرف + وارد) فتُوزّع على النوع الصحيح لكل حساب
+                const amt = parseFloat(t2.amount) || 0;
+                const k = keyOf(t2.accountId);
+                if (INCOME_TRANS_TYPES.includes(t2.type)) t[k] += amt;
+                else if (EXPENSE_TRANS_TYPES.includes(t2.type)) t[k] -= amt;
+            });
+            t.total = t.cash + t.bank + t.vodafone;
+            return t;
         },
 
         // ─── حساب stock من حركات المخزون ───
@@ -3321,27 +3392,10 @@
 
         // ─── ملخص البيانات المالية ───
         getBusinessSummary() {
-            let totalCash = openingCapital;
-            let totalBank = 0;
-            let totalVodafone = 0;
-            transactions.forEach(t => {
-                if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') {
-                    if (t.accountId) {
-                        let acc = accounts.find(a => a.id == t.accountId);
-                        if (acc && acc.type === 'bank') { totalBank += t.amount; }
-                        else if (acc && acc.type === 'vodafone') { totalVodafone += t.amount; }
-                        else { totalCash += t.amount; }
-                    } else { totalCash += t.amount; }
-                }
-                if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') {
-                    if (t.accountId) {
-                        let acc = accounts.find(a => a.id == t.accountId);
-                        if (acc && acc.type === 'bank') { totalBank -= t.amount; }
-                        else if (acc && acc.type === 'vodafone') { totalVodafone -= t.amount; }
-                        else { totalCash -= t.amount; }
-                    } else { totalCash -= t.amount; }
-                }
-            });
+            const liq = this.liquidTotals();
+            let totalCash = liq.cash;
+            let totalBank = liq.bank;
+            let totalVodafone = liq.vodafone;
             let totalDebt = installments.filter(i => !i.isPaid)
                 .reduce((sum, i) => sum + i.remainingBalance, 0);
             let totalArabonDebt = arabonSales.filter(a => !a.isPaid)
@@ -3560,7 +3614,9 @@
             if (val <= 0) return { success: false, reason: 'zero_amount' };
 
             let txnDate = date || new Date().toISOString();
-            let sourceId = String(installmentId);
+            let paymentSeq = (inst.paymentSeq || 0) + 1;
+            inst.paymentSeq = paymentSeq;
+            let sourceId = String(installmentId) + '_p' + paymentSeq;
             let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
 
@@ -3647,7 +3703,9 @@
             if (val <= 0) return { success: false, reason: 'zero_amount' };
 
             let txnDate = date || new Date().toISOString();
-            let sourceId = String(installmentId);
+            let paymentSeq = (inst.paymentSeq || 0) + 1;
+            inst.paymentSeq = paymentSeq;
+            let sourceId = String(installmentId) + '_p' + paymentSeq;
             let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
 
@@ -4151,6 +4209,14 @@
                 });
                 if (t) txns.push(t);
             }
+
+            // حركة مخزون للشراء من التاجر (كانت تنقص سابقاً)
+            this.addStockMovement({
+                productId: existingProd.id, productName: existingProd.name,
+                type: 'in', qty: qty, ref: 'شراء من تاجر',
+                sourceType: 'merchant_purchase', sourceId: sourceId,
+                date: txnDate
+            });
 
             saveData();
             return { success: true, purchaseId: purchase.id, transactionIds: txns.map(t => t.id), sourceId };
@@ -5236,35 +5302,45 @@
         const merchOptions = '<option value="">-- بدون عميل/نقدي --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
         const accountOptions = '<option value="">اختر الحساب...</option>' + accounts.map(a => '<option value="' + a.id + '">' + a.name + ' (' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ')</option>').join('');
         const accountOptionsNoEmpty = accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
-        
-        if (document.getElementById('incomeAccountId')) document.getElementById('incomeAccountId').innerHTML = accountOptions;
-        if (document.getElementById('expenseAccountId')) document.getElementById('expenseAccountId').innerHTML = accountOptions;
-        if (document.getElementById('transProductId')) document.getElementById('transProductId').innerHTML = prodOptions;
-        if (document.getElementById('instProductId')) document.getElementById('instProductId').innerHTML = prodOptions;
-        if (document.getElementById('transMerchantId')) document.getElementById('transMerchantId').innerHTML = merchOptions;
-        if (document.getElementById('prodAccountId')) document.getElementById('prodAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
-        if (document.getElementById('prodCashAccSelect')) document.getElementById('prodCashAccSelect').innerHTML = '<option value="">اختر حساب كاش</option>' + accountOptionsNoEmpty;
-        if (document.getElementById('prodBankAccSelect')) document.getElementById('prodBankAccSelect').innerHTML = '<option value="">اختر حساب بنك/فودافون</option>' + accountOptionsNoEmpty;
-        if (document.getElementById('instAccountId')) document.getElementById('instAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
-        if (document.getElementById('partnerAccountId')) document.getElementById('partnerAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
+
+        // إعادة البناء مع الإبقاء على القيمة المختارة إن كانت لا تزال موجودة
+        const setSel = (id, html) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const prev = el.value;
+            el.innerHTML = html;
+            const has = (v) => Array.prototype.some.call(el.options, o => o.value === v);
+            if (prev !== '' && has(prev)) el.value = prev;
+            else if (has('')) el.value = '';
+        };
+
+        setSel('incomeAccountId', accountOptions);
+        setSel('expenseAccountId', accountOptions);
+        setSel('transProductId', prodOptions);
+        setSel('instProductId', prodOptions);
+        setSel('transMerchantId', merchOptions);
+        setSel('prodAccountId', '<option value="">بدون حساب</option>' + accountOptionsNoEmpty);
+        setSel('prodCashAccSelect', '<option value="">اختر حساب كاش</option>' + accountOptionsNoEmpty);
+        setSel('prodBankAccSelect', '<option value="">اختر حساب بنك/فودافون</option>' + accountOptionsNoEmpty);
+        setSel('instAccountId', '<option value="">بدون حساب</option>' + accountOptionsNoEmpty);
+        setSel('partnerAccountId', '<option value="">بدون حساب</option>' + accountOptionsNoEmpty);
         const msMerchOptions = '<option value="">اختر تاجر...</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
-        if (document.getElementById('msMerchantId')) document.getElementById('msMerchantId').innerHTML = msMerchOptions;
-        if (document.getElementById('msProductId')) document.getElementById('msProductId').innerHTML = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
-        if (document.getElementById('arabonProductId')) document.getElementById('arabonProductId').innerHTML = prodOptions;
-        if (document.getElementById('arabonAccountId')) document.getElementById('arabonAccountId').innerHTML = '<option value="">بدون حساب</option>' + accountOptionsNoEmpty;
-        if (document.getElementById('incomeCategory')) document.getElementById('incomeCategory').innerHTML = incomeCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
-        if (document.getElementById('expenseCategory')) document.getElementById('expenseCategory').innerHTML = expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+        setSel('msMerchantId', msMerchOptions);
+        setSel('msProductId', '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join(''));
+        setSel('arabonProductId', prodOptions);
+        setSel('arabonAccountId', '<option value="">بدون حساب</option>' + accountOptionsNoEmpty);
+        setSel('incomeCategory', incomeCategories.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
+        setSel('expenseCategory', expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
         if (document.getElementById('transCategoryFilter')) {
             const cur = document.getElementById('transCategoryFilter').value;
             const allCats = [...new Set([...incomeCategories, ...expenseCategories, ...transactions.filter(t => t.category).map(t => t.category)])];
             document.getElementById('transCategoryFilter').innerHTML = '<option value="">🏷️ كل التصنيفات</option>' + allCats.map(c => '<option value="' + c + '">' + c + '</option>').join('');
             document.getElementById('transCategoryFilter').value = cur;
         }
-        if (document.getElementById('recAccount')) document.getElementById('recAccount').innerHTML = accountOptions;
-        if (document.getElementById('recCategory')) document.getElementById('recCategory').innerHTML = expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join('');
-        if (document.getElementById('instEmployeeId')) document.getElementById('instEmployeeId').innerHTML = '<option value="">بدون موظف</option>' + employees.map(em => '<option value="' + em.id + '">' + em.name + '</option>').join('');
-        if (document.getElementById('instEmployeeId')) document.getElementById('instEmployeeId').innerHTML = '<option value="">بدون موظف</option>' + employees.map(em => '<option value="' + em.id + '">' + em.name + '</option>').join('');
-        if (document.getElementById('arabonEmployeeId')) document.getElementById('arabonEmployeeId').innerHTML = '<option value="">بدون موظف</option>' + employees.map(em => '<option value="' + em.id + '">' + em.name + '</option>').join('');
+        setSel('recAccount', accountOptions);
+        setSel('recCategory', expenseCategories.map(c => '<option value="' + c + '">' + c + '</option>').join(''));
+        setSel('instEmployeeId', '<option value="">بدون موظف</option>' + employees.map(em => '<option value="' + em.id + '">' + em.name + '</option>').join(''));
+        setSel('arabonEmployeeId', '<option value="">بدون موظف</option>' + employees.map(em => '<option value="' + em.id + '">' + em.name + '</option>').join(''));
     }
 
     function getDateRange() {
@@ -5293,12 +5369,13 @@
         let interestProfit = 0;
         let totalDiscounts = 0;
 
-        // الخزينة تُحسب من ALL الحركات (بدون فلتر تاريخ) — التحويلات بين الحسابات متعادلة
-        cash = openingCapital;
-        transactions.forEach(t => {
-            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
-            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
-        });
+        // السيولة تُحسب من محرّك واحد: رأس المال + أرصدة الافتتاح للحسابات + كل الحركات
+        // (التحويلات بين الحسابات متعادلة فلا تُحسب مرتين)
+        const liq = BusinessLogic.liquidTotals();
+        cash = liq.cash;
+        let bank = liq.bank;
+        let vodafone = liq.vodafone;
+        let liquid = liq.total;
 
         // الإيرادات والمصروفات تحسب ضمن النطاق التاريخي فقط
         const filteredTrans = transactions.filter(t => inRange(t.date, range));
@@ -5378,7 +5455,7 @@
             let mpo = merchantPaymentsOut.filter(p => p.merchantId == m.id).reduce((s, po) => s + (po.amount || 0), 0);
             return sum + Math.max(ms + mpo - mp - mpr, 0);
         }, 0);
-        let totalAssets = cash + stockValue + totalDebt + merchantDebtTotal;
+        let totalAssets = liquid + stockValue + totalDebt + merchantDebtTotal;
         let totalLiabilities = partnerInvest;
         let equity = totalAssets - totalLiabilities;
 
@@ -5407,7 +5484,7 @@
             });
         });
 
-        return { cash, stockValue, totalDebt, revenue, cogs, expenses, totalCommissions, interestProfit, netProfit, totalDiscounts,
+        return { cash, bank, vodafone, liquid, stockValue, totalDebt, revenue, cogs, expenses, totalCommissions, interestProfit, netProfit, totalDiscounts,
             grossProfit, operatingProfit, grossMargin, netMargin, partnerInvest, merchantDebtTotal,
             totalAssets, totalLiabilities, equity, collectedAmount, remainingDebt, aging,
             collectionRate: (totalInstallmentValue > 0 ? (collectedAmount / totalInstallmentValue * 100) : 0) };
@@ -5570,9 +5647,13 @@
                 if (!a.productId || !products.find(p => p.id == a.productId)) this.addIssue('arabon','medium','Arabon #'+a.id+' missing product','Product #'+a.productId, String(a.id),'productId','Existing','Missing','ARB_MISSING_PRODUCT');
                 if (a.remainingBalance != null && a.remainingBalance < -0.01) this.addIssue('arabon','critical','Negative remaining in arabon #'+a.id,'Remaining: '+a.remainingBalance, String(a.id),'remainingBalance','>= 0',String(a.remainingBalance),'ARB_NEGATIVE_REMAINING');
                 if (a.depositAmount > (a.sellPrice || 0) + 0.01) this.addIssue('arabon','high','Deposit exceeds price: arabon #'+a.id,'Deposit '+a.depositAmount+' > price '+a.sellPrice, String(a.id),'depositAmount','<= sellPrice',String(a.depositAmount),'ARB_DEPOSIT_EXCEEDS_PRICE');
-                let payments = transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in').reduce((s, t) => s + (t.amount || 0), 0);
+                // الدفعة المقدمة herself محسوبة ضمن depositAmount — لا تُخصم مرتين
+                let payments = transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in'
+                    && t.operationType !== 'deposit'
+                    && !(t.sourceType === 'arabon' && String(t.sourceId) === String(a.id))).reduce((s, t) => s + (t.amount || 0), 0);
                 let expectedRemaining = Math.max((a.sellPrice || 0) - (a.depositAmount || 0) - payments, 0);
-                if (a.remainingAmount != null && Math.abs(expectedRemaining - a.remainingAmount) > 1) this.addIssue('arabon','high','Remaining amount mismatch: arabon #'+a.id,'Expected '+expectedRemaining.toFixed(2)+' vs stored '+a.remainingAmount.toFixed(2), String(a.id),'remainingAmount',expectedRemaining.toFixed(2),String(a.remainingAmount),'ARB_REMAINING_MISMATCH');
+                if (a.remainingPaymentMethod === 'installments') { /* الرصيد مربوط بالعقد — يفحصه checkArabonReconciliation */ }
+                else if (a.remainingAmount != null && Math.abs(expectedRemaining - a.remainingAmount) > 1) this.addIssue('arabon','high','Remaining amount mismatch: arabon #'+a.id,'Expected '+expectedRemaining.toFixed(2)+' vs stored '+a.remainingAmount.toFixed(2), String(a.id),'remainingAmount',expectedRemaining.toFixed(2),String(a.remainingAmount),'ARB_REMAINING_MISMATCH');
                 if (!a.isPaid && a.remainingBalance != null && Math.abs(a.remainingBalance) < 0.01 && (a.depositAmount || 0) > 0) this.addIssue('arabon','medium','Completed arabon #'+a.id+' not marked paid','',String(a.id),'isPaid','true','false','ARB_SHOULD_BE_PAID');
             });
         },
@@ -5736,13 +5817,49 @@
         },
 
         // O. ACCOUNT BALANCE RECONCILIATION
+        // ملاحظة: الرصيد المحسوب = الرصيد الافتتاحي للحساب + حركاته، لذلك لا يُقارَن بالرصيد الافتتاحي المخزّن
+        // (هذه المقارنة كانت سبب إنذارات ACC_BALANCE_MISMATCH الكاذبة في وحدة الحسابات البنكية)
         checkAccountReconciliation() {
-            accounts.forEach(a => {
-                let calcBal = BusinessLogic.accountBalance(a.id);
-                if (a.type !== 'vodafone' && Math.abs(calcBal - a.balance) > 1) {
-                    this.addIssue('accounts','high','Balance mismatch: '+a.name, 'Calculated '+calcBal.toFixed(2)+' vs stored '+a.balance.toFixed(2), String(a.id), 'balance', calcBal.toFixed(2), String(a.balance),'ACC_BALANCE_MISMATCH');
+            if (!accounts.length) return; // الوحدة غير مستخدمة
+            const liq = BusinessLogic.liquidTotals();
+            // (1) إجمالي التقارير يجب أن يساوي رأس المال + مجموع أرصدة الحسابات
+            const accountsTotal = BusinessLogic.openingLiquid() + accounts.reduce((s, a) => s + (BusinessLogic.accountBalance(a.id) - (parseFloat(a.balance) || 0)), 0);
+            if (Math.abs(liq.total - accountsTotal) > 1) {
+                this.addIssue('accounts','high','إجمالي التقارير لا يساوي مجموع أرصدة الحسابات',
+                    'التقارير: '+liq.total.toFixed(2)+' | الحسابات: '+accountsTotal.toFixed(2), '', 'total',
+                    accountsTotal.toFixed(2), liq.total.toFixed(2), 'ACC_REPORTS_MISMATCH');
+            }
+            // (2) توزيع السيولة حسب النوع يجب أن يطابق مجموع الحسابات لكل نوع
+            const byType = { cash: 0, bank: 0, vodafone: 0 };
+            accounts.forEach(a => { const k = a.type === 'bank' ? 'bank' : a.type === 'vodafone' ? 'vodafone' : 'cash'; byType[k] += BusinessLogic.accountBalance(a.id); });
+            byType.cash += parseFloat(openingCapital) || 0;
+            [['cash','الخزينة'],['bank','البنوك'],['vodafone','المحافظ']].forEach(([k, label]) => {
+                if (Math.abs(liq[k] - byType[k]) > 1) {
+                    this.addIssue('accounts','high','Mismatch in '+label+' total',
+                        'التقارير: '+liq[k].toFixed(2)+' | الحسابات: '+byType[k].toFixed(2), '', k,
+                        byType[k].toFixed(2), liq[k].toFixed(2), 'ACC_TYPE_MISMATCH');
                 }
             });
+            // (3) كشف الحساب: الرصيد الافتتاحي + الوارد - المنصرف = الرصيد الافتتاحي المحسوب
+            accounts.forEach(a => {
+                let bal = parseFloat(a.balance) || 0;
+                BusinessLogic.accountTransactions(a.id).forEach(t => {
+                    if (INCOME_TRANS_TYPES.includes(t.type)) bal += t.amount;
+                    else if (EXPENSE_TRANS_TYPES.includes(t.type)) bal -= t.amount;
+                });
+                if (Math.abs(bal - BusinessLogic.accountBalance(a.id)) > 0.01) {
+                    this.addIssue('accounts','high','Statement balance mismatch: '+a.name,
+                        'الكشف: '+bal.toFixed(2)+' | الوحدة: '+BusinessLogic.accountBalance(a.id).toFixed(2),
+                        String(a.id), 'balance', bal.toFixed(2), BusinessLogic.accountBalance(a.id).toFixed(2), 'ACC_STATEMENT_MISMATCH');
+                }
+            });
+            // (4) تنبيه: رأس المال في الإعدادات + أرصدة الافتتاح للحسابات قد يكون مضاعفة لنفس المال
+            const seedAccounts = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+            if ((parseFloat(openingCapital) || 0) > 0 && seedAccounts > 0) {
+                this.addIssue('accounts','low','رأس المال الافتتاحي مضاف مرتين',
+                    'رأس المال في الإعدادات: '+(parseFloat(openingCapital)||0).toFixed(2)+' + أرصدة افتتاح الحسابات: '+seedAccounts.toFixed(2),
+                    '', 'openingCapital', 'أحدهما فقط', ((parseFloat(openingCapital)||0) + seedAccounts).toFixed(2), 'ACC_DOUBLE_OPENING');
+            }
         },
 
         // P. PARTNER BALANCE RECONCILIATION
@@ -5969,7 +6086,7 @@
 
     function renderDashboard() {
         let fin;
-        try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
+        try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, bank:0, vodafone:0, liquid:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
 
         try { renderCommandCenter(); } catch(e) { console.error('CommandCenter error:', e); }
 
@@ -6018,6 +6135,12 @@
 
         const balCash = document.getElementById('balCash');
         if (balCash) balCash.innerHTML = fin.cash.toFixed(2) + ' ج';
+        const balBank = document.getElementById('balBank');
+        if (balBank) balBank.innerHTML = fin.bank.toFixed(2) + ' ج';
+        const balVodafone = document.getElementById('balVodafone');
+        if (balVodafone) balVodafone.innerHTML = fin.vodafone.toFixed(2) + ' ج';
+        const balLiquid = document.getElementById('balLiquid');
+        if (balLiquid) balLiquid.innerHTML = fin.liquid.toFixed(2) + ' ج';
         const balStock = document.getElementById('balStock');
         if (balStock) balStock.innerHTML = fin.stockValue.toFixed(2) + ' ج';
         const balDebt = document.getElementById('balDebt');
@@ -6112,7 +6235,7 @@
         const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
         const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
 
-        setTxt('ccCash', fin.cash.toFixed(2) + ' ج');
+        setTxt('ccCash', (fin.liquid != null ? fin.liquid : fin.cash).toFixed(2) + ' ج');
         setTxt('ccDebt', fin.totalDebt.toFixed(2) + ' ج');
         setTxt('ccStock', fin.stockValue.toFixed(2) + ' ج');
         setTxt('ccPartnerInvest', fin.partnerInvest.toFixed(2) + ' ج');
@@ -6787,7 +6910,7 @@
             else if (t.type === 'purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
-        let cash = openingCapital;
+        let cash = BusinessLogic.openingLiquid();
         transactions.forEach(t => {
             if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
             if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
@@ -6805,7 +6928,7 @@
                 '<div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:' + (netFlow >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
                     '<span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق النقدي</span><strong>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</strong></div>' +
                 '<div class="flex-between" style="padding:6px 0;font-weight:800;font-size:1.05rem;border-top:2px solid var(--primary);margin-top:4px;">' +
-                    '<span>🏦 رصيد الخزينة الحالي</span><strong style="color:var(--primary)">' + cash.toFixed(2) + ' ج</strong></div>' +
+                    '<span>🏦 إجمالي السيولة (خزينة + بنوك + محافظ)</span><strong style="color:var(--primary)">' + cash.toFixed(2) + ' ج</strong></div>' +
             '</div>' +
             '<div style="font-size:0.85rem;color:var(--text-muted);">عدد الحركات اليوم: ' + todayTrans.length + '</div>';
     }
@@ -6826,7 +6949,7 @@
             else if (t.type === 'purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
-        let cash = openingCapital;
+        let cash = BusinessLogic.openingLiquid();
         transactions.forEach(t => {
             if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
             if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
@@ -6845,7 +6968,7 @@
             '<div class="row"><span>📉 مصروفات</span><span>' + expenses.toFixed(2) + ' ج</span></div>' +
             '<div class="row"><span>📦 مشتريات</span><span>' + purchases.toFixed(2) + ' ج</span></div>' +
             '<div class="row total"><span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق</span><span>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</span></div>' +
-            '<div class="row" style="font-size:1.15rem;border-top:2px solid #4f46e5;margin-top:8px;color:#4f46e5;font-weight:800;"><span>🏦 الخزينة</span><span>' + cash.toFixed(2) + ' ج</span></div>' +
+            '<div class="row" style="font-size:1.15rem;border-top:2px solid #4f46e5;margin-top:8px;color:#4f46e5;font-weight:800;"><span>🏦 إجمالي السيولة</span><span>' + cash.toFixed(2) + ' ج</span></div>' +
             '<div class="footer">نظام إدارة المبيعات والتقسيط</div>' +
             '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
             w.document.close();
@@ -6869,7 +6992,7 @@
             else if (t.type === 'purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
-        let cash = openingCapital;
+        let cash = BusinessLogic.openingLiquid();
         transactions.forEach(t => {
             if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
             if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
@@ -6886,7 +7009,7 @@
             ['مصروفات', expenses.toFixed(2)],
             ['مشتريات', purchases.toFixed(2)],
             ['صافي التدفق النقدي', netFlow.toFixed(2)],
-            ['رصيد الخزينة الحالي', cash.toFixed(2)],
+            ['إجمالي السيولة (خزينة + بنوك + محافظ)', cash.toFixed(2)],
             ['عدد الحركات اليوم', todayTrans.length]
         ];
         const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -6908,8 +7031,9 @@
             return p?.name || inst.deviceName || 'جهاز';
         };
 
-        // رأس المال الافتتاحي كأول بند في الكشف
-        if (openingCapital > 0) rows.push({ date: '1970-01-01', desc: 'رأس المال الافتتاحي (رأس مال المشروع)', debit: 0, credit: openingCapital });
+        // رأس المال الافتتاحي كأول بند في الكشف (يشمل أرصدة الافتتاح للحسابات البنكية)
+        const openingTotal = BusinessLogic.openingLiquid();
+        if (openingTotal > 0) rows.push({ date: '1970-01-01', desc: 'رأس المال الافتتاحي (رأس المال + أرصدة افتتاح الحسابات)', debit: 0, credit: openingTotal });
 
         // 1) الحركات النقدية المستقلة (بدون ارتباط بعقد قسط/عربون/تاجر)
         transactions.forEach(t => {
@@ -6995,7 +7119,7 @@
 
     // سيولة المال الموجود حالياً في الخزينة والحسابات البنكية (كل الفترات)
     function getCashLiquidity() {
-        let cash = openingCapital;
+        let cash = BusinessLogic.openingLiquid();
         transactions.forEach(t => {
             if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
             if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
@@ -7035,20 +7159,22 @@
 
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
-        let recon = finalBal - liquidity;
+        // الرصيد الصافي يشمل الذمم (بيع بالتقسيط/عربون/تجار) بينما السيولة نقد فعلي
+        // المبالغ المعلقة = السيولة - الرصيد الصافي (مبالغ متبقية للتحصيل)
+        let recon = liquidity - finalBal;
         let summaryHtml = '' +
         '<div class="customer-statement-summary">' +
-            '<div class="stat-card"><div class="stat-label">💼 رأس المال</div><div class="stat-value primary">' + openingCapital.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">💼 رأس المال</div><div class="stat-value primary">' + BusinessLogic.openingLiquid().toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + opening.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">إجمالي المدين (منصرف)</div><div class="stat-value danger">' + totalDebit.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">إجمالي الدائن (وارد)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">الرصيد الصافي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">🏦 السيولة النقدية (خزينة + بنوك)</div><div class="stat-value primary">' + liquidity.toFixed(2) + ' ج</div></div>' +
-            '<div class="stat-card"><div class="stat-label">💳 المبالغ المعلقة (صافي)</div><div class="stat-value ' + (recon >= 0 ? 'success' : 'danger') + '">' + recon.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div class="stat-value ' + (recon >= -0.01 ? 'success' : 'danger') + '">' + recon.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
         '</div>' +
         '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? 'rgba(5,150,105,0.10)' : 'rgba(220,38,38,0.08)') + ';border:1px solid ' + (recon >= -0.01 ? 'rgba(5,150,105,0.40)' : 'rgba(220,38,38,0.35)') + ';font-weight:700;font-size:0.88rem;color:var(--text);">' +
-            '⚖️ موازنة الحسابات: السيولة النقدية (' + liquidity.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = الرصيد الصافي (' + finalBal.toFixed(2) + ' ج)' +
+            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
             (recon >= -0.01 ? ' ✅' : ' ⚠️') +
         '</div>';
 
@@ -7087,7 +7213,7 @@
         }).join('');
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
-        let recon = finalBal - liquidity;
+        let recon = liquidity - finalBal;
 
         let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
         let htmlContent = '' +
@@ -7097,17 +7223,17 @@
                 '<p style="color:#64748b;font-size:0.9rem;margin:0;">نظام إدارة المبيعات | ' + rangeLabel + '</p>' +
             '</div>' +
             '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">' +
-                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💼 رأس المال</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + openingCapital.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💼 رأس المال</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + BusinessLogic.openingLiquid().toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الافتتاحي</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + opening.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي المدين</div><div style="font-size:1.15rem;font-weight:800;color:#ef4444;">' + totalDebit.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الصافي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">🏦 السيولة النقدية (خزينة + بنوك)</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + liquidity.toFixed(2) + ' ج</div></div>' +
-                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💳 المبالغ المعلقة (صافي)</div><div style="font-size:1.15rem;font-weight:800;color:' + (recon >= 0 ? '#059669' : '#ef4444') + ';">' + recon.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div style="font-size:1.15rem;font-weight:800;color:' + (recon >= -0.01 ? '#059669' : '#ef4444') + ';">' + recon.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
             '</div>' +
             '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (recon >= -0.01 ? '#059669' : '#ef4444') + ';font-weight:700;font-size:0.9rem;color:#0f172a;">' +
-                '⚖️ موازنة الحسابات: السيولة النقدية (' + liquidity.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = الرصيد الصافي (' + finalBal.toFixed(2) + ' ج)' +
+            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
                 (recon >= -0.01 ? ' ✅' : ' ⚠️') +
             '</div>' +
             '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
@@ -7157,10 +7283,10 @@
         });
         let finalBal = running;
         csvRows.push([]);
-        csvRows.push(['💼 رأس المال', '', '', '', openingCapital.toFixed(2)]);
+        csvRows.push(['💼 رأس المال', '', '', '', BusinessLogic.openingLiquid().toFixed(2)]);
         csvRows.push(['الرصيد الصافي', '', '', '', finalBal.toFixed(2)]);
         csvRows.push(['🏦 السيولة النقدية (خزينة + حسابات بنكية)', '', '', '', getCashLiquidity().toFixed(2)]);
-        csvRows.push(['💳 المبالغ المعلقة (صافي = الرصيد الصافي - السيولة)', '', '', '', (finalBal - getCashLiquidity()).toFixed(2)]);
+        csvRows.push(['💳 المبالغ المعلقة (مستحقة = السيولة - الرصيد الصافي)', '', '', '', (getCashLiquidity() - finalBal).toFixed(2)]);
         downloadCSV('كشف_الحساب_العام_' + Date.now() + '.csv', header, csvRows);
         showToast('تم تصدير CSV');
     }
@@ -7500,7 +7626,7 @@
         const data = [];
         let maxVal = 0;
         months.forEach(m => {
-            let bal = openingCapital;
+            let bal = BusinessLogic.openingLiquid();
             const cutoff = new Date(m.y, m.m + 1, 1);
             transactions.forEach(t => {
                 const td = new Date(t.date);
@@ -7563,6 +7689,7 @@
         const w = rect.width;
         const h = 160;
         const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 10;
+        if (w <= 0 || r <= 0) return;
 
         const range = getDateRange();
         const filteredTrans = transactions.filter(t => inRange(t.date, range));
@@ -7762,7 +7889,11 @@
             };
             if (id) {
                 let idx = products.findIndex(x => x.id == id);
-                p.archived = products[idx].archived || false;
+                let existing = products[idx];
+                // المخزون يتغيّر عبر حركات المخزون (شراء/بيع) وليس من نموذج التعديل
+                p.stock = (existing && (parseFloat(existing.stock) || 0)) || 0;
+                p.discount = (existing && (parseFloat(existing.discount) || 0)) || 0;
+                p.archived = (existing && existing.archived) || false;
                 products[idx] = p;
                 showToast('تم تحديث الصنف');
             } else {
@@ -8600,6 +8731,7 @@
 
             let typeOptions = [
                 { key: 'sell_cash', label: '💵 بيع نقدي / إيراد' },
+                { key: 'income', label: '💰 إيراد' },
                 { key: 'expense', label: '📉 مصروفات' },
                 { key: 'purchase', label: '📦 شراء مخزون' },
                 { key: 'payment_in', label: '💰 تحصيل' },
@@ -8703,7 +8835,7 @@
 
     window._openTransDet = window._openTransDet || new Set();
 
-    const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
+    const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'income':'إيراد', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر' };
     const isIncomeTransType = (type) => INCOME_TRANS_TYPES.includes(type);
 
     window.toggleTransDetails = (id) => {
@@ -8775,7 +8907,7 @@
         const typeFilter = document.getElementById('transTypeFilter')?.value;
         if (typeFilter) list = list.filter(t => t.type === typeFilter);
         const rows = [['التاريخ', 'نوع الحركة', 'المبلغ', '+,−', 'الحساب', 'التاجر/الشريك', 'المنتج', 'التصنيف', 'الموظف', 'ملاحظات']];
-        list.slice().sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+        list.slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).forEach(t => {
             const isInc = isIncomeTransType(t.type);
             let m = merchants.find(x => x.id == t.merchantId);
             let pr = partners.find(x => x.id == t.partnerId);
@@ -8818,9 +8950,9 @@
             if (isIncomeType(t.type)) netBalance += t.amount;
             else netBalance -= t.amount;
         });
-        document.getElementById('transCapital').innerText = openingCapital.toLocaleString() + ' ج';
+        document.getElementById('transCapital').innerText = BusinessLogic.openingLiquid().toLocaleString() + ' ج';
         document.getElementById('transNet').innerText = (netBalance >= 0 ? '+' : '') + netBalance.toLocaleString() + ' ج';
-        document.getElementById('transTotal').innerText = (openingCapital + netBalance).toLocaleString() + ' ج';
+        document.getElementById('transTotal').innerText = (BusinessLogic.openingLiquid() + netBalance).toLocaleString() + ' ج';
 
         let filtered = [...transactions];
 
@@ -9197,9 +9329,10 @@
         container.innerHTML = filtered.map(inst => {
             let m = merchants.find(x => x.id == inst.merchantId);
             let p = products.find(x => x.id == inst.productId);
-            let deviceName = p?.name || inst.deviceName || 'غير محدد';
-            let schedule = getInstSchedule(inst);
-            let paidCount = schedule.filter(s => s.isPaid).length;
+        let deviceName = p?.name || inst.deviceName || 'غير محدد';
+        let schedule = getInstSchedule(inst);
+        let monthlyAmt = Number(inst.monthlyAmount) || 0;
+        let paidCount = schedule.filter(s => s.isPaid).length;
             let today = new Date(); today.setHours(0,0,0,0);
             let nextDue = schedule.find(s => !s.isPaid);
             let isLate = nextDue && new Date(nextDue.dueDate) < today;
@@ -9211,7 +9344,7 @@
 
             let scheduleHtml = schedule.map((slot, idx) => {
                 let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
-                let remaining = inst.monthlyAmount - slot.paidAmount;
+                let remaining = monthlyAmt - slot.paidAmount;
                 let isOverdue = !slot.isPaid && new Date(slot.dueDate) < today;
                 let paidInfo = '';
                 if (slot.isPaid && slot.paidDate) {
@@ -9232,7 +9365,7 @@
                     '</div>' +
                     '<div class="schedule-row">' +
                         '<span class="schedule-label">المستحق:</span>' +
-                        '<span class="schedule-amount">' + inst.monthlyAmount.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' ج.م</span>' +
+                        '<span class="schedule-amount">' + monthlyAmt.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' ج.م</span>' +
                     '</div>' +
                     '<div class="schedule-row">' +
                         '<span class="schedule-label">المحصّل:</span>' +
@@ -9241,7 +9374,7 @@
                     paidInfo +
                     (isOverdue ? '<div style="color:#ef4444;font-size:0.8rem;margin-bottom:6px;">⚠️ قسط متأخر</div>' : '') +
                     '<div class="schedule-actions">' +
-                        '<button class="btn-whatsapp-sm" onclick="(() => { let isOverdue = ' + isOverdue + '; let tplKey = isOverdue ? \'late\' : \'reminder\'; sendScheduleWhatsApp(\'' + (m?.phone || '') + '\', tplKey, { name: \'' + (m?.name || 'العميل').replace(/'/g,'') + '\', device: \'' + deviceName.replace(/'/g,'') + '\', amount: \'' + inst.monthlyAmount.toFixed(2) + '\', index: \'' + slot.index + '\', date: \'' + dueDate + '\', remaining: \'' + inst.remainingBalance.toFixed(2) + '\' }); })()">📲</button>' +
+                        '<button class="btn-whatsapp-sm" onclick="(() => { let isOverdue = ' + isOverdue + '; let tplKey = isOverdue ? \'late\' : \'reminder\'; sendScheduleWhatsApp(\'' + (m?.phone || '') + '\', tplKey, { name: \'' + (m?.name || 'العميل').replace(/'/g,'') + '\', device: \'' + deviceName.replace(/'/g,'') + '\', amount: \'' + monthlyAmt.toFixed(2) + '\', index: \'' + slot.index + '\', date: \'' + dueDate + '\', remaining: \'' + inst.remainingBalance.toFixed(2) + '\' }); })()">📲</button>' +
                         '<button class="btn-collect" ' + (slot.isPaid ? 'disabled' : '') + ' onclick="openSlotPay(' + inst.id + ', ' + idx + ')">' +
                             (slot.isPaid ? '✅ مسدد' : '💵 تحصيل وإثبات') +
                         '</button>' +
@@ -9270,10 +9403,10 @@
                 '</div>' +
                 /* رقائق الملخص */
                 '<div class="inst-chips">' +
-                    '<div class="inst-chip"><span class="inst-chip-label">القسط الشهري</span><span class="inst-chip-value">' + inst.monthlyAmount.toLocaleString() + ' ج</span></div>' +
-                    '<div class="inst-chip"><span class="inst-chip-label">المقدم</span><span class="inst-chip-value">' + inst.paidUpfront.toLocaleString() + ' ج</span></div>' +
-                    '<div class="inst-chip"><span class="inst-chip-label">المتبقي</span><span class="inst-chip-value danger">' + inst.remainingBalance.toLocaleString() + ' ج</span></div>' +
-                    '<div class="inst-chip"><span class="inst-chip-label">الأقساط المسددة</span><span class="inst-chip-value success">' + paidCount + '/' + inst.numInstallments + '</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">القسط الشهري</span><span class="inst-chip-value">' + monthlyAmt.toLocaleString() + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">المقدم</span><span class="inst-chip-value">' + (Number(inst.paidUpfront) || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">المتبقي</span><span class="inst-chip-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">الأقساط المسددة</span><span class="inst-chip-value success">' + paidCount + '/' + (inst.numInstallments || schedule.length || '—') + '</span></div>' +
                 '</div>' +
                 nextDueHtml +
                 /* شريط التقدم */
@@ -10549,7 +10682,7 @@
         paymentsOut.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
         });
-        rows.sort((a, b) => a.date.localeCompare(b.date));
+        rows.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
 
         const MSI = {
             doc: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
@@ -10624,7 +10757,7 @@
         paymentsOut.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
         });
-        rows.sort((a, b) => a.date.localeCompare(b.date));
+        rows.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
 
         const PMSI = {
             doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
@@ -10963,7 +11096,10 @@
                 if (p.stock < 0) p.stock = 0;
             }
             merchantPurchases = merchantPurchases.filter(p => p.id != id);
-            if (purchase.transactionId) BusinessLogic.deleteTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
+            if (purchase.transactionId) {
+                BusinessLogic.deleteTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
+                BusinessLogic.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
+            }
             saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('تم حذف الشراء');
         } catch (err) {
@@ -10985,6 +11121,14 @@
                 if (p) {
                     p.stock += diff;
                     if (p.stock < 0) p.stock = 0;
+                    if (purchase.transactionId) {
+                        BusinessLogic.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
+                        BusinessLogic.addStockMovement({
+                            productId: p.id, productName: p.name,
+                            type: 'in', qty: newQty, ref: 'شراء من تاجر',
+                            sourceType: 'merchant_purchase', sourceId: purchase.transactionId
+                        });
+                    }
                 }
                 purchase.quantity = newQty;
             }
@@ -11084,6 +11228,14 @@
                 if (p) {
                     if (diff > 0 && p.stock < diff) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب زيادة: ' + diff, 'error'); return; }
                     p.stock -= diff;
+                    if (sale.transactionId) {
+                        BusinessLogic.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
+                        BusinessLogic.addStockMovement({
+                            productId: p.id, productName: p.name,
+                            type: 'out', qty: newQty, ref: 'بيع تاجر',
+                            sourceType: 'merchant_sale', sourceId: sale.transactionId
+                        });
+                    }
                 }
                 sale.quantity = newQty;
             }
@@ -11126,7 +11278,10 @@
             if (p) p.stock += (sale.quantity || 1);
 
             merchantSales = merchantSales.filter(s => s.id != id);
-            if (sale.transactionId) BusinessLogic.deleteTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
+            if (sale.transactionId) {
+                BusinessLogic.deleteTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
+                BusinessLogic.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
+            }
             saveData(); renderMerchantSales(); renderDashboard();
             showToast('تم حذف بيع ' + (sale.deviceName || ''));
         } catch (err) {
@@ -11296,7 +11451,7 @@
                 rows.push({ date: p.date, desc: 'شراء: ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : ''), debit: 0, credit: totalPrice });
             });
             paymentsOut.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 }));
-            rows.sort((a, b) => a.date.localeCompare(b.date));
+            rows.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
             let rowsHtml = rows.map(r => {
                 return '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + r.date.slice(0,10) + '</td>' +
                     '<td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;">' + esc(r.desc) + '</td>' +
@@ -11491,7 +11646,7 @@
         let rowsHtml = partnerTxns.length > 0
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>الرصيد</th></tr></thead><tbody>' +
-                partnerTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+                partnerTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
                     let d = new Date(t.date).toLocaleDateString('ar-EG');
                     let isDeposit = t.type === 'partner_deposit';
                     let icon = isDeposit ? PI.deposit : PI.withdraw;
@@ -11552,7 +11707,7 @@
             user: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        let rowsHtml = partnerTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+        let rowsHtml = partnerTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
             let d = new Date(t.date).toLocaleDateString('ar-EG');
             let isDeposit = t.type === 'partner_deposit';
             let icon = isDeposit ? PPI.deposit : PPI.withdraw;
@@ -11706,6 +11861,10 @@
             '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">🏦 إجمالي البنوك</div><div class="stat-value text-primary">' + totalBank.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card-modern" style="flex:1;--primary:#25D366;"><div class="stat-label">📱 فودافون كاش</div><div class="stat-value" style="color:#25D366;">' + totalVodafone.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card-modern" style="flex:1;--primary:var(--success);"><div class="stat-label">💵 كاش</div><div class="stat-value text-success">' + totalCash.toFixed(2) + ' ج</div></div>' +
+            ((parseFloat(openingCapital) || 0) > 0
+                ? '<div class="stat-card-modern" style="flex:1;"><div class="stat-label">💼 رأس المال (الإعدادات)</div><div class="stat-value text-primary">' + (parseFloat(openingCapital) || 0).toFixed(2) + ' ج</div></div>' +
+                  '<div class="stat-card-modern" style="flex:1;--primary:var(--primary);"><div class="stat-label">💵 إجمالي السيولة (مطابق للتقارير)</div><div class="stat-value text-primary">' + (totalBank + totalVodafone + totalCash + (parseFloat(openingCapital) || 0)).toFixed(2) + ' ج</div></div>'
+                : '') +
         '</div>';
 
         const pag = paginate(filtered, 'accounts');
@@ -11881,7 +12040,7 @@
         let a = accounts.find(x => x.id == accountId);
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
-        let accTxns = transactions.filter(t => t.accountId == accountId);
+        let accTxns = BusinessLogic.accountTransactions(accountId);
         let totalIn = accTxns.filter(t => INCOME_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
         let totalOut = accTxns.filter(t => EXPENSE_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
         let runningBal = (a.balance || 0) + totalIn - totalOut;
@@ -11899,7 +12058,7 @@
         let rowsHtml = accTxns.length > 0
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th></tr></thead><tbody>' +
-                accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+                accTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
                     let d = new Date(t.date).toLocaleDateString('ar-EG');
                     let isIn = INCOME_TRANS_TYPES.includes(t.type);
                     let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
@@ -11954,7 +12113,7 @@
         let a = accounts.find(x => x.id == accountId);
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
 
-        let accTxns = transactions.filter(t => t.accountId == accountId);
+        let accTxns = BusinessLogic.accountTransactions(accountId);
         let totalIn = accTxns.filter(t => INCOME_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
         let totalOut = accTxns.filter(t => EXPENSE_TRANS_TYPES.includes(t.type)).reduce((s, t) => s + (t.amount || 0), 0);
 
@@ -11966,7 +12125,7 @@
         };
 
         let runningBalCalc = a.balance || 0;
-        let rowsHtml = accTxns.sort((a, b) => a.date.localeCompare(b.date)).map(t => {
+        let rowsHtml = accTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
             let d = new Date(t.date).toLocaleDateString('ar-EG');
             let isIn = INCOME_TRANS_TYPES.includes(t.type);
             let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
@@ -12027,7 +12186,7 @@
     window.exportAccountStatementCSV = (accountId) => {
         let a = accounts.find(x => x.id == accountId);
         if (!a) { showToast('الحساب غير موجود', 'error'); return; }
-        let accTxns = transactions.filter(t => t.accountId == accountId).slice().sort((x, y) => x.date.localeCompare(y.date));
+        let accTxns = BusinessLogic.accountTransactions(accountId).slice().sort((x, y) => String(x.date || '').localeCompare(String(y.date || '')));
         const BOM = '\uFEFF';
         const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
         const rows = [['التاريخ', 'البيان', 'وارد', 'منصرف', 'الرصيد']];
@@ -12059,8 +12218,9 @@
         let merchant = merchants.find(m => m.id == inst.merchantId);
         let p = products.find(x => x.id == inst.productId);
         let deviceName = p?.name || inst.deviceName || 'غير محدد';
-        let schedule = getInstSchedule(inst);
-        let paidCount = schedule.filter(s => s.isPaid).length;
+            let schedule = getInstSchedule(inst);
+            let monthlyAmt = Number(inst.monthlyAmount) || 0;
+            let paidCount = schedule.filter(s => s.isPaid).length;
 
         let cardsHtml = schedule.map(slot => {
             let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
@@ -12227,7 +12387,7 @@
 
         let upfrontTotal = contracts.reduce((sum, inst) => sum + (inst.paidUpfront || 0), 0);
 
-        allPayments.sort((a, b) => a.date.localeCompare(b.date));
+        allPayments.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
 
         const I = {
             device: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>',
@@ -12356,7 +12516,7 @@
         });
 
         let upfrontTotal = contracts.reduce((sum, inst) => sum + (inst.paidUpfront || 0), 0);
-        allPayments.sort((a, b) => a.date.localeCompare(b.date));
+        allPayments.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
 
         const PI = {
             doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
