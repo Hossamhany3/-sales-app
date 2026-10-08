@@ -2578,9 +2578,13 @@
 
     // ====== نظام Modal الموحد ======
     let _modalResolve = null;
+    // المرجع الأصلي لمعالج تأكيد المودال (يُحفظ عند الإقلاع لأن window._confirmModal === _confirmModal)
+    let _defaultConfirmModal = null;
 
     function _closeModal(value) {
         document.getElementById('modalOverlay').classList.remove('show');
+        // إعادة المعالج الأساسي للمودال إن كان قد استُبدل بمعالج مخصص (مثل دخول الموظف)
+        if (_defaultConfirmModal && window._confirmModal !== _defaultConfirmModal) window._confirmModal = _defaultConfirmModal;
         if (_modalResolve) { _modalResolve(value); _modalResolve = null; }
     }
     window._closeModal = _closeModal;
@@ -2640,13 +2644,14 @@
         else _closeModal(true);
     }
     window._confirmModal = _confirmModal;
+    _defaultConfirmModal = window._confirmModal;
 
     // دعم مفتاح Enter
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') _closeModal(null);
         if (e.key === 'Enter') {
             const overlay = document.getElementById('modalOverlay');
-            if (overlay && overlay.classList.contains('show')) _confirmModal();
+            if (overlay && overlay.classList.contains('show')) (window._confirmModal || _confirmModal)();
         }
     });
 
@@ -3517,7 +3522,7 @@
             let txn = this.postTransaction({
                 type: 'income', amount: amount,
                 accountId: accountId,
-                notes: name + (notes ? ' - ' + notes : ''),
+                notes: [name, notes].filter(v => v && String(v).trim() && String(v) !== 'undefined').join(' - '),
                 category: category || 'أخرى',
                 sourceType: 'income', sourceId: sourceId, operationType: 'create',
                 date: date || new Date().toISOString()
@@ -3534,7 +3539,7 @@
             let txn = this.postTransaction({
                 type: 'expense', amount: amount,
                 accountId: accountId,
-                notes: name + (notes ? ' - ' + notes : ''),
+                notes: [name, notes].filter(v => v && String(v).trim() && String(v) !== 'undefined').join(' - '),
                 category: category || 'أخرى',
                 sourceType: 'expense', sourceId: sourceId, operationType: 'create',
                 date: date || new Date().toISOString()
@@ -3553,6 +3558,14 @@
             let p = products.find(x => x.id == productId);
             if (!p) return { success: false, reason: 'product_not_found' };
             if (p.stock <= 0) return { success: false, reason: 'insufficient_stock' };
+            // تحقق من المدخلات قبل إنشاء العقد (يمنع عقودًا بقيم NaN/فارغة)
+            numInstallments = Math.floor(Number(numInstallments));
+            purchasePrice = Number(purchasePrice);
+            paidUpfront = Number(paidUpfront) || 0;
+            interestRate = Number(interestRate) || 0;
+            if (!isFinite(purchasePrice) || purchasePrice <= 0) return { success: false, reason: 'invalid_price' };
+            if (!(numInstallments > 0)) return { success: false, reason: 'invalid_installments' };
+            if (paidUpfront < 0 || interestRate < 0 || paidUpfront >= purchasePrice) return { success: false, reason: 'invalid_amounts' };
 
             let instId = Date.now();
             let sourceId = String(instId);
@@ -4091,6 +4104,11 @@
             let p = products.find(x => x.id == productId);
             if (!m) return { success: false, reason: 'merchant_not_found' };
             if (!p) return { success: false, reason: 'product_not_found' };
+            // تحقق من المدخلات (يمنع سجل بيع بقيم NaN)
+            qty = Math.floor(Number(qty));
+            actualTotal = Number(actualTotal);
+            if (!(qty > 0)) return { success: false, reason: 'invalid_qty' };
+            if (!isFinite(actualTotal) || actualTotal <= 0) return { success: false, reason: 'invalid_total' };
             if (p.stock < qty) return { success: false, reason: 'insufficient_stock' };
 
             let sourceId = this.genId();
@@ -4530,6 +4548,9 @@
 
         transactions = transactions.map(t => {
             let notes = t.notes || '';
+            // إزالة "undefined"/"null" المتبقية من قيود قديمة أنشأها اسم غير معرَّف
+            let cleaned = notes.replace(/^(?:undefined|null)(?:\s*-\s*|\s*$)/, '').trim();
+            if (cleaned !== notes) { t = { ...t, notes: cleaned }; notes = cleaned; changed = true; }
             let um = notes.match(upfrontRe);
             if (um) {
                 let instId = parseInt(um[2]);
@@ -4713,8 +4734,11 @@
         document.getElementById('modalOverlay').classList.add('show');
 
         window._confirmModal = async function() {
-            const empId = document.getElementById('empLoginSelect').value;
-            const pin = document.getElementById('empLoginPin').value;
+            const selEl = document.getElementById('empLoginSelect');
+            const pinEl = document.getElementById('empLoginPin');
+            if (!selEl || !pinEl) { _closeModal(null); return; }
+            const empId = selEl.value;
+            const pin = pinEl.value;
             const emp = employees.find(x => x.id == empId);
             if (!emp) { showToast('اختر موظفاً صحيحاً', 'error'); return; }
             if (!emp.pinHash) { showToast('هذا الموظف ليس له رمز PIN — اضبطه من إدارة الموظفين', 'error'); return; }
@@ -7059,6 +7083,25 @@
     };
 
     // ====== 📋 كشف الحساب العام ======
+    // المتبقي فعلياً على العميل في عقد التقسيط (لا يشمل المقدم المحصَّل مسبقاً)
+    function installmentRemaining(inst) {
+        if (typeof inst.remainingBalance === 'number' && isFinite(inst.remainingBalance)) return Math.max(inst.remainingBalance, 0);
+        let paid = (inst.schedule || []).reduce((s, x) => s + (x.paidAmount || 0), 0);
+        return Math.max((inst.totalAfterInterest || 0) - paid, 0);
+    }
+
+    // إجمالي المستحقات غير المحصلة (تقديري من الذمم نفسها — لا يُشتق من السيولة)
+    // = متبقّي العقود + متبقّي العربون + صافي ذمة التجار
+    function statementPendingAmount() {
+        let total = installments.reduce((s, i) => s + installmentRemaining(i), 0);
+        total += arabonSales.reduce((s, a) => s + Math.max(a.remainingAmount || 0, 0), 0);
+        let ms = merchantSales.reduce((s, x) => s + (x.sellPrice || 0) * (x.quantity || 1), 0);
+        let mp = merchantPayments.reduce((s, x) => s + (x.amount || 0), 0);
+        let mpr = merchantPurchases.reduce((s, x) => s + (x.costPrice || 0) * (x.quantity || 1), 0);
+        let mpo = merchantPaymentsOut.reduce((s, x) => s + (x.amount || 0), 0);
+        return total + (ms + mpo - mp - mpr);
+    }
+
     function buildGeneralStatementRows() {
         let rows = [];
         const custName = (id) => merchants.find(x => x.id == id)?.name || 'عميل';
@@ -7071,9 +7114,9 @@
         const openingTotal = BusinessLogic.openingLiquid();
         if (openingTotal > 0) rows.push({ date: '1970-01-01', desc: 'رأس المال الافتتاحي (رأس المال + أرصدة افتتاح الحسابات)', debit: 0, credit: openingTotal });
 
-        // 1) الحركات النقدية المستقلة (بدون ارتباط بعقد قسط/عربون/تاجر)
+        // 1) الحركات النقدية المستقلة (المرتبطة بقسط/عربون تُدرج ضمن أقسامها أدناه، وحركات التجار نقداً تُدرج هنا)
         transactions.forEach(t => {
-            if (t.instId || t.arabonId || t.merchantId) return;
+            if (t.instId || t.arabonId) return;
             if (t.type === 'sell_cash' || t.type === 'sell') {
                 rows.push({ date: t.date, desc: 'بيع نقدي | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
             } else if (t.type === 'income') {
@@ -7094,21 +7137,28 @@
                 rows.push({ date: t.date, desc: 'وارد نقدي | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
             } else if (t.type === 'payment_out') {
                 rows.push({ date: t.date, desc: 'منصرف نقدي | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
+            } else if (t.type === 'merchant_sale') {
+                rows.push({ date: t.date, desc: 'بيع لتاجر (مقبوض نقداً) | ' + (t.notes || ''), debit: 0, credit: t.amount || 0 });
+            } else if (t.type === 'merchant_purchase') {
+                rows.push({ date: t.date, desc: 'شراء من تاجر (منصرف نقداً) | ' + (t.notes || ''), debit: t.amount || 0, credit: 0 });
             }
         });
 
-        // 2) عقود التقسيط
+        // 2) عقود التقسيط (المدين = المتبقي فعلياً، والمقدم والأقساط المحصلة تُدرج دائناً)
         installments.forEach(inst => {
             let dev = devName(inst);
             let cust = custName(inst.merchantId);
             let cDate = inst.date || inst.firstDueDate || new Date().toISOString();
             let convArabon = arabonSales.find(a => a.instId == inst.id);
+            let outstanding = installmentRemaining(inst);
             if (convArabon) {
-                let interest = (inst.totalAfterInterest || 0) - (inst.purchasePrice || 0);
+                let interestTotal = Math.max((inst.totalAfterInterest || 0) - (inst.purchasePrice || 0), 0);
+                let interest = Math.min(interestTotal, outstanding);
+                let principal = Math.max(outstanding - interest, 0);
                 if (interest > 0) rows.push({ date: cDate, desc: 'فوائد تحويل عربون إلى أقساط - ' + dev + ' - ' + cust, debit: interest, credit: 0 });
+                if (principal > 0) rows.push({ date: cDate, desc: 'أصل عربون محول إلى أقساط - ' + dev + ' - ' + cust, debit: principal, credit: 0 });
             } else {
-                let total = (inst.totalAfterInterest || 0) + (inst.paidUpfront || 0);
-                rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev + ' - ' + cust, debit: total, credit: 0 });
+                if (outstanding > 0) rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev + ' - ' + cust, debit: outstanding, credit: 0 });
                 if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev + ' - ' + cust, debit: 0, credit: inst.paidUpfront });
             }
             let schedule = inst.schedule || getInstSchedule(inst);
@@ -7117,11 +7167,12 @@
             });
         });
 
-        // 3) عقود العربون + دفعاتها
+        // 3) عقود العربون + دفعاتها (المدين = المتبقي فعلياً على العميل)
         arabonSales.forEach(a => {
             let dev = a.deviceName || 'جهاز';
             let cust = custName(a.merchantId);
-            rows.push({ date: a.date, desc: 'عقد عربون - ' + dev + ' - ' + cust, debit: a.sellPrice || 0, credit: 0 });
+            let arbOutstanding = Math.max(a.remainingAmount || 0, 0);
+            if (arbOutstanding > 0) rows.push({ date: a.date, desc: 'عقد عربون - ' + dev + ' - ' + cust, debit: arbOutstanding, credit: 0 });
             transactions.filter(t => t.arabonId == a.id && t.type === 'payment_in' && (t.amount || 0) > 0).forEach(t => {
                 rows.push({ date: t.date, desc: (t.notes ? t.notes : 'دفعة عربون - ' + dev + ' - ' + cust), debit: 0, credit: t.amount });
             });
@@ -7195,9 +7246,11 @@
 
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
-        // الرصيد الصافي يشمل الذمم (بيع بالتقسيط/عربون/تجار) بينما السيولة نقد فعلي
-        // المبالغ المعلقة = السيولة - الرصيد الصافي (مبالغ متبقية للتحصيل)
-        let recon = liquidity - finalBal;
+        // الرصيد الصافي يشمل ذمم العملاء، والمبالغ المعلقة تُحسب من الذمم نفسها (لا من السيولة)
+        // المطابقة الحقيقية: الرصيد الصافي + المبالغ المعلقة = السيولة النقدية
+        let pending = statementPendingAmount();
+        let bridgeDiff = finalBal + pending - liquidity;
+        let bridgeOk = Math.abs(bridgeDiff) < 0.01;
         let summaryHtml = '' +
         '<div class="customer-statement-summary">' +
             '<div class="stat-card"><div class="stat-label">💼 رأس المال</div><div class="stat-value primary">' + BusinessLogic.openingLiquid().toFixed(2) + ' ج</div></div>' +
@@ -7206,12 +7259,12 @@
             '<div class="stat-card"><div class="stat-label">إجمالي الدائن (وارد)</div><div class="stat-value success">' + totalCredit.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">الرصيد الصافي</div><div class="stat-value ' + (finalBal >= 0 ? 'success' : 'danger') + '">' + finalBal.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">🏦 السيولة النقدية (خزينة + بنوك)</div><div class="stat-value primary">' + liquidity.toFixed(2) + ' ج</div></div>' +
-            '<div class="stat-card"><div class="stat-label">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div class="stat-value ' + (recon >= -0.01 ? 'success' : 'danger') + '">' + recon.toFixed(2) + ' ج</div></div>' +
+            '<div class="stat-card"><div class="stat-label">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div class="stat-value ' + (bridgeOk ? 'success' : 'danger') + '">' + pending.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + rows.length + '</div></div>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? 'rgba(5,150,105,0.10)' : 'rgba(220,38,38,0.08)') + ';border:1px solid ' + (recon >= -0.01 ? 'rgba(5,150,105,0.40)' : 'rgba(220,38,38,0.35)') + ';font-weight:700;font-size:0.88rem;color:var(--text);">' +
-            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
-            (recon >= -0.01 ? ' ✅' : ' ⚠️') +
+        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;padding:10px 14px;border-radius:10px;background:' + (bridgeOk ? 'rgba(5,150,105,0.10)' : 'rgba(220,38,38,0.08)') + ';border:1px solid ' + (bridgeOk ? 'rgba(5,150,105,0.40)' : 'rgba(220,38,38,0.35)') + ';font-weight:700;font-size:0.88rem;color:var(--text);">' +
+            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + pending.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
+            (bridgeOk ? ' ✅' : ' ⚠️ فرق ' + bridgeDiff.toFixed(2) + ' ج') +
         '</div>';
 
         let tableHtml = rows.length > 0
@@ -7249,7 +7302,9 @@
         }).join('');
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
-        let recon = liquidity - finalBal;
+        let pending = statementPendingAmount();
+        let bridgeDiff = finalBal + pending - liquidity;
+        let bridgeOk = Math.abs(bridgeDiff) < 0.01;
 
         let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
         let htmlContent = '' +
@@ -7265,12 +7320,12 @@
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">إجمالي الدائن</div><div style="font-size:1.15rem;font-weight:800;color:#059669;">' + totalCredit.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">الرصيد الصافي</div><div style="font-size:1.15rem;font-weight:800;color:' + (finalBal >= 0 ? '#059669' : '#ef4444') + ';">' + finalBal.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">🏦 السيولة النقدية (خزينة + بنوك)</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + liquidity.toFixed(2) + ' ج</div></div>' +
-                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div style="font-size:1.15rem;font-weight:800;color:' + (recon >= -0.01 ? '#059669' : '#ef4444') + ';">' + recon.toFixed(2) + ' ج</div></div>' +
+                '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">💳 المبالغ المعلقة (مستحقة للتحصيل)</div><div style="font-size:1.15rem;font-weight:800;color:' + (bridgeOk ? '#059669' : '#ef4444') + ';">' + pending.toFixed(2) + ' ج</div></div>' +
                 '<div style="flex:1;min-width:100px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:0.8rem;color:#64748b;">عدد الحركات</div><div style="font-size:1.15rem;font-weight:800;color:#4f46e5;">' + rows.length + '</div></div>' +
             '</div>' +
-            '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding:10px 14px;border-radius:10px;background:' + (recon >= -0.01 ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (recon >= -0.01 ? '#059669' : '#ef4444') + ';font-weight:700;font-size:0.9rem;color:#0f172a;">' +
-            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + recon.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
-                (recon >= -0.01 ? ' ✅' : ' ⚠️') +
+            '<div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;padding:10px 14px;border-radius:10px;background:' + (bridgeOk ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (bridgeOk ? '#059669' : '#ef4444') + ';font-weight:700;font-size:0.9rem;color:#0f172a;">' +
+            '⚖️ مطابقة: الرصيد الصافي (' + finalBal.toFixed(2) + ' ج) + المبالغ المعلقة (' + pending.toFixed(2) + ' ج) = السيولة النقدية (' + liquidity.toFixed(2) + ' ج)' +
+                (bridgeOk ? ' ✅' : ' ⚠️ فرق ' + bridgeDiff.toFixed(2) + ' ج') +
             '</div>' +
             '<table style="width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #cbd5e1;margin-bottom:20px;font-size:0.85rem;">' +
                 '<thead><tr style="background:#4f46e5;color:white;"><th style="padding:10px 8px;text-align:right;">التاريخ</th><th style="padding:10px 8px;text-align:right;">البيان</th><th style="padding:10px 8px;text-align:right;">مدين (منصرف)</th><th style="padding:10px 8px;text-align:right;">دائن (وارد)</th><th style="padding:10px 8px;text-align:right;">الرصيد</th></tr></thead>' +
@@ -7322,7 +7377,7 @@
         csvRows.push(['💼 رأس المال', '', '', '', BusinessLogic.openingLiquid().toFixed(2)]);
         csvRows.push(['الرصيد الصافي', '', '', '', finalBal.toFixed(2)]);
         csvRows.push(['🏦 السيولة النقدية (خزينة + حسابات بنكية)', '', '', '', getCashLiquidity().toFixed(2)]);
-        csvRows.push(['💳 المبالغ المعلقة (مستحقة = السيولة - الرصيد الصافي)', '', '', '', (getCashLiquidity() - finalBal).toFixed(2)]);
+        csvRows.push(['💳 المبالغ المعلقة (مستحقة للتحصيل — من الذمم)', '', '', '', statementPendingAmount().toFixed(2)]);
         downloadCSV('كشف_الحساب_العام_' + Date.now() + '.csv', header, csvRows);
         showToast('تم تصدير CSV');
     }
@@ -9197,15 +9252,15 @@
             html += '<div class="inst-details-customer"><span>👤 <b>' + esc(m?.name || 'عميل') + '</b></span><span>📞 ' + esc(m?.phone || '—') + '</span></div>';
             html += '<div class="inst-details-grid">';
             html += '<div class="inst-details-item"><span class="inst-details-label">📱 الجهاز</span><span class="inst-details-value">' + esc(deviceName) + '</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + inst.purchasePrice.toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + inst.paidUpfront.toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">📊 نسبة الفائدة</span><span class="inst-details-value">' + inst.interestRate + '%</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">📅 عدد الشهور</span><span class="inst-details-value">' + inst.numInstallments + ' شهر</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💳 القسط الشهري</span><span class="inst-details-value">' + inst.monthlyAmount.toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">🧮 الإجمالي بعد الفائدة</span><span class="inst-details-value">' + inst.totalAfterInterest.toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">⚠️ المتبقي</span><span class="inst-details-value danger">' + inst.remainingBalance.toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + (Number(inst.purchasePrice) || 0).toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + (Number(inst.paidUpfront) || 0).toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📊 نسبة الفائدة</span><span class="inst-details-value">' + (Number(inst.interestRate) || 0) + '%</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📅 عدد الشهور</span><span class="inst-details-value">' + (inst.numInstallments || schedule.length || '؟') + ' شهر</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💳 القسط الشهري</span><span class="inst-details-value">' + (Number(inst.monthlyAmount) || 0).toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">🧮 الإجمالي بعد الفائدة</span><span class="inst-details-value">' + (Number(inst.totalAfterInterest) || 0).toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">⚠️ المتبقي</span><span class="inst-details-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString() + ' ج</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">📆 تاريخ أول قسط</span><span class="inst-details-value">' + (inst.firstDueDate ? new Date(inst.firstDueDate).toLocaleDateString('ar-EG') : '—') + '</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">✅ الأقساط المسددة</span><span class="inst-details-value">' + paidCount + '/' + inst.numInstallments + '</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">✅ الأقساط المسددة</span><span class="inst-details-value">' + paidCount + '/' + (inst.numInstallments || schedule.length || '؟') + '</span></div>';
             html += '</div>';
 
             let paidSlots = schedule.filter(s => s.isPaid);
@@ -9262,7 +9317,7 @@
             html += '</div>';
             html += '<div class="grid-2">';
             html += '<div class="form-group"><label>📊 نسبة الفائدة (%)</label><input type="number" step="0.1" id="editInstRate-' + id + '" value="' + inst.interestRate + '"' + lock + '></div>';
-            html += '<div class="form-group"><label>📅 عدد الشهور</label><input type="number" id="editInstMonths-' + id + '" min="1" value="' + inst.numInstallments + '"' + lock + '></div>';
+            html += '<div class="form-group"><label>📅 عدد الشهور</label><input type="number" id="editInstMonths-' + id + '" min="1" value="' + (inst.numInstallments || (inst.schedule || []).length || '') + '"' + lock + '></div>';
             html += '</div>';
             html += '<div class="form-group"><label>📆 تاريخ أول قسط</label><input type="date" id="editInstFirstDate-' + id + '" value="' + (inst.firstDueDate || '') + '"></div>';
             html += '<div class="inst-panel-actions">';
@@ -9473,7 +9528,7 @@
                 '<div class="schedule-wrapper" id="schedule-' + inst.id + '">' +
                     '<div class="schedule-header">' +
                         '<span>📅 جدول الأقساط الكاملة</span>' +
-                        '<span>' + inst.numInstallments + ' قسط</span>' +
+                        '<span>' + (inst.numInstallments || schedule.length || '؟') + ' قسط</span>' +
                     '</div>' +
                     scheduleHtml +
                 '</div>' +
@@ -12307,13 +12362,13 @@
                 '<div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; padding:16px; margin-bottom:20px; box-shadow:0 2px 4px rgba(0,0,0,0.05);">' +
                     '<table style="width:100%; border-collapse:collapse; text-align:right;">' +
                         '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>اسم العميل:</strong> ' + (merchant?.name || 'عميل') + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>رقم الهاتف:</strong> ' + (merchant?.phone || '—') + '</td></tr>' +
-                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الجهاز:</strong> ' + deviceName + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>سعر الكاش:</strong> ' + inst.purchasePrice.toFixed(2) + ' ج.م</td></tr>' +
-                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>المقدم:</strong> ' + inst.paidUpfront.toFixed(2) + ' ج.م</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الإجمالي المُقسّط:</strong> ' + inst.totalAfterInterest.toFixed(2) + ' ج.م</td></tr>' +
-                        '<tr><td style="padding:8px 4px;"><strong>عدد الأقساط:</strong> ' + inst.numInstallments + ' شهر</td><td style="padding:8px 4px;"><strong>القسط الشهري:</strong> <span style="color:#4f46e5; font-weight:bold;">' + inst.monthlyAmount.toFixed(2) + ' ج.م</span></td></tr>' +
+                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الجهاز:</strong> ' + deviceName + '</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>سعر الكاش:</strong> ' + (Number(inst.purchasePrice) || 0).toFixed(2) + ' ج.م</td></tr>' +
+                        '<tr><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>المقدم:</strong> ' + (Number(inst.paidUpfront) || 0).toFixed(2) + ' ج.م</td><td style="padding:8px 4px; border-bottom:1px solid #f1f5f9;"><strong>الإجمالي المُقسّط:</strong> ' + (Number(inst.totalAfterInterest) || 0).toFixed(2) + ' ج.م</td></tr>' +
+                        '<tr><td style="padding:8px 4px;"><strong>عدد الأقساط:</strong> ' + (inst.numInstallments || schedule.length || '؟') + ' شهر</td><td style="padding:8px 4px;"><strong>القسط الشهري:</strong> <span style="color:#4f46e5; font-weight:bold;">' + (Number(inst.monthlyAmount) || 0).toFixed(2) + ' ج.م</span></td></tr>' +
                     '</table>' +
                     '<div style="margin-top:12px; padding:10px; background:#ede9fe; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">' +
-                        '<span style="color:#4f46e5; font-weight:bold;">الأقساط المسددة: ' + paidCount + ' / ' + inst.numInstallments + '</span>' +
-                        '<span style="color:#ef4444; font-weight:bold;">الباقي: ' + inst.remainingBalance.toFixed(2) + ' ج.م</span>' +
+                        '<span style="color:#4f46e5; font-weight:bold;">الأقساط المسددة: ' + paidCount + ' / ' + (inst.numInstallments || schedule.length || '؟') + '</span>' +
+                        '<span style="color:#ef4444; font-weight:bold;">الباقي: ' + (Number(inst.remainingBalance) || 0).toFixed(2) + ' ج.م</span>' +
                     '</div>' +
                 '</div>' +
 
@@ -12468,13 +12523,13 @@
                     '<div class="info-row"><span>نسبة الفائدة</span><span>' + (inst.interestRate || 0) + '%</span></div>' +
                     '<div class="info-row"><span>الإجمالي بعد الفائدة</span><span>' + (inst.totalAfterInterest || 0).toLocaleString() + ' ج</span></div>' +
                     '<div class="info-row"><span>القسط الشهري</span><span>' + (inst.monthlyAmount || 0).toLocaleString() + ' ج</span></div>' +
-                    '<div class="info-row"><span>عدد الأقساط</span><span>' + (inst.numInstallments || 0) + ' شهر</span></div>' +
+                    '<div class="info-row"><span>عدد الأقساط</span><span>' + (inst.numInstallments || schedule.length || '؟') + ' شهر</span></div>' +
                     '<div class="info-row"><span>المسدد</span><span style="color:var(--success);font-weight:700;">' + paidAmount.toLocaleString() + ' ج</span></div>' +
                     '<div class="info-row"><span>المتبقي</span><span style="color:var(--danger);font-weight:700;">' + (inst.remainingBalance || 0).toLocaleString() + ' ج</span></div>' +
                 '</div>' +
                 '<div class="contract-progress">' +
                     '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">' +
-                        '<span>' + paidCount + '/' + inst.numInstallments + ' أقساط</span>' +
+                        '<span>' + paidCount + '/' + (inst.numInstallments || schedule.length || '؟') + ' أقساط</span>' +
                         '<span>' + progress.toFixed(0) + '%</span>' +
                     '</div>' +
                     '<div style="background:#f1f5f9;border-radius:50px;height:6px;overflow:hidden;">' +
@@ -12571,7 +12626,7 @@
             let paidCount = schedule.filter(s => s.isPaid).length;
             let paidAmt = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
             let status = inst.isPaid ? 'مسدد' : (new Date(schedule.find(s => !s.isPaid)?.dueDate) < new Date() ? 'متأخر' : 'نشط');
-            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + deviceName + '</td><td style="padding:8px 6px;">' + (inst.totalAfterInterest || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.paidUpfront || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + inst.numInstallments + '</td><td style="padding:8px 6px;">' + (inst.monthlyAmount || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + paidAmt.toFixed(2) + '</td><td style="padding:8px 6px;color:' + (inst.isPaid ? '#059669' : '#ef4444') + ';font-weight:700;">' + (inst.remainingBalance || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + status + '</td></tr>';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + deviceName + '</td><td style="padding:8px 6px;">' + (inst.totalAfterInterest || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.paidUpfront || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.numInstallments || schedule.length || '؟') + '</td><td style="padding:8px 6px;">' + (inst.monthlyAmount || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + paidAmt.toFixed(2) + '</td><td style="padding:8px 6px;color:' + (inst.isPaid ? '#059669' : '#ef4444') + ';font-weight:700;">' + (inst.remainingBalance || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + status + '</td></tr>';
         }).join('');
 
         let paymentRows = allPayments.map(p => {
@@ -12707,7 +12762,7 @@
             header: ['رقم العقد', 'العميل', 'الجهاز', 'السعر', 'المقدم', 'المتبقي', 'عدد الشهور', 'القسط الشهري'],
             rows: installments.map(inst => {
                 let m = merchants.find(x => x.id == inst.merchantId);
-                return [inst.contractNo || inst.id, m?.name || '', inst.deviceName || '', inst.purchasePrice, inst.paidUpfront || 0, inst.remainingBalance || 0, inst.numInstallments, (inst.monthlyAmount || 0).toFixed(2)];
+                return [inst.contractNo || inst.id, m?.name || '', inst.deviceName || '', inst.purchasePrice, inst.paidUpfront || 0, inst.remainingBalance || 0, inst.numInstallments || (inst.schedule || []).length || '', (inst.monthlyAmount || 0).toFixed(2)];
             })
         });
         const prodMap = {};
@@ -12909,9 +12964,11 @@
         let inst = installments.find(i => i.id == instId);
         if (!inst) { showToast('العقد غير موجود', 'error'); return; }
         let paidCount = (inst.schedule || getInstSchedule(inst)).filter(s => s.isPaid).length;
-        let remaining = inst.numInstallments - paidCount;
+        let totalSlots = inst.numInstallments || (inst.schedule || []).length || 0;
+        if (!totalSlots) { showToast('لا يمكن إعادة جدولة عقد بدون عدد أقساط محدد', 'error'); return; }
+        let remaining = totalSlots - paidCount;
         if (remaining <= 0) { showToast('العقد مسدد بالكامل', 'error'); return; }
-        let newMonths = await showNumberPromptModal('عدد الأشهر المتبقية الحالي: ' + remaining + '\nالقسط الحالي: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالباقي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', remaining, 'إعادة جدولة - عدد الأشهر');
+        let newMonths = await showNumberPromptModal('عدد الأشهر المتبقية الحالي: ' + remaining + '\nالقسط الحالي: ' + (Number(inst.monthlyAmount) || 0).toFixed(2) + ' ج.م\nالباقي: ' + (Number(inst.remainingBalance) || 0).toFixed(2) + ' ج.م', remaining, 'إعادة جدولة - عدد الأشهر');
         if (newMonths === null || isNaN(newMonths) || newMonths <= 0) return;
         let months = Math.floor(newMonths);
         let firstDateStr = await showPromptModal('أدخل تاريخ أول قسط جديد (صيغة YYYY-MM-DD):', inst.firstDueDate, 'تاريخ أول قسط');
@@ -12984,6 +13041,9 @@
             link.download = 'نسخة_احتياطية_مبيعات_' + new Date().toISOString().split('T')[0] + '.json';
             link.click();
             URL.revokeObjectURL(link.href);
+            // تسجيل وقت النسخة اليدوية حتى لا يعرض مركز الصحة "لم تُؤخذ نسخة احتياطية"
+            lsSet('autoBackup_last', JSON.stringify({ date: new Date().toISOString(), source: 'manual' }));
+            updateAutoBackupInfo();
             showToast('تم تصدير النسخة الاحتياطية بنجاح');
         } catch (err) {
             showError('حدث خطأ أثناء التصدير', err.message);
