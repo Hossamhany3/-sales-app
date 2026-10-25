@@ -6257,60 +6257,6 @@
         const activeInstCount = installments.filter(i => !i.isPaid).length;
         setTxt('ccActiveInst', activeInstCount + ' عقد');
 
-        // ── مؤشرات الأداء الشهري ──
-        const monthSelect = document.getElementById('ccMonthSelector');
-        if (monthSelect) {
-            if (monthSelect.options.length === 0) {
-                const now = new Date();
-                for (let i = 0; i < 12; i++) {
-                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
-                    const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-                    monthSelect.innerHTML += '<option value="' + val + '">' + label + '</option>';
-                }
-            }
-            const parts = (monthSelect.value || '').split('-');
-            const selYear = parseInt(parts[0]);
-            const selMonth = parseInt(parts[1]) - 1;
-            function monthTrans(year, month) {
-                return transactions.filter(t => { const d = new Date(t.date); return d.getFullYear() === year && d.getMonth() === month; });
-            }
-            const currList = monthTrans(selYear, selMonth);
-            const prevM = selMonth === 0 ? 11 : selMonth - 1;
-            const prevY = selMonth === 0 ? selYear - 1 : selYear;
-            const prevList = monthTrans(prevY, prevM);
-            function calcTotals(list) {
-                let rev = 0, exp = 0, coll = 0;
-                list.forEach(t => {
-                    if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'partner_deposit' || t.type === 'merchant_sale') rev += t.amount;
-                    if (t.type === 'payment_in') { rev += t.amount; coll += t.amount; }
-                    if (t.type === 'expense' || t.type === 'purchase' || t.type === 'partner_withdrawal') exp += t.amount;
-                });
-                return { revenue: rev, expenses: exp, profit: rev - exp, collections: coll };
-            }
-            const curr = calcTotals(currList);
-            const prev = calcTotals(prevList);
-            function fmtCh(c, p) {
-                if (p === 0) return c > 0 ? '⬆️ جديد' : '—';
-                const pct = ((c - p) / p * 100).toFixed(1);
-                return (c >= p ? '⬆️ +' : '⬇️ ') + pct + '%';
-            }
-            setTxt('ccMonthRevenue', curr.revenue.toFixed(2) + ' ج');
-            setTxt('ccMonthRevenueChange', fmtCh(curr.revenue, prev.revenue));
-            setTxt('ccMonthExpenses', curr.expenses.toFixed(2) + ' ج');
-            setTxt('ccMonthExpensesChange', fmtCh(curr.expenses, prev.expenses));
-            setTxt('ccMonthProfit', curr.profit.toFixed(2) + ' ج');
-            const mpLabel = document.getElementById('ccMonthProfitLabel');
-            const mpVal = document.getElementById('ccMonthProfit');
-            const mpCard = mpVal ? mpVal.closest('.stat-card') : null;
-            if (mpLabel) { mpLabel.textContent = curr.profit >= 0 ? '✅ صافي الربح' : '❌ صافي الخسارة'; mpLabel.style.color = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)'; }
-            if (mpVal) mpVal.style.color = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)';
-            if (mpCard) mpCard.style.borderColor = curr.profit >= 0 ? 'var(--success)' : 'var(--danger)';
-            setTxt('ccMonthProfitChange', fmtCh(curr.profit, prev.profit));
-            setTxt('ccMonthCollections', curr.collections.toFixed(2) + ' ج');
-            setTxt('ccMonthCollectionsChange', fmtCh(curr.collections, prev.collections));
-        }
-
         // ── التنبيهات الذكية ──
         const today = new Date(); today.setHours(0,0,0,0);
         const alerts = [];
@@ -6344,68 +6290,7 @@
             ).join(''));
         }
 
-        // ── منتجات تحت الحد الأدنى ──
-        const allLowStock = products.filter(p => p.status !== 'inactive' && p.stock <= (p.minStock || 0));
-        const lowStockCountEl = document.getElementById('ccLowStockCount');
-        if (lowStockCountEl) {
-            if (allLowStock.length > 0) { lowStockCountEl.style.display = ''; lowStockCountEl.textContent = allLowStock.length; }
-            else { lowStockCountEl.style.display = 'none'; }
-        }
-        if (allLowStock.length === 0) {
-            setHtml('ccLowStock', '<div style="text-align:center;padding:16px;color:var(--success);font-size:0.85rem;">✅ جميع المنتجات متوفرة</div>');
-        } else {
-            setHtml('ccLowStock', allLowStock.slice(0, 5).map(p =>
-                '<div onclick="switchPage(\'products\');toggleMenu(true);" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;cursor:pointer;background:var(--danger-light);">' +
-                '<span style="font-size:0.9rem;">📦</span>' +
-                '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + esc(p.name) + '</span>' +
-                '<strong style="font-size:0.8rem;color:' + (p.stock === 0 ? 'var(--danger)' : 'var(--warning)') + ';">' + p.stock + ' / ' + (p.minStock || 0) + '</strong>' +
-                '</div>'
-            ).join(''));
-        }
-
-        // ── أكثر الأصناف مبيعاً ──
-        const prodSales = {};
-        transactions.filter(t => (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') && t.productId).forEach(t => {
-            if (!prodSales[t.productId]) prodSales[t.productId] = { qty: 0, revenue: 0 };
-            prodSales[t.productId].qty += (t.quantity || 1);
-            prodSales[t.productId].revenue += t.amount;
-        });
-        installments.filter(i => i.productId).forEach(inst => {
-            if (!prodSales[inst.productId]) prodSales[inst.productId] = { qty: 0, revenue: 0 };
-            prodSales[inst.productId].qty += (inst.quantity || 1);
-            prodSales[inst.productId].revenue += inst.purchasePrice || 0;
-        });
-        const topProds = Object.entries(prodSales).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 5);
-        if (topProds.length === 0) {
-            setHtml('ccTopProducts', '<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:0.85rem;">📭 لا توجد بيانات مبيعات</div>');
-        } else {
-            setHtml('ccTopProducts', topProds.map(([pid, data]) => {
-                const prod = products.find(p => p.id == pid);
-                return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;background:var(--success-light);">' +
-                    '<span style="font-size:0.9rem;">📱</span>' +
-                    '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + (prod ? esc(prod.name) : 'صنف #' + pid) + '</span>' +
-                    '<strong style="font-size:0.78rem;color:var(--success);">' + data.qty + ' قطعة — ' + data.revenue.toFixed(0) + ' ج</strong>' +
-                    '</div>';
-            }).join(''));
-        }
-
-        // ── حالة النظام ──
-        try { SHC.runAllChecks(); } catch(e) { console.error('SHC error:', e); }
-        const shcScore = SHC.getScore();
-        const shcStatus = SHC.getStatus();
-        const shcCounts = SHC.getCounts();
-        let shcHtml = '<div style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.03);">';
-        shcHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="font-size:1.2rem;">'+shcStatus.icon+'</span>';
-        shcHtml += '<div><div style="font-size:0.85rem;font-weight:600;color:'+shcStatus.color+';">'+shcStatus.label+'</div>';
-        shcHtml += '<div style="font-size:0.72rem;color:var(--text-muted);">Score: '+shcScore+'/100</div></div></div>';
-        if (shcCounts.critical > 0) shcHtml += '<div style="font-size:.78rem;color:#ef4444;margin-bottom:2px;">🔴 '+shcCounts.critical+' حرج</div>';
-        if (shcCounts.high > 0) shcHtml += '<div style="font-size:.78rem;color:#f97316;margin-bottom:2px;">🟠 '+shcCounts.high+' مرتفع</div>';
-        if (shcCounts.medium > 0) shcHtml += '<div style="font-size:.78rem;color:#f59e0b;margin-bottom:2px;">🟡 '+shcCounts.medium+' متوسط</div>';
-        if (shcCounts.low > 0) shcHtml += '<div style="font-size:.78rem;color:#3b82f6;margin-bottom:2px;">🔵 '+shcCounts.low+' منخفض</div>';
-        if (shcCounts.critical === 0 && shcCounts.high === 0 && shcCounts.medium === 0 && shcCounts.low === 0) shcHtml += '<div style="font-size:.78rem;color:#22c55e;">✅ جميع الفحوصات سليمة</div>';
-        shcHtml += '<div onclick="switchPage(\'healthCenter\');toggleMenu(true);" style="font-size:0.78rem;color:var(--primary);cursor:pointer;margin-top:6px;">🩺 فتح فحص سلامة النظام ←</div>';
-        shcHtml += '</div>';
-        setHtml('ccSystemHealth', shcHtml);
+        // تم إزالة أقسام المنتجات تحت الحد الأدنى والأكثر مبيعاً وحالة النظام من لوحة التحكم
 
         // ── ملخص البيانات ──
         const totalProducts = products.length;
