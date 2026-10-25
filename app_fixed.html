@@ -1190,7 +1190,7 @@
         <button data-page="reports" class="admin-only-nav">📈 التقارير المحاسبية</button>
         <button data-page="admin" class="admin-only-nav">🧑‍💼 الموظفون والتكاليف المتكررة</button>
         <button data-page="settings" class="admin-only-nav">⚙️ إعدادات النسخ الاحتياطي والرسائل</button>
-        <button data-page="healthCenter" class="admin-only-nav">🩺 فحص سلامة النظام</button>
+
         <button id="installAppBtn" style="display:none; background:rgba(79,70,229,0.2); border-color:rgba(79,70,229,0.3); color:#a5b4fc;">📲 تثبيت التطبيق على الجهاز</button>
     </div>
     <div class="overlay" id="overlay"></div>
@@ -2325,10 +2325,7 @@
             </div>
         </div>
 
-        <!-- ====== صفحة فحص سلامة النظام ====== -->
-        <div id="healthCenter" class="page">
-            <div id="shcContent"><div class="text-center text-muted p-3">اضغط "🔄 إعادة الفحص" للبدء</div></div>
-        </div>
+
 
         <!-- ====== صفحة الموظفون والتكاليف المتكررة ====== -->
         <div id="admin" class="page">
@@ -5986,7 +5983,7 @@
     };
 
     // Render System Health Center
-    function renderHealthCenter() {
+    /*function renderHealthCenter() { */
         const container = document.getElementById('shcContent');
         if (!container) return;
         if (SHC.issues.length === 0 && !SHC.scanTime) { container.innerHTML = '<div class="text-center text-muted p-3">اضغط "🔄 إعادة الفحص" للبدء</div>'; return; }
@@ -6082,11 +6079,7 @@
         if (list) list.innerHTML = renderSHCIssues(filtered);
     };
 
-    window.runSHCScan = function() {
-        SHC.runAllChecks();
-        renderHealthCenter();
-        showToast('✅ اكتمل فحص سلامة النظام — '+SHC.issues.length+' مشكلة', SHC.issues.length > 0 ? 'warning' : 'success');
-    };
+    window.runSHCScan = function() {}; /* SHC removed */
 
     function renderDashboard() {
         let fin;
@@ -13513,7 +13506,7 @@ const backup = {
     setTimeout(syncOnStartup, 1500);
 
     function switchPage(pageId) {
-        const adminOnlyPages = ['reports', 'admin', 'settings', 'healthCenter'];
+        const adminOnlyPages = ['reports', 'admin', 'settings'];
         if (!isAdminSession() && adminOnlyPages.includes(pageId)) {
             showToast('هذه الصفحة متاحة للمدير فقط', 'error');
             pageId = 'dashboard';
@@ -13547,7 +13540,7 @@ const backup = {
             renderProducts();
             renderTransactions(); renderInstallments(); renderArabonSales(); renderMerchantSales(); renderPartners(); renderAccounts(); refreshSelectors();
             if (pageId === 'settings') initSettingsPage();
-            if (pageId === 'healthCenter') renderHealthCenter();
+
         };
     });
 
