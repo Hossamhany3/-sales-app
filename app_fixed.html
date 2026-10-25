@@ -5983,7 +5983,7 @@
     };
 
     // Render System Health Center
-    /*function renderHealthCenter() { */
+    function renderHealthCenter() {
         const container = document.getElementById('shcContent');
         if (!container) return;
         if (SHC.issues.length === 0 && !SHC.scanTime) { container.innerHTML = '<div class="text-center text-muted p-3">اضغط "🔄 إعادة الفحص" للبدء</div>'; return; }
