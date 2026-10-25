@@ -9951,24 +9951,36 @@
         container.innerHTML = statsHtml + listHtml;
     };
 
+    function buildArabonStatementRows(a) {
+        const arabonId = a.id;
+        let linkedTxns = transactions.filter(t => t.arabonId == arabonId || (t.instId && a.instId && t.instId == a.instId));
+        const isDepositTxn = (t) => t.arabonId == arabonId && t.type === 'payment_in' && (t.amount || 0) > 0 &&
+            (t.operationType === 'deposit' || (t.notes || '').startsWith('عربون بيع'));
+        const depositTxn = linkedTxns.find(isDepositTxn);
+
+        let rows = [];
+        rows.push({ date: a.date, desc: 'بيع جهاز: ' + (a.deviceName || ''), debit: a.sellPrice || 0, credit: 0 });
+        // العربون يُضاف يدوياً فقط لو مفيش حركة عربون مسجلة (منع احتسابه مرتين)
+        if ((a.depositAmount || 0) > 0 && !depositTxn) {
+            rows.push({ date: a.date, desc: 'عربون مقدّم', debit: 0, credit: a.depositAmount });
+        }
+        linkedTxns.filter(t => t.arabonId == arabonId && !(t.type === 'payment_in' && t.amount === 0)).forEach(t => {
+            let isIn = t.type === 'payment_in';
+            let isDeposit = depositTxn && t.id === depositTxn.id;
+            rows.push({ date: t.date, desc: isDeposit ? 'عربون مقدّم' : (t.notes || t.type), debit: 0, credit: isIn ? (t.amount || 0) : 0 });
+        });
+        rows.sort((x, y) => (x.date || '').localeCompare(y.date || ''));
+        return rows;
+    }
+
     window.showArabonStatement = (arabonId) => {
         let a = arabonSales.find(x => x.id == arabonId);
         if (!a) return;
         let mName = merchants.find(x => x.id == a.merchantId)?.name || 'عميل';
         let mPhone = merchants.find(x => x.id == a.merchantId)?.phone || '';
         let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : a.remainingPaymentMethod === 'split' ? '💰💵 تقسيم' : a.remainingPaymentMethod === 'installments' ? '📅 أقساط' : '—';
-        let linkedTxns = transactions.filter(t => t.arabonId == arabonId || (t.instId && a.instId && t.instId == a.instId));
 
-        let rows = [];
-        rows.push({ date: a.date, desc: 'بيع جهاز: ' + (a.deviceName || ''), debit: a.sellPrice || 0, credit: 0 });
-        if (a.depositAmount > 0) {
-            rows.push({ date: a.date, desc: 'عربون مقدّم', debit: 0, credit: a.depositAmount });
-        }
-        linkedTxns.filter(t => t.arabonId == arabonId && !(t.type === 'payment_in' && t.amount === 0)).forEach(t => {
-            let isIn = t.type === 'payment_in';
-            rows.push({ date: t.date, desc: t.notes || t.type, debit: 0, credit: isIn ? (t.amount || 0) : 0 });
-        });
-        rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        let rows = buildArabonStatementRows(a);
 
         let totalDebit = rows.reduce((s, r) => s + r.debit, 0);
         let totalCredit = rows.reduce((s, r) => s + r.credit, 0);
@@ -10029,14 +10041,7 @@
         let mName = merchants.find(x => x.id == a.merchantId)?.name || 'عميل';
         let mPhone = merchants.find(x => x.id == a.merchantId)?.phone || '';
         let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : a.remainingPaymentMethod === 'split' ? '💰💵 تقسيم' : a.remainingPaymentMethod === 'installments' ? '📅 أقساط' : '—';
-        let linkedTxns = transactions.filter(t => t.arabonId == arabonId || (t.instId && a.instId && t.instId == a.instId));
-        let rows = [];
-        rows.push({ date: a.date, desc: 'بيع جهاز: ' + (a.deviceName || ''), debit: a.sellPrice || 0, credit: 0 });
-        if (a.depositAmount > 0) rows.push({ date: a.date, desc: 'عربون مقدّم', debit: 0, credit: a.depositAmount });
-        linkedTxns.filter(t => t.arabonId == arabonId && !(t.type === 'payment_in' && t.amount === 0)).forEach(t => {
-            rows.push({ date: t.date, desc: t.notes || t.type, debit: 0, credit: t.type === 'payment_in' ? (t.amount || 0) : 0 });
-        });
-        rows.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        let rows = buildArabonStatementRows(a);
         let totalDebit = rows.reduce((s, r) => s + r.debit, 0);
         let totalCredit = rows.reduce((s, r) => s + r.credit, 0);
         let balance = totalDebit - totalCredit;
