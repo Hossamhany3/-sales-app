@@ -11355,10 +11355,13 @@
         // Build per-merchant list
         let list = Object.entries(summary);
 
-        // استبعاد عملاء التقسيط (اللي ليهم عقود تقسيط وماعندهمش مبيعات/مشتريات/مدفوعات تجار)
+        // استبعاد عملاء التقسيط وعملاء العربون (مايظهرواش في مبيعات التجار إلا لو ليهم نشاط تجاري فعلي)
         list = list.filter(([id, s]) => {
-            if (s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0) return true;
-            return !installments.some(i => i.merchantId == id);
+            const hasMerchantActivity = s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0;
+            if (hasMerchantActivity) return true;
+            if (installments.some(i => i.merchantId == id)) return false;
+            if (arabonSales.some(a => a.merchantId == id)) return false;
+            return false;
         });
 
         if (term) {
