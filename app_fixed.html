@@ -1209,46 +1209,62 @@
                 </div>
             </div>
 
-            <div style="display:flex;flex-wrap:nowrap;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px;" class="cc-kpi-row">
-                <div class="stat-card" style="border-color:var(--primary);cursor:pointer;padding:10px 12px;min-width:150px;flex:1 0 auto;" onclick="switchPage('transactions');toggleMenu(true);">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">💰</div>
-                    <div style="font-size:0.72rem;color:var(--primary);margin-bottom:2px;">السيولة</div>
-                    <div class="value" id="ccCash" style="color:var(--primary);font-size:0.9rem;">—</div>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;" class="cc-kpi-row">
+                <div class="stat-card" style="border-color:var(--primary);cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;" onclick="switchPage('transactions');toggleMenu(true);">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">💰</span>
+                        <span style="font-size:0.9rem;color:var(--primary);">السيولة (خزينة + بنوك)</span>
+                    </div>
+                    <div class="value" id="ccCash" style="color:var(--primary);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--accent);cursor:pointer;padding:10px 12px;min-width:150px;flex:1 0 auto;" onclick="switchPage('installments');toggleMenu(true);">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">📋</div>
-                    <div style="font-size:0.72rem;color:var(--accent);margin-bottom:2px;">للتحصيل</div>
-                    <div class="value" id="ccDebt" style="color:var(--accent);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--accent);cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;" onclick="switchPage('installments');toggleMenu(true);">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">📋</span>
+                        <span style="font-size:0.9rem;color:var(--accent);">للتحصيل</span>
+                    </div>
+                    <div class="value" id="ccDebt" style="color:var(--accent);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--success);cursor:pointer;padding:10px 12px;min-width:150px;flex:1 0 auto;" onclick="switchPage('products');toggleMenu(true);">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">📦</div>
-                    <div style="font-size:0.72rem;color:var(--success);margin-bottom:2px;">قيمة المخزون</div>
-                    <div class="value" id="ccStock" style="color:var(--success);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--success);cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;" onclick="switchPage('products');toggleMenu(true);">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">📦</span>
+                        <span style="font-size:0.9rem;color:var(--success);">قيمة المخزون</span>
+                    </div>
+                    <div class="value" id="ccStock" style="color:var(--success);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--warning);cursor:pointer;padding:10px 12px;min-width:150px;flex:1 0 auto;" onclick="switchPage('partners');toggleMenu(true);">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">🤝</div>
-                    <div style="font-size:0.72rem;color:var(--warning);margin-bottom:2px;">استثمارات الشركاء</div>
-                    <div class="value" id="ccPartnerInvest" style="color:var(--warning);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--warning);cursor:pointer;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;" onclick="switchPage('partners');toggleMenu(true);">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">🤝</span>
+                        <span style="font-size:0.9rem;color:var(--warning);">استثمارات الشركاء</span>
+                    </div>
+                    <div class="value" id="ccPartnerInvest" style="color:var(--warning);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--success);padding:10px 12px;min-width:150px;flex:1 0 auto;">
-                    <div style="font-size:1.2rem;margin-bottom:2px;" id="ccNetProfitIcon">📈</div>
-                    <div style="font-size:0.72rem;color:var(--success);margin-bottom:2px;" id="ccNetProfitLabel">صافي الربح</div>
-                    <div class="value" id="ccNetProfit" style="color:var(--success);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--success);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;" id="ccNetProfitIcon">📈</span>
+                        <span style="font-size:0.9rem;color:var(--success);" id="ccNetProfitLabel">صافي الربح</span>
+                    </div>
+                    <div class="value" id="ccNetProfit" style="color:var(--success);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--primary);padding:10px 12px;min-width:150px;flex:1 0 auto;">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">💵</div>
-                    <div style="font-size:0.72rem;color:var(--primary);margin-bottom:2px;">الإيرادات</div>
-                    <div class="value" id="ccRevenue" style="color:var(--primary);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--primary);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">💵</span>
+                        <span style="font-size:0.9rem;color:var(--primary);">الإيرادات</span>
+                    </div>
+                    <div class="value" id="ccRevenue" style="color:var(--primary);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--accent);padding:10px 12px;min-width:150px;flex:1 0 auto;">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">📊</div>
-                    <div style="font-size:0.72rem;color:var(--accent);margin-bottom:2px;">نسبة التحصيل</div>
-                    <div class="value" id="ccCollectionRate" style="color:var(--accent);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--accent);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">📊</span>
+                        <span style="font-size:0.9rem;color:var(--accent);">نسبة التحصيل</span>
+                    </div>
+                    <div class="value" id="ccCollectionRate" style="color:var(--accent);font-size:1rem;">—</div>
                 </div>
-                <div class="stat-card" style="border-color:var(--neon-blue);padding:10px 12px;min-width:150px;flex:1 0 auto;">
-                    <div style="font-size:1.2rem;margin-bottom:2px;">📅</div>
-                    <div style="font-size:0.72rem;color:var(--neon-blue);margin-bottom:2px;">عقود نشطة</div>
-                    <div class="value" id="ccActiveInst" style="color:var(--neon-blue);font-size:0.9rem;">—</div>
+                <div class="stat-card" style="border-color:var(--neon-blue);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-direction:row-reverse;">
+                    <div style="display:flex;align-items:center;gap:10px;flex-direction:row-reverse;">
+                        <span style="font-size:1.3rem;">📅</span>
+                        <span style="font-size:0.9rem;color:var(--neon-blue);">عقود نشطة</span>
+                    </div>
+                    <div class="value" id="ccActiveInst" style="color:var(--neon-blue);font-size:1rem;">—</div>
                 </div>
             </div>
 
