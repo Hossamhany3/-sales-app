@@ -1255,35 +1255,7 @@
                 </div>
             </div>
 
-            <div class="card" style="margin-bottom:16px;padding:16px;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                    <span style="font-size:1.2rem;">📊</span>
-                    <strong style="flex:1;font-size:0.95rem;">مؤشرات الأداء الشهري</strong>
-                    <select id="ccMonthSelector" onchange="renderCommandCenter()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.82rem;background:var(--card-bg);color:var(--text-main);"></select>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                    <div class="stat-card" style="border-color:var(--primary);padding:12px;">
-                        <div style="font-size:0.78rem;color:var(--primary);margin-bottom:3px;">💰 إيرادات الشهر</div>
-                        <div style="font-size:1.15rem;font-weight:800;color:var(--primary);" id="ccMonthRevenue">0</div>
-                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthRevenueChange">—</div>
-                    </div>
-                    <div class="stat-card" style="border-color:var(--danger);padding:12px;">
-                        <div style="font-size:0.78rem;color:var(--danger);margin-bottom:3px;">📉 مصروفات الشهر</div>
-                        <div style="font-size:1.15rem;font-weight:800;color:var(--danger);" id="ccMonthExpenses">0</div>
-                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthExpensesChange">—</div>
-                    </div>
-                    <div class="stat-card" style="border-color:var(--success);padding:12px;">
-                        <div style="font-size:0.78rem;color:var(--success);margin-bottom:3px;" id="ccMonthProfitLabel">✅ صافي الربح</div>
-                        <div style="font-size:1.15rem;font-weight:800;color:var(--success);" id="ccMonthProfit">0</div>
-                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthProfitChange">—</div>
-                    </div>
-                    <div class="stat-card" style="border-color:var(--accent);padding:12px;">
-                        <div style="font-size:0.78rem;color:var(--accent);margin-bottom:3px;">💰 التحصيلات</div>
-                        <div style="font-size:1.15rem;font-weight:800;color:var(--accent);" id="ccMonthCollections">0</div>
-                        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="ccMonthCollectionsChange">—</div>
-                    </div>
-                </div>
-            </div>
+
 
             <div class="chart-container" style="margin-bottom:16px;">
                 <canvas id="chartCanvas" height="200"></canvas>
@@ -1293,64 +1265,23 @@
                 </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" class="cc-half-grid">
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">🔔</span>
-                        <strong style="flex:1;font-size:0.95rem;">التنبيهات الذكية</strong>
-                        <span id="ccAlertCount" style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:var(--danger-light);color:var(--danger);display:none;"></span>
-                    </div>
-                    <div id="ccAlerts"></div>
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                    <span style="font-size:1.2rem;">🔔</span>
+                    <strong style="flex:1;font-size:0.95rem;">التنبيهات الذكية</strong>
+                    <span id="ccAlertCount" style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:var(--danger-light);color:var(--danger);display:none;"></span>
                 </div>
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">⚡</span>
-                        <strong style="font-size:0.95rem;">إجراءات سريعة</strong>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                        <button onclick="switchPage('products');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">💵 بيع نقدي</button>
-                        <button onclick="switchPage('installments');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">📅 عقد قسط</button>
-                        <button onclick="switchPage('arabonSales');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">🤝 عربون</button>
-                        <button onclick="switchPage('merchantSales');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">🏪 شراء تاجر</button>
-                        <button onclick="switchPage('reports');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">📈 التقارير</button>
-                        <button onclick="switchPage('accounts');toggleMenu(true);" class="btn-outline" style="padding:12px 8px;font-size:0.82rem;">🏦 الحسابات</button>
-                    </div>
-                </div>
+                <div id="ccAlerts"></div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" class="cc-half-grid">
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">📦</span>
-                        <strong style="flex:1;font-size:0.95rem;">منتجات تحت الحد الأدنى</strong>
-                        <span id="ccLowStockCount" style="font-size:0.72rem;padding:2px 8px;border-radius:10px;background:var(--danger-light);color:var(--danger);display:none;"></span>
-                    </div>
-                    <div id="ccLowStock"></div>
-                </div>
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">🏆</span>
-                        <strong style="font-size:0.95rem;">أكثر الأصناف مبيعاً</strong>
-                    </div>
-                    <div id="ccTopProducts"></div>
-                </div>
-            </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;" class="cc-half-grid">
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">⚙️</span>
-                        <strong style="font-size:0.95rem;">حالة النظام</strong>
-                    </div>
-                    <div id="ccSystemHealth"></div>
+
+            <div class="card" style="margin-bottom:16px;padding:16px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                    <span style="font-size:1.2rem;">📊</span>
+                    <strong style="font-size:0.95rem;">ملخص البيانات</strong>
                 </div>
-                <div class="card" style="padding:16px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                        <span style="font-size:1.2rem;">📊</span>
-                        <strong style="font-size:0.95rem;">ملخص البيانات</strong>
-                    </div>
-                    <div id="ccDataSummary"></div>
-                </div>
+                <div id="ccDataSummary"></div>
             </div>
 
             <div style="margin-bottom:20px;">
