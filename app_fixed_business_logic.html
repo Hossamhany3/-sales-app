@@ -3765,6 +3765,39 @@
         },
 
         // ─── تجميع حركات سداد العقد في مجموعات (كل دفعة قد تتكوّن من كاش + بنك) ───
+        // ─── توزيع مبلغ على جدول الأقساط ابتداءً من فهرس محدد (يدعم دفع مقدم) ───
+        applySchedulePaymentFrom(inst, amount, paidDate, startIndex) {
+            if (!inst.schedule || !inst.schedule.length) return;
+            const monthly = this.toNum(inst.monthlyAmount);
+            let remaining = this.toNum(amount);
+            let i = Math.max(0, Math.floor(Number(startIndex) || 0));
+            while (remaining > 0.0001 && i < inst.schedule.length) {
+                let sl = inst.schedule[i];
+                if (sl.isPaid) { i++; continue; }
+                let paid = this.toNum(sl.paidAmount);
+                let slotDue = parseFloat((monthly - paid).toFixed(2));
+                if (slotDue <= 0) { i++; continue; }
+                let pay = Math.min(remaining, slotDue);
+                sl.paidAmount = parseFloat((paid + pay).toFixed(2));
+                sl.paidDate = paidDate || sl.paidDate;
+                if (sl.paidAmount >= monthly - 0.01) {
+                    sl.isPaid = true;
+                    sl.paidAmount = monthly;
+                }
+                remaining = parseFloat((remaining - pay).toFixed(2));
+                i++;
+            }
+            if (remaining > 0.0001 && inst.schedule.length) {
+                let target = inst.schedule[inst.schedule.length - 1];
+                target.paidAmount = parseFloat((this.toNum(target.paidAmount) + remaining).toFixed(2));
+                target.paidDate = paidDate || target.paidDate;
+                if (target.paidAmount >= monthly - 0.01) {
+                    target.isPaid = true;
+                    if (target.paidAmount < monthly) target.paidAmount = monthly;
+                }
+            }
+        },
+
         paymentGroups(installmentId) {
             const groups = new Map();
             transactions.forEach(t => {
@@ -3802,13 +3835,9 @@
             for (const g of groups) {
                 const dateStr = String(g.date || '').slice(0, 10);
                 if (g.slotIndex != null) {
-                    const slot = inst.schedule.find(s => s.index == g.slotIndex);
-                    if (slot) {
-                        slot.paidAmount = parseFloat((this.toNum(slot.paidAmount) + g.amount).toFixed(2));
-                        slot.paidDate = dateStr;
-                        if (slot.paidAmount >= monthly - 0.01) { slot.paidAmount = monthly; slot.isPaid = true; }
-                        continue;
-                    }
+                    const startIdx = (Number(g.slotIndex) || 1) - 1;
+                    this.applySchedulePaymentFrom(inst, g.amount, dateStr, startIdx);
+                    continue;
                 }
                 this.applySchedulePayment(inst, g.amount, dateStr);
             }
@@ -3951,7 +3980,7 @@
             let totalRemaining = this.toNum(inst.remainingBalance);
             let amt = this.toNum(amount);
             if (!(amt > 0)) return { success: false, reason: 'invalid_amount' };
-            if (amt > slotRemaining + 0.01) return { success: false, reason: 'overpayment', remaining: slotRemaining };
+            // السماح بتسديد مبلغ أكبر من القسط الشهري (دفع مقدم) — بحد أقصى المتبقي الكلي
             if (amt > totalRemaining + 0.01) return { success: false, reason: 'overpayment', remaining: totalRemaining };
 
             let cash = this.toNum(cashAmount);
@@ -3962,7 +3991,7 @@
             }
 
             // بعد التحقق ننفّذ: الحركات أولاً ثم تحديث الجدول (ذرّي)
-            let val = Math.min(amt, slotRemaining, totalRemaining);
+            let val = Math.min(amt, totalRemaining);
             let txnDate = date || new Date().toISOString();
             let paymentSeq = (inst.paymentSeq || 0) + 1;
             let sourceId = String(installmentId) + '_p' + paymentSeq;
@@ -4015,12 +4044,8 @@
             }
 
             inst.paymentSeq = paymentSeq;
-            slot.paidAmount = parseFloat((this.toNum(slot.paidAmount) + val).toFixed(2));
-            slot.paidDate = txnDate.split('T')[0];
-            if (slot.paidAmount >= this.toNum(inst.monthlyAmount) - 0.01) {
-                slot.isPaid = true;
-                slot.paidAmount = this.toNum(inst.monthlyAmount);
-            }
+            // توزيع المبلغ على الأقساط ابتداءً من القسط المحدد (يدعم دفع مقدم > قسط شهري)
+            this.applySchedulePaymentFrom(inst, val, txnDate.split('T')[0], slotIdx);
 
             inst.remainingBalance = parseFloat(Math.max(totalRemaining - val, 0).toFixed(2));
             if (inst.remainingBalance <= 0.01) { inst.isPaid = true; inst.remainingBalance = 0; }
@@ -10663,6 +10688,7 @@
             let slot = inst.schedule[slotIdx];
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let remaining = parseFloat((inst.monthlyAmount - slot.paidAmount).toFixed(2));
+            let totalRemaining = parseFloat((inst.remainingBalance || 0).toFixed(2));
             let paymentAccountId = document.getElementById('payAccount-' + instId).value;
             let splitToggle = document.getElementById('paySplitCheck-' + instId).closest('.split-toggle');
             let isSplit = splitToggle.classList.contains('active');
@@ -10675,7 +10701,10 @@
                 if (cashAmount <= 0 && bankAmount <= 0) { showToast('أدخل المبلغ النقدي أو البنكي', 'error'); return; }
             }
             let requested = isSplit ? (cashAmount + bankAmount) : (parseFloat(document.getElementById('payAmount-' + instId).value) || 0);
-            let val = Math.min(requested, remaining);
+            let val = Math.min(requested, totalRemaining);
+            if (requested > totalRemaining + 0.01) {
+                showToast('⚠️ المبلغ المطلوب (' + requested.toFixed(2) + ') أكبر من المتبقي (' + totalRemaining.toFixed(2) + '). سيتم تسديد ' + val.toFixed(2) + ' فقط', 'info');
+            }
             if (val <= 0) { showToast('المبلغ يجب أن يكون أكبر من الصفر', 'error'); return; }
             if (requested > remaining + 0.01) {
                 showToast('⚠️ المبلغ المطلوب (' + requested.toFixed(2) + ') أكبر من المتبقي (' + remaining.toFixed(2) + '). سيتم تسداد ' + val.toFixed(2) + ' فقط', 'info');
