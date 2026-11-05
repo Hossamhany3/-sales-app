@@ -1,0 +1,8 @@
+(() => JSON.stringify(installments.map(i => ({
+  id: i.id, contractNo: i.contractNo, deviceName: i.deviceName, customer: i.merchantId,
+  keys: Object.keys(i),
+  purchasePrice: i.purchasePrice, paidUpfront: i.paidUpfront, interestRate: i.interestRate,
+  numInstallments: i.numInstallments, monthlyAmount: i.monthlyAmount,
+  totalAfterInterest: i.totalAfterInterest, remainingBalance: i.remainingBalance,
+  firstDueDate: i.firstDueDate, scheduleLen: i.schedule ? i.schedule.length : null, isPaid: i.isPaid
+})), null, 1))()

@@ -1,0 +1,21 @@
+const fs = require('fs');
+const http = require('http');
+const PORT = 9333;
+const get = u => new Promise((r, j) => { http.get(u, x => { let d = ''; x.on('data', c => d += c); x.on('end', () => r(d)); }).on('error', j); });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+  const t = JSON.parse(await get('http://127.0.0.1:' + PORT + '/json'));
+  const p = t.find(x => x.type === 'page');
+  const ws = new WebSocket(p.webSocketDebuggerUrl);
+  let id = 0; const pend = new Map();
+  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { pend.get(m.id)(m); pend.delete(m.id); } };
+  await new Promise(r => ws.onopen = r);
+  const send = (m, q) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method: m, params: q })); });
+  await send('Runtime.enable');
+  const ev = async e => { const r = await send('Runtime.evaluate', { expression: e, returnByValue: true, awaitPromise: true }); if (r.result && r.result.exceptionDetails) return 'EX: ' + ((r.result.exceptionDetails.exception && r.result.exceptionDetails.exception.description) || r.result.exceptionDetails.text); return r.result && r.result.result ? r.result.result.value : JSON.stringify(r.result); };
+  const exprFile = process.argv[2];
+  const expr = exprFile ? fs.readFileSync(exprFile, 'utf8') : "1+1";
+  const out = await ev(expr);
+  if (typeof out === 'string') console.log(out); else console.log(JSON.stringify(out, null, 1));
+  process.exit(0);
+})();
