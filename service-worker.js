@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sales-mgmt-v8';
+const CACHE_NAME = 'sales-mgmt-v9';
 const STATIC_ASSETS = [
     'app_fixed.html',
     'manifest.json',
@@ -38,8 +38,8 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Network First للملف الرئيسي
-    if (url.pathname.includes('app_fixed.html')) {
+    // Network First لكل صفحات HTML — كان محصورًا بـ app_fixed.html، فأي ملف آخر يُقدَّم من الكاش للأبد (نسخة قديمة بعد كل تعديل)
+    if (e.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
         e.respondWith(
             fetch(e.request)
                 .then(response => {
