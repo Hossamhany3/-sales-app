@@ -3238,6 +3238,171 @@
             );
         },
 
+        // ─── لقطة/تراجع لحالة البيانات (ذرّية العمليات المركّبة) ───
+        _snapshotState() {
+            const clone = arr => Array.isArray(arr) ? arr.map(r => {
+                if (!r || typeof r !== 'object') return r;
+                const c = Object.assign({}, r);
+                if (Array.isArray(r.schedule)) c.schedule = r.schedule.map(sl => Object.assign({}, sl));
+                return c;
+            }) : arr;
+            return {
+                products: clone(products),
+                installments: clone(installments),
+                arabonSales: clone(arabonSales),
+                transactions: clone(transactions),
+                stockMovements: clone(stockMovements),
+                merchantSales: clone(merchantSales),
+                merchantPurchases: clone(merchantPurchases),
+                merchantPayments: clone(merchantPayments),
+                merchantPaymentsOut: clone(merchantPaymentsOut)
+            };
+        },
+        _restoreState(snap) {
+            if (!snap) return;
+            products = snap.products;
+            installments = snap.installments;
+            arabonSales = snap.arabonSales;
+            transactions = snap.transactions;
+            stockMovements = snap.stockMovements;
+            merchantSales = snap.merchantSales;
+            merchantPurchases = snap.merchantPurchases;
+            merchantPayments = snap.merchantPayments;
+            merchantPaymentsOut = snap.merchantPaymentsOut;
+            return true;
+        },
+
+        // ─── ربط سجل بيع/شراء/عربون بمنتجه: المعرف الفريد أولاً، والاسم فقط إن كان فريداً ───
+        findProductForRecord(rec) {
+            if (!rec) return null;
+            if (rec.productId != null && rec.productId !== '') {
+                return products.find(p => String(p.id) === String(rec.productId)) || null;
+            }
+            const nm = rec.deviceName || rec.productName || '';
+            if (!nm) return null;
+            const matches = products.filter(p => p.name === nm);
+            return matches.length === 1 ? matches[0] : null;
+        },
+
+        // ─── تكلفة الوحدة المباعة: لقطة وقت البيع إن وُجدت، وإلا تكلفة المنتج الحالي ───
+        recordUnitCost(rec) {
+            if (!rec) return 0;
+            if (rec.unitCost != null && isFinite(rec.unitCost)) return this.toNum(rec.unitCost);
+            const p = this.findProductForRecord(rec);
+            return p ? this.stockUnitCost(p) : 0;
+        },
+
+        // ─── مطابقة رصيد التاجر: سجل مقابل الحركات المالية (قراءة فقط، بلا تصحيح تلقائي) ───
+        merchantReconciliation(merchantId) {
+            const sales = merchantSales.filter(s => s.merchantId == merchantId);
+            const purchases = merchantPurchases.filter(p => p.merchantId == merchantId);
+            const inPays = merchantPayments.filter(p => p.merchantId == merchantId);
+            const outPays = merchantPaymentsOut.filter(p => p.merchantId == merchantId);
+            const parts = this.merchantBalanceParts(merchantId);
+            const sum = (arr, f) => arr.reduce((s, x) => s + this.toNum(f(x)), 0);
+            const ledger = { saleCash: 0, purchaseCash: 0, paymentsIn: 0, paymentsOut: 0 };
+            transactions.forEach(t => {
+                if (t.merchantId != merchantId) return;
+                const amt = this.toNum(t.amount);
+                if (t.sourceType === 'merchant_sale') ledger.saleCash += amt;
+                else if (t.sourceType === 'merchant_purchase') ledger.purchaseCash += amt;
+                else if (t.sourceType === 'merchant_payment') ledger.paymentsIn += amt;
+                else if (t.sourceType === 'merchant_payment_out') ledger.paymentsOut += amt;
+            });
+            const issues = [];
+            const cmp = (label, fromRecords, fromLedger, code) => {
+                if (Math.abs(fromRecords - fromLedger) > 1) {
+                    issues.push({ code, label, records: +fromRecords.toFixed(2), ledger: +fromLedger.toFixed(2) });
+                }
+            };
+            cmp('السداد الفوري عند البيع', parts.saleCash, ledger.saleCash, 'MERCH_LEDGER_SALE_CASH');
+            cmp('السداد الفوري عند الشراء', parts.purchaseCash, ledger.purchaseCash, 'MERCH_LEDGER_PURCHASE_CASH');
+            cmp('الدفعات المستلمة من التاجر', parts.manualPaymentsIn, ledger.paymentsIn, 'MERCH_LEDGER_PAY_IN');
+            cmp('الدفعات المدفوعة للتاجر', parts.manualPaymentsOut, ledger.paymentsOut, 'MERCH_LEDGER_PAY_OUT');
+
+            // حركات مكررة على نفس المصدر
+            const seen = {};
+            transactions.forEach(t => {
+                if (t.merchantId != merchantId || !t.sourceType || !t.sourceId) return;
+                const key = t.sourceType + '|' + String(t.sourceId).replace(/_[cb]$/, '') + '|' + (t.operationType || '');
+                if (seen[key] !== undefined) issues.push({ code: 'MERCH_DUP_TX', label: 'قيد مكرر على نفس المصدر', detail: String(t.sourceId) });
+                seen[key] = t.id;
+            });
+            // سجلات بلا قيود مالية
+            sales.forEach(s => {
+                if (s.transactionId && !this.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length) {
+                    issues.push({ code: 'MERCH_SALE_NO_TX', label: 'بيع بلا قيد مالي', detail: String(s.id) });
+                }
+            });
+            purchases.forEach(p => {
+                if (p.transactionId && !this.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length) {
+                    issues.push({ code: 'MERCH_PURCHASE_NO_TX', label: 'شراء بلا قيد مالي', detail: String(p.id) });
+                }
+            });
+            inPays.forEach(p => {
+                const ids = p.transactionIds || (p.transactionId ? [p.transactionId] : []);
+                if (ids.length && !ids.every(id => transactions.find(t => String(t.id) === String(id)))) {
+                    issues.push({ code: 'MERCH_PAY_IN_NO_TX', label: 'دفعة مستلمة بلا قيد مالي', detail: String(p.id) });
+                }
+            });
+            outPays.forEach(p => {
+                const ids = p.transactionIds || (p.transactionId ? [p.transactionId] : []);
+                if (ids.length && !ids.every(id => transactions.find(t => String(t.id) === String(id)))) {
+                    issues.push({ code: 'MERCH_PAY_OUT_NO_TX', label: 'دفعة مدفوعة بلا قيد مالي', detail: String(p.id) });
+                }
+            });
+            // قيود مالية بأثر رجعي بلا سجل مصدر (يتيمة)
+            transactions.forEach(t => {
+                if (t.merchantId != merchantId) return;
+                const base = String(t.sourceId || '').replace(/_[cb]$/, '');
+                if (t.sourceType === 'merchant_sale' && base && !sales.some(s => String(s.transactionId) === base)) {
+                    issues.push({ code: 'MERCH_TX_ORPHAN', label: 'قيد بيع بلا سجل بيع', detail: String(t.id) });
+                }
+                if (t.sourceType === 'merchant_purchase' && base && !purchases.some(p => String(p.transactionId) === base)) {
+                    issues.push({ code: 'MERCH_TX_ORPHAN', label: 'قيد شراء بلا سجل شراء', detail: String(t.id) });
+                }
+                if (t.sourceType === 'merchant_payment' || t.sourceType === 'merchant_payment_out') {
+                    const arr = t.sourceType === 'merchant_payment' ? inPays : outPays;
+                    const hit = arr.some(p => (p.transactionIds || []).some(id => String(id) === String(t.id))
+                        || (p.transactionId && String(p.transactionId) === base));
+                    if (!hit) issues.push({ code: 'MERCH_TX_ORPHAN', label: 'قيد دفعة بلا سجل دفعة', detail: String(t.id) });
+                }
+            });
+            // كشف البيع/الشراء غير المسدد بالكامل (ذمة بين الطرفين) — إبلاغ فقط بلا تصحيح
+            sales.forEach(s => {
+                const total = this.toNum(s.sellPrice) * (this.toNum(s.quantity) || 1);
+                const cash = this.merchantSaleCash(s);
+                if (cash + 0.01 < total) {
+                    issues.push({ code: 'MERCH_SALE_UNSETTLED', label: 'بيع لم يُسدد بالكامل (ذمة على التاجر)', detail: String(s.id), records: +total.toFixed(2), ledger: +cash.toFixed(2) });
+                }
+            });
+            purchases.forEach(p => {
+                const total = this.toNum(p.costPrice) * (this.toNum(p.quantity) || 1);
+                const cash = this.merchantPurchaseCash(p);
+                if (cash + 0.01 < total) {
+                    issues.push({ code: 'MERCH_PURCHASE_UNSETTLED', label: 'شراء لم يُسدد بالكامل (ذمة لنا على التاجر)', detail: String(p.id), records: +total.toFixed(2), ledger: +cash.toFixed(2) });
+                }
+            });
+            // إعادة حساب الرصيد من الأطراف المستقلة ومقارنته بالرصيد المعتمد
+            const recomputed = parseFloat((
+                sum(sales, s => this.toNum(s.sellPrice) * (this.toNum(s.quantity) || 1))
+                - sum(purchases, p => this.toNum(p.costPrice) * (this.toNum(p.quantity) || 1))
+                - (sum(inPays, p => p.amount) + parts.saleCash)
+                + (sum(outPays, p => p.amount) + parts.purchaseCash)
+            ).toFixed(2));
+            if (Math.abs(recomputed - parts.balance) > 0.01) {
+                issues.push({ code: 'MERCH_BALANCE_RECOMPUTE', label: 'فرق بين الرصيد المحسوب وإعادة الحساب', records: parts.balance, ledger: recomputed });
+            }
+            return {
+                merchantId, parts, ledger,
+                salesCount: sales.length, purchasesCount: purchases.length,
+                paymentsInCount: inPays.length, paymentsOutCount: outPays.length,
+                recordBalance: parts.balance, recomputed,
+                ok: issues.length === 0,
+                issues
+            };
+        },
+
         // ─── تسجيل معاملة مالية ───
         postTransaction(opts) {
             let { type, amount, accountId, productId, merchantId, employeeId,
@@ -4063,157 +4228,180 @@
         },
 
         // ─── تعديل قسط ───
+        // ─── تعديل قسط (ذرّي: القيد المالي أولاً ثم المخزون ثم العقد) ───
         editInstallment(opts) {
-            let { installmentId, merchantId, productId, purchasePrice, paidUpfront,
-                  interestRate, numInstallments, firstDueDate, deviceName, accountId } = opts;
-            let inst = installments.find(i => i.id == installmentId);
-            if (!inst) return { success: false, reason: 'not_found' };
+            const snap = this._snapshotState();
+            try {
+                let { installmentId, merchantId, productId, purchasePrice, paidUpfront,
+                      interestRate, numInstallments, firstDueDate, deviceName, accountId } = opts;
+                let inst = installments.find(i => i.id == installmentId);
+                if (!inst) return { success: false, reason: 'not_found' };
 
-            let newProductId = parseInt(productId);
-            let newPrice = Number(purchasePrice);
-            let newUpfront = Number(paidUpfront) || 0;
-            let newRate = Number(interestRate) || 0;
-            let newMonths = Math.floor(Number(numInstallments));
-            if (!isFinite(newPrice) || newPrice <= 0) return { success: false, reason: 'invalid_price' };
-            if (!(newMonths > 0)) return { success: false, reason: 'invalid_installments' };
-            if (newUpfront < 0 || newRate < 0 || newUpfront >= newPrice) return { success: false, reason: 'invalid_amounts' };
-            let first = new Date(firstDueDate);
-            if (isNaN(first.getTime())) return { success: false, reason: 'invalid_date' };
+                // ═══ التحقق الكامل قبل أي تعديل ═══
+                let newProductId = parseInt(productId);
+                let newPrice = Number(purchasePrice);
+                let newUpfront = Number(paidUpfront) || 0;
+                let newRate = Number(interestRate) || 0;
+                let newMonths = Math.floor(Number(numInstallments));
+                if (!isFinite(newPrice) || newPrice <= 0) return { success: false, reason: 'invalid_price' };
+                if (!(newMonths > 0)) return { success: false, reason: 'invalid_installments' };
+                if (newUpfront < 0 || newRate < 0 || newUpfront >= newPrice) return { success: false, reason: 'invalid_amounts' };
+                let first = new Date(firstDueDate);
+                if (isNaN(first.getTime())) return { success: false, reason: 'invalid_date' };
 
-            let newP = products.find(x => x.id == newProductId);
-            if (!newP) return { success: false, reason: 'product_not_found' };
-            let linkedArabon = arabonSales.find(a => a.instId == inst.id);
-            if (linkedArabon && newProductId != inst.productId) {
-                return { success: false, reason: 'converted_arabon_product_locked' };
-            }
-            if (newProductId != inst.productId && !(this.toNum(newP.stock) > 0)) {
-                return { success: false, reason: 'insufficient_stock' };
-            }
-
-            let oldSchedule = Array.isArray(inst.schedule) ? inst.schedule : [];
-            let oldPaid = oldSchedule.reduce((s, sl) => s + this.toNum(sl.paidAmount), 0);
-            // احتياط: لو الجدول مفقود أو تالف، نستعيد المدفوع من حركات السداد الفعلية
-            let txnPaid = this.paymentGroups(inst.id).reduce((s, g) => s + g.amount, 0);
-            if (txnPaid > oldPaid + 0.01) oldPaid = txnPaid;
-            if (oldPaid <= 0) {
-                oldPaid = Math.max(this.toNum(inst.totalAfterInterest) - this.toNum(inst.remainingBalance), 0);
-            }
-
-            let remainingBase = Math.max(newPrice - newUpfront, 0);
-            let totalFinanced = parseFloat((remainingBase * (1 + newRate / 100)).toFixed(2));
-            if (oldPaid > totalFinanced + 0.01) {
-                return { success: false, reason: 'paid_exceeds_total', paid: oldPaid, total: totalFinanced };
-            }
-            let monthly = parseFloat((totalFinanced / newMonths).toFixed(2));
-
-            // توزيع المدفوعات القديمة على الجدول الجديد مع الحفاظ على تواريخ السداد
-            let paidDates = oldSchedule
-                .filter(s => this.toNum(s.paidAmount) > 0)
-                .map(s => s.paidDate || '');
-            if (!paidDates.length) {
-                paidDates = this.paymentGroups(inst.id)
-                    .map(g => String(g.date || '').slice(0, 10)).filter(Boolean);
-            }
-            let newSchedule = Array.from({ length: newMonths }, (_, i) => {
-                let d = new Date(first);
-                d.setMonth(first.getMonth() + i);
-                return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
-            });
-            let left = oldPaid;
-            let dateIdx = 0;
-            for (let sl of newSchedule) {
-                if (left <= 0.0001) break;
-                let pay = Math.min(left, monthly);
-                sl.paidAmount = parseFloat(pay.toFixed(2));
-                sl.paidDate = paidDates[dateIdx] || (firstDueDate || '');
-                if (sl.paidAmount >= monthly - 0.01) { sl.isPaid = true; sl.paidAmount = monthly; }
-                left = parseFloat((left - pay).toFixed(2));
-                dateIdx++;
-            }
-            if (left > 0.0001 && newSchedule.length) {
-                let last = newSchedule[newSchedule.length - 1];
-                last.paidAmount = parseFloat((this.toNum(last.paidAmount) + left).toFixed(2));
-                if (last.paidAmount >= monthly - 0.01) last.isPaid = true;
-            }
-
-            // كل التحقق تم قبل تعديل المخزون أو العقد
-            let sourceId = String(installmentId);
-            let txnDate = new Date().toISOString();
-            if (newProductId != inst.productId) {
-                let oldP = products.find(x => x.id == inst.productId);
-                if (oldP) {
-                    oldP.stock = this.toNum(oldP.stock) + 1;
-                    if (oldP.archived) oldP.archived = false;
+                let newP = products.find(x => x.id == newProductId);
+                if (!newP) return { success: false, reason: 'product_not_found' };
+                let linkedArabon = arabonSales.find(a => a.instId == inst.id);
+                if (linkedArabon && newProductId != inst.productId) {
+                    return { success: false, reason: 'converted_arabon_product_locked' };
                 }
-                newP.stock = this.toNum(newP.stock) - 1;
-                this.deleteStockMovementsBySource('installment', sourceId);
-                this.addStockMovement({
-                    productId: newProductId, productName: newP.name,
-                    type: 'out', qty: 1, ref: 'عقد تقسيط',
-                    sourceType: 'installment', sourceId: sourceId,
-                    date: txnDate, notes: newP.imei ? 'IMEI: ' + newP.imei : ''
+                if (newProductId != inst.productId && !(this.toNum(newP.stock) > 0)) {
+                    return { success: false, reason: 'insufficient_stock' };
+                }
+
+                // المدفوع الفعلي: الجدول + حركات السداد الحيّة (الأعلى منهما هو المرجع)
+                let oldSchedule = Array.isArray(inst.schedule) ? inst.schedule : [];
+                let oldPaid = oldSchedule.reduce((s, sl) => s + this.toNum(sl.paidAmount), 0);
+                const groups = this.paymentGroups(inst.id);
+                let txnPaid = groups.reduce((s, g) => s + g.amount, 0);
+                if (txnPaid > oldPaid + 0.01) oldPaid = txnPaid;
+                if (oldPaid <= 0) {
+                    oldPaid = Math.max(this.toNum(inst.totalAfterInterest) - this.toNum(inst.remainingBalance), 0);
+                }
+
+                let remainingBase = Math.max(newPrice - newUpfront, 0);
+                let totalFinanced = parseFloat((remainingBase * (1 + newRate / 100)).toFixed(2));
+                if (oldPaid > totalFinanced + 0.01) {
+                    return { success: false, reason: 'paid_exceeds_total', paid: oldPaid, total: totalFinanced };
+                }
+                let monthly = parseFloat((totalFinanced / newMonths).toFixed(2));
+
+                // جدول جديد: توزيع المدفوعات القديمة مع الحفاظ على تواريخ السداد
+                let paidDates = oldSchedule
+                    .filter(s => this.toNum(s.paidAmount) > 0)
+                    .map(s => s.paidDate || '');
+                if (!paidDates.length) {
+                    paidDates = groups.map(g => String(g.date || '').slice(0, 10)).filter(Boolean);
+                }
+                let newSchedule = Array.from({ length: newMonths }, (_, i) => {
+                    let d = new Date(first);
+                    d.setMonth(first.getMonth() + i);
+                    return { index: i + 1, dueDate: d.toISOString().split('T')[0], paidAmount: 0, isPaid: false };
                 });
-            }
-
-            let oldUpfront = this.toNum(inst.paidUpfront);
-            inst.productId = newProductId;
-            inst.purchasePrice = newPrice;
-            inst.paidUpfront = newUpfront;
-            inst.interestRate = newRate;
-            inst.numInstallments = newMonths;
-            inst.totalAfterInterest = totalFinanced;
-            inst.monthlyAmount = monthly;
-            inst.firstDueDate = firstDueDate;
-            inst.schedule = newSchedule;
-            inst.deviceName = deviceName || inst.deviceName;
-            if (merchantId && !isNaN(parseInt(merchantId))) inst.merchantId = parseInt(merchantId);
-
-            let newRemaining = parseFloat(Math.max(totalFinanced - oldPaid, 0).toFixed(2));
-            inst.remainingBalance = newRemaining;
-            inst.isPaid = newRemaining <= 0.01;
-            if (inst.isPaid) inst.remainingBalance = 0;
-
-            // مزامنة الدفعة المقدمة مع الحركة المالية
-            let upfrontTxn = transactions.find(t => t.instId == inst.id && t.sourceType === 'installment' && t.operationType === 'upfront');
-            let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
-            let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
-            if (newUpfront > 0) {
-                if (upfrontTxn) {
-                    upfrontTxn.amount = newUpfront;
-                    if (accountId !== undefined) upfrontTxn.accountId = accountId ? parseInt(accountId) : undefined;
-                    upfrontTxn.productId = inst.productId;
-                    upfrontTxn.merchantId = inst.merchantId;
-                } else {
-                    this.postTransaction({
-                        type: 'payment_in', amount: newUpfront,
-                        productId: inst.productId, merchantId: inst.merchantId,
-                        accountId: accountId ? parseInt(accountId) : undefined,
-                        notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + pName,
-                        category: 'تحصيل', employeeId: inst.employeeId || null,
-                        instId: inst.id,
-                        sourceType: 'installment', sourceId: sourceId, operationType: 'upfront',
-                        date: txnDate
-                    });
+                let left = oldPaid;
+                let dateIdx = 0;
+                for (let sl of newSchedule) {
+                    if (left <= 0.0001) break;
+                    let pay = Math.min(left, monthly);
+                    sl.paidAmount = parseFloat(pay.toFixed(2));
+                    sl.paidDate = paidDates[dateIdx] || (firstDueDate || '');
+                    if (sl.paidAmount >= monthly - 0.01) { sl.isPaid = true; sl.paidAmount = monthly; }
+                    left = parseFloat((left - pay).toFixed(2));
+                    dateIdx++;
                 }
-            } else if (upfrontTxn) {
-                transactions = transactions.filter(t => t.id !== upfrontTxn.id);
-            }
-            // لو تغيّر المقدم لكن لم توجد حركة قديمة ولا جديد (مقدم 0) لا شيء يُفعل
+                if (left > 0.0001 && newSchedule.length) {
+                    let last = newSchedule[newSchedule.length - 1];
+                    last.paidAmount = parseFloat((this.toNum(last.paidAmount) + left).toFixed(2));
+                    if (last.paidAmount >= monthly - 0.01) last.isPaid = true;
+                }
 
-            if (linkedArabon) {
-                linkedArabon.remainingBalance = inst.remainingBalance;
-                linkedArabon.isPaid = inst.isPaid;
-            }
+                let sourceId = String(installmentId);
+                let txnDate = new Date().toISOString();
+                let targetMerchantId = (merchantId && !isNaN(parseInt(merchantId))) ? parseInt(merchantId) : inst.merchantId;
+                let mName = merchants.find(x => x.id == targetMerchantId)?.name || 'عميل';
+                let pName = newP.name || deviceName || inst.deviceName || 'جهاز';
 
-            if (merchantId) {
-                let m = merchants.find(x => x.id == inst.merchantId);
-                if (m && opts.merchantName) { m.name = opts.merchantName; m.phone = opts.merchantPhone || m.phone; }
-            }
+                // ═══ (1) القيد المالي للمقدم أولاً — فشله يوقف العملية بلا أي تغيير ═══
+                let upfrontTxn = transactions.find(t => t.instId == inst.id
+                        && t.sourceType === 'installment' && t.operationType === 'upfront')
+                    || transactions.find(t => t.sourceType === 'installment'
+                        && String(t.sourceId) === sourceId && t.operationType === 'upfront');
+                if (newUpfront > 0) {
+                    if (upfrontTxn) {
+                        upfrontTxn.amount = newUpfront;
+                        if (accountId !== undefined) upfrontTxn.accountId = accountId ? parseInt(accountId) : undefined;
+                        upfrontTxn.productId = newProductId;
+                        upfrontTxn.merchantId = targetMerchantId;
+                    } else {
+                        let created = this.postTransaction({
+                            type: 'payment_in', amount: newUpfront,
+                            productId: newProductId, merchantId: targetMerchantId,
+                            accountId: accountId ? parseInt(accountId) : undefined,
+                            notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + pName,
+                            category: 'تحصيل', employeeId: inst.employeeId || null,
+                            instId: inst.id,
+                            sourceType: 'installment', sourceId: sourceId, operationType: 'upfront',
+                            date: txnDate
+                        });
+                        if (!created) {
+                            this._restoreState(snap);
+                            return { success: false, reason: 'transaction_failed' };
+                        }
+                    }
+                }
 
-            logAudit('update', 'عقد تقسيط', installmentId,
-                'تعديل عقد رقم ' + (inst.contractNo || installmentId) + ' — المدفوع: ' + oldPaid + ' ج، المتبقي: ' + newRemaining + ' ج');
-            saveData();
-            return { success: true, remaining: newRemaining, paid: oldPaid };
+                // ═══ (2) المخزون: حركة جديدة تُنشأ قبل تحريك الأرصدة، وبفشلها تراجع كامل ═══
+                if (newProductId != inst.productId) {
+                    let oldP = products.find(x => x.id == inst.productId);
+                    this.deleteStockMovementsBySource('installment', sourceId);
+                    let mv = this.addStockMovement({
+                        productId: newProductId, productName: newP.name,
+                        type: 'out', qty: 1, ref: 'عقد تقسيط',
+                        sourceType: 'installment', sourceId: sourceId,
+                        date: txnDate, notes: newP.imei ? 'IMEI: ' + newP.imei : ''
+                    });
+                    if (!mv) {
+                        this._restoreState(snap);
+                        return { success: false, reason: 'stock_movement_failed' };
+                    }
+                    if (oldP) {
+                        oldP.stock = this.toNum(oldP.stock) + 1;
+                        if (oldP.archived) oldP.archived = false;
+                    }
+                    newP.stock = this.toNum(newP.stock) - 1;
+                }
+
+                // ═══ (3) المقدم صفر: إزالة القيد بعد نجاح بقية الأطراف ═══
+                if (!(newUpfront > 0) && upfrontTxn) {
+                    transactions = transactions.filter(t => String(t.id) !== String(upfrontTxn.id));
+                }
+
+                // ═══ (4) اعتماد بيانات العقد ═══
+                inst.productId = newProductId;
+                inst.purchasePrice = newPrice;
+                inst.paidUpfront = newUpfront;
+                inst.interestRate = newRate;
+                inst.numInstallments = newMonths;
+                inst.totalAfterInterest = totalFinanced;
+                inst.monthlyAmount = monthly;
+                inst.firstDueDate = firstDueDate;
+                inst.schedule = newSchedule;
+                inst.deviceName = deviceName || newP.name || inst.deviceName;
+                inst.merchantId = targetMerchantId;
+
+                let newRemaining = parseFloat(Math.max(totalFinanced - oldPaid, 0).toFixed(2));
+                inst.remainingBalance = newRemaining;
+                inst.isPaid = newRemaining <= 0.01;
+                if (inst.isPaid) inst.remainingBalance = 0;
+
+                if (linkedArabon) {
+                    linkedArabon.remainingBalance = inst.remainingBalance;
+                    linkedArabon.isPaid = inst.isPaid;
+                    if (inst.isPaid) linkedArabon.remainingAmount = 0;
+                }
+                if (opts.merchantName) {
+                    let m = merchants.find(x => x.id == inst.merchantId);
+                    if (m) { m.name = opts.merchantName; m.phone = opts.merchantPhone || m.phone; }
+                }
+
+                logAudit('update', 'عقد تقسيط', installmentId,
+                    'تعديل عقد رقم ' + (inst.contractNo || installmentId) + ' — المدفوع: ' + oldPaid + ' ج، المتبقي: ' + newRemaining + ' ج');
+                saveData();
+                return { success: true, remaining: newRemaining, paid: oldPaid };
+            } catch (err) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: err && err.message };
+            }
         },
 
         // ─── حذف قسط ───
@@ -4324,118 +4512,143 @@
         },
 
         // ─── تعديل عربون ───
+        // ─── تعديل عربون (ذرّي: القيد المالي أولاً ثم المخزون ثم العقد) ───
         editArabon(opts) {
-            let { arabonId, merchantId, productId, sellPrice, depositAmount,
-                  accountId, dueDate, notes, employeeId } = opts;
-            let a = arabonSales.find(x => x.id == arabonId);
-            if (!a) return { success: false, reason: 'not_found' };
+            const snap = this._snapshotState();
+            try {
+                let { arabonId, merchantId, productId, sellPrice, depositAmount,
+                      accountId, dueDate, notes, employeeId } = opts;
+                let a = arabonSales.find(x => x.id == arabonId);
+                if (!a) return { success: false, reason: 'not_found' };
 
-            let newProductId = parseInt(productId);
-            let price = this.toNum(sellPrice);
-            let deposit = this.toNum(depositAmount);
-            if (!(price > 0)) return { success: false, reason: 'invalid_price' };
-            if (deposit < 0 || deposit > price + 0.01) return { success: false, reason: 'invalid_deposit' };
+                // ═══ التحقق الكامل قبل أي تعديل ═══
+                let newProductId = parseInt(productId);
+                let price = this.toNum(sellPrice);
+                let deposit = this.toNum(depositAmount);
+                if (!(price > 0)) return { success: false, reason: 'invalid_price' };
+                if (deposit < 0 || deposit > price + 0.01) return { success: false, reason: 'invalid_deposit' };
 
-            let p = products.find(x => x.id == newProductId);
-            if (!p) return { success: false, reason: 'product_not_found' };
+                let p = products.find(x => x.id == newProductId);
+                if (!p) return { success: false, reason: 'product_not_found' };
 
-            let converted = !!a.instId;
-            if (converted && newProductId != a.productId) {
-                return { success: false, reason: 'converted_arabon_product_locked' };
-            }
-            // بعد التحويل أصبح العقد هو المصدر المالي: لا يُسمح بتغيير السعر/المقدم
-            if (converted && (Math.abs(price - this.toNum(a.sellPrice)) > 0.01
-                || Math.abs(deposit - this.toNum(a.depositAmount)) > 0.01)) {
-                return { success: false, reason: 'converted_financial_locked' };
-            }
-            if (!converted && newProductId != a.productId && this.toNum(p.stock) <= 0) {
-                return { success: false, reason: 'insufficient_stock' };
-            }
-
-            let totals = this.getArabonTotals(a);
-            let otherPayments = totals.payments;
-            let newTotalPaid = deposit + otherPayments;
-            if (newTotalPaid > price + 0.01) {
-                return { success: false, reason: 'paid_exceeds_total', paid: newTotalPaid, total: price };
-            }
-            let newRemaining = parseFloat(Math.max(price - newTotalPaid, 0).toFixed(2));
-
-            let sourceId = String(arabonId);
-            let txnDate = new Date().toISOString();
-
-            if (!converted && newProductId != a.productId) {
-                let oldP = products.find(x => x.id == a.productId);
-                if (oldP) {
-                    oldP.stock = this.toNum(oldP.stock) + 1;
-                    if (oldP.archived) oldP.archived = false;
+                let converted = !!a.instId;
+                if (converted && newProductId != a.productId) {
+                    return { success: false, reason: 'converted_arabon_product_locked' };
                 }
-                p.stock = this.toNum(p.stock) - 1;
-                this.deleteStockMovementsBySource('arabon', sourceId);
-                this.addStockMovement({
-                    productId: p.id, productName: p.name,
-                    type: 'out', qty: 1, ref: 'بيع بالعربون',
-                    sourceType: 'arabon', sourceId: sourceId,
-                    date: txnDate, notes: p.imei ? 'IMEI: ' + p.imei : ''
-                });
-            }
+                // بعد التحويل أصبح العقد هو المصدر المالي: لا يُسمح بتغيير السعر/المقدم
+                if (converted && (Math.abs(price - this.toNum(a.sellPrice)) > 0.01
+                    || Math.abs(deposit - this.toNum(a.depositAmount)) > 0.01)) {
+                    return { success: false, reason: 'converted_financial_locked' };
+                }
+                if (!converted && newProductId != a.productId && this.toNum(p.stock) <= 0) {
+                    return { success: false, reason: 'insufficient_stock' };
+                }
 
-            // مزامنة حركة العربون الأساسية (دون المساس بدفعات السداد الأخرى)
-            let depositTxn = transactions.find(t => t.arabonId == arabonId
-                && t.sourceType === 'arabon' && t.operationType === 'deposit');
-            let mName = merchants.find(x => x.id == parseInt(merchantId))?.name || 'عميل';
-            if (deposit > 0) {
-                if (depositTxn) {
-                    depositTxn.amount = deposit;
-                    depositTxn.accountId = accountId;
-                    depositTxn.productId = newProductId;
-                    depositTxn.merchantId = parseInt(merchantId);
-                    depositTxn.date = depositTxn.date || txnDate;
-                } else {
-                    let created = this.postTransaction({
-                        type: 'payment_in', amount: deposit,
-                        productId: newProductId, merchantId: parseInt(merchantId),
-                        accountId: accountId,
-                        notes: 'عربون بيع | ' + mName + ' - ' + p.name,
-                        category: 'تحصيل', employeeId: employeeId || null,
-                        arabonId: arabonId,
-                        sourceType: 'arabon', sourceId: sourceId, operationType: 'deposit',
-                        date: txnDate
+                // المبالغ المحصّلة سابقاً تبقى كما هي — يُعاد حساب المدفوع والمتبقي من المصدر
+                let totals = this.getArabonTotals(a);
+                let otherPayments = totals.payments;
+                let newTotalPaid = deposit + otherPayments;
+                if (newTotalPaid > price + 0.01) {
+                    return { success: false, reason: 'paid_exceeds_total', paid: newTotalPaid, total: price };
+                }
+                let newRemaining = parseFloat(Math.max(price - newTotalPaid, 0).toFixed(2));
+
+                let sourceId = String(arabonId);
+                let txnDate = new Date().toISOString();
+                let targetMerchantId = parseInt(merchantId);
+                let mName = merchants.find(x => x.id == targetMerchantId)?.name || 'عميل';
+                let pName = p.name || a.deviceName || 'جهاز';
+
+                // ═══ (1) قيد العربون أولاً — فشله يوقف العملية بلا أي تغيير ═══
+                let depositTxn = transactions.find(t => t.arabonId == arabonId
+                        && t.sourceType === 'arabon' && t.operationType === 'deposit')
+                    || transactions.find(t => t.sourceType === 'arabon'
+                        && String(t.sourceId) === sourceId && t.operationType === 'deposit');
+                if (deposit > 0) {
+                    if (depositTxn) {
+                        depositTxn.amount = deposit;
+                        depositTxn.accountId = accountId;
+                        depositTxn.productId = newProductId;
+                        depositTxn.merchantId = targetMerchantId;
+                        depositTxn.date = depositTxn.date || txnDate;
+                    } else {
+                        let created = this.postTransaction({
+                            type: 'payment_in', amount: deposit,
+                            productId: newProductId, merchantId: targetMerchantId,
+                            accountId: accountId,
+                            notes: 'عربون بيع | ' + mName + ' - ' + pName,
+                            category: 'تحصيل', employeeId: employeeId || null,
+                            arabonId: arabonId,
+                            sourceType: 'arabon', sourceId: sourceId, operationType: 'deposit',
+                            date: txnDate
+                        });
+                        if (!created) {
+                            this._restoreState(snap);
+                            return { success: false, reason: 'transaction_failed' };
+                        }
+                    }
+                }
+
+                // ═══ (2) المخزون: خصم واحد فقط، وبفشل الحركة تراجع كامل ═══
+                if (!converted && newProductId != a.productId) {
+                    let oldP = products.find(x => x.id == a.productId);
+                    this.deleteStockMovementsBySource('arabon', sourceId);
+                    let mv = this.addStockMovement({
+                        productId: newProductId, productName: p.name,
+                        type: 'out', qty: 1, ref: 'بيع بالعربون',
+                        sourceType: 'arabon', sourceId: sourceId,
+                        date: txnDate, notes: p.imei ? 'IMEI: ' + p.imei : ''
                     });
-                    if (!created) return { success: false, reason: 'transaction_failed' };
+                    if (!mv) {
+                        this._restoreState(snap);
+                        return { success: false, reason: 'stock_movement_failed' };
+                    }
+                    if (oldP) {
+                        oldP.stock = this.toNum(oldP.stock) + 1;
+                        if (oldP.archived) oldP.archived = false;
+                    }
+                    p.stock = this.toNum(p.stock) - 1;
                 }
-            } else if (depositTxn) {
-                transactions = transactions.filter(t => t.id !== depositTxn.id);
-            }
 
-            a.merchantId = parseInt(merchantId);
-            a.productId = newProductId;
-            a.deviceName = p.name;
-            a.sellPrice = price;
-            a.depositAmount = deposit;
-            a.remainingAmount = newRemaining;
-            a.accountId = accountId;
-            a.notes = notes;
-            a.dueDate = dueDate;
-            a.isPaid = (newRemaining <= 0);
-            a.remainingBalance = converted ? this.toNum(a.remainingBalance) : newRemaining;
-            a.employeeId = employeeId || null;
-
-            // للعربون المحوّل: رصيد التقسيط هو المصدر، والمتبقي النقدي يجب أن يكون صفراً
-            if (converted) {
-                a.remainingAmount = 0;
-                let inst = installments.find(i => i.id == a.instId);
-                if (inst) {
-                    inst.merchantId = a.merchantId;
-                    inst.deviceName = a.deviceName;
-                    a.remainingBalance = inst.remainingBalance;
-                    a.isPaid = inst.isPaid;
+                // ═══ (3) مقدم صفر: إزالة القيد بعد نجاح بقية الأطراف ═══
+                if (!(deposit > 0) && depositTxn) {
+                    transactions = transactions.filter(t => String(t.id) !== String(depositTxn.id));
                 }
-            }
 
-            logAudit('update', 'عربون', arabonId,
-                'تعديل عقد عربون — إجمالي المدفوع: ' + newTotalPaid + ' ج، المتبقي: ' + (converted ? a.remainingBalance : newRemaining) + ' ج');
-            saveData();
-            return { success: true };
+                // ═══ (4) اعتماد بيانات العربون ═══
+                a.merchantId = targetMerchantId;
+                a.productId = newProductId;
+                a.deviceName = p.name || a.deviceName;
+                a.sellPrice = price;
+                a.depositAmount = deposit;
+                a.remainingAmount = newRemaining;
+                a.accountId = accountId;
+                a.notes = notes;
+                a.dueDate = dueDate;
+                a.isPaid = (newRemaining <= 0);
+                a.remainingBalance = converted ? this.toNum(a.remainingBalance) : newRemaining;
+                a.employeeId = employeeId || null;
+
+                // للعربون المحوّل: رصيد التقسيط هو المصدر، والمتبقي النقدي يجب أن يكون صفراً
+                if (converted) {
+                    a.remainingAmount = 0;
+                    let inst = installments.find(i => i.id == a.instId);
+                    if (inst) {
+                        inst.merchantId = a.merchantId;
+                        inst.deviceName = a.deviceName;
+                        a.remainingBalance = inst.remainingBalance;
+                        a.isPaid = inst.isPaid;
+                    }
+                }
+
+                logAudit('update', 'عربون', arabonId,
+                    'تعديل عقد عربون — إجمالي المدفوع: ' + newTotalPaid + ' ج، المتبقي: ' + (converted ? a.remainingBalance : newRemaining) + ' ج');
+                saveData();
+                return { success: true, remaining: converted ? a.remainingBalance : newRemaining, paid: newTotalPaid };
+            } catch (err) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: err && err.message };
+            }
         },
 
         // ─── حذف عربون ───
@@ -4622,6 +4835,195 @@
             return { success: true, transactionIds: txns.map(t => t.id), amount: amt, remaining: a.remainingAmount };
         },
 
+        // ─── إعادة توزيع مبالغ القيود المرتبطة على إجمالي جديد بلا كسور ───
+        _rescaleLinkedAmounts(sourceType, transactionId, oldTotal, newTotal) {
+            const linked = this.findTransactionsBySourcePrefix(sourceType, transactionId);
+            if (!linked.length) return 0;
+            if (linked.length === 1) {
+                linked[0].amount = Math.round(this.toNum(newTotal) * 100) / 100;
+                return linked[0].amount;
+            }
+            if (!(this.toNum(oldTotal) > 0)) return 0;
+            const ratio = this.toNum(newTotal) / this.toNum(oldTotal);
+            let acc = 0;
+            linked.forEach((tr, i) => {
+                if (i === linked.length - 1) {
+                    tr.amount = Math.round((this.toNum(newTotal) - acc) * 100) / 100;
+                } else {
+                    tr.amount = Math.round(this.toNum(tr.amount) * ratio * 100) / 100;
+                    acc += tr.amount;
+                }
+            });
+            return linked.reduce((s, t) => s + this.toNum(t.amount), 0);
+        },
+
+        // ─── تعديل بيع تاجر (ذرّي: حركة المخزون والقيد والسجل معاً أو لا شيء) ───
+        editMerchantSaleAtomic(opts) {
+            const snap = this._snapshotState();
+            try {
+                let { saleId, quantity, sellPrice, notes } = opts || {};
+                const sale = merchantSales.find(s => s.id == saleId);
+                if (!sale) return { success: false, reason: 'not_found' };
+                const qty = Math.floor(Number(quantity));
+                const price = this.toNum(sellPrice);
+                if (!(qty > 0)) return { success: false, reason: 'invalid_qty' };
+                if (!(price > 0)) return { success: false, reason: 'invalid_price' };
+                const oldQty = this.toNum(sale.quantity) || 1;
+                const diff = qty - oldQty;
+                const p = this.findProductForRecord(sale);
+                if (p && diff > 0 && this.toNum(p.stock) < diff) {
+                    return { success: false, reason: 'insufficient_stock', stock: this.toNum(p.stock), needed: diff };
+                }
+                const oldTotal = this.toNum(sale.sellPrice) * oldQty;
+                const newTotal = parseFloat((price * qty).toFixed(2));
+
+                // (1) حركة المخزون أولاً — فشلها يعني تراجعاً كاملاً بلا أي تعديل
+                if (p && sale.transactionId) {
+                    const oldMv = stockMovements.find(s => s.sourceType === 'merchant_sale'
+                        && String(s.sourceId) === String(sale.transactionId) && s.type === 'out');
+                    this.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
+                    const mv = this.addStockMovement({
+                        productId: p.id, productName: p.name, type: 'out', qty: qty, ref: 'بيع تاجر',
+                        sourceType: 'merchant_sale', sourceId: sale.transactionId,
+                        date: (oldMv && oldMv.date) || sale.date
+                    });
+                    if (!mv) { this._restoreState(snap); return { success: false, reason: 'stock_movement_failed' }; }
+                }
+                // (2) رصيد المخزون
+                if (p && diff !== 0) {
+                    p.stock = this.toNum(p.stock) - diff;
+                    p.archived = p.stock <= 0;
+                }
+                // (3) القيود المالية المرتبطة
+                if (sale.transactionId) this._rescaleLinkedAmounts('merchant_sale', sale.transactionId, oldTotal, newTotal);
+                // (4) السجل
+                sale.quantity = qty;
+                sale.sellPrice = price;
+                if (notes !== undefined && notes !== null) sale.notes = String(notes).trim();
+                logAudit('update', 'بيع تاجر', sale.merchantName + ' | ' + sale.deviceName,
+                    'تعديل إلى ' + qty + ' × ' + price.toFixed(2) + ' = ' + newTotal.toFixed(2) + ' ج');
+                saveData();
+                return { success: true, total: newTotal, oldTotal: oldTotal, qty: qty };
+            } catch (e) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: e && e.message };
+            }
+        },
+
+        // ─── حذف بيع تاجر (ذرّي) ───
+        deleteMerchantSaleAtomic(saleId) {
+            const snap = this._snapshotState();
+            try {
+                const sale = merchantSales.find(s => s.id == saleId);
+                if (!sale) return { success: false, reason: 'not_found' };
+                const p = this.findProductForRecord(sale);
+                const mv = sale.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_sale'
+                    && String(s.sourceId) === String(sale.transactionId) && s.type === 'out') : null;
+                const restoreQty = mv ? (this.toNum(mv.qty) || this.toNum(sale.quantity) || 1) : 0;
+                // لا إعادة كمية بلا حركة مخزون — منع تضخيم المخزون
+                if (p && mv) {
+                    p.stock = this.toNum(p.stock) + restoreQty;
+                    p.archived = false;
+                }
+                merchantSales = merchantSales.filter(s => s.id != saleId);
+                if (sale.transactionId) {
+                    this.deleteTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
+                    this.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
+                }
+                logAudit('delete', 'بيع تاجر', sale.merchantName + ' | ' + sale.deviceName,
+                    'حذف بيع بقيمة ' + (this.toNum(sale.sellPrice) * (this.toNum(sale.quantity) || 1)).toFixed(2) + ' ج');
+                saveData();
+                return { success: true, restoredQty: (p && mv) ? restoreQty : 0, name: sale.deviceName };
+            } catch (e) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: e && e.message };
+            }
+        },
+
+        // ─── تعديل شراء من تاجر (ذرّي) ───
+        editMerchantPurchaseAtomic(opts) {
+            const snap = this._snapshotState();
+            try {
+                let { purchaseId, quantity, costPrice } = opts || {};
+                const purchase = merchantPurchases.find(p => p.id == purchaseId);
+                if (!purchase) return { success: false, reason: 'not_found' };
+                const qty = Math.floor(Number(quantity));
+                const price = this.toNum(costPrice);
+                if (!(qty > 0)) return { success: false, reason: 'invalid_qty' };
+                if (!(price > 0)) return { success: false, reason: 'invalid_price' };
+                const oldQty = this.toNum(purchase.quantity) || 1;
+                const diff = qty - oldQty;
+                const p = this.findProductForRecord(purchase);
+                if (p && diff < 0 && this.toNum(p.stock) < -diff) {
+                    return { success: false, reason: 'insufficient_stock', stock: this.toNum(p.stock), needed: -diff };
+                }
+                const oldTotal = this.toNum(purchase.costPrice) * oldQty;
+                const newTotal = parseFloat((price * qty).toFixed(2));
+
+                // (1) حركة المخزون أولاً
+                if (p && purchase.transactionId) {
+                    const oldMv = stockMovements.find(s => s.sourceType === 'merchant_purchase'
+                        && String(s.sourceId) === String(purchase.transactionId) && s.type === 'in');
+                    this.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
+                    const mv = this.addStockMovement({
+                        productId: p.id, productName: p.name, type: 'in', qty: qty, ref: 'شراء من تاجر',
+                        sourceType: 'merchant_purchase', sourceId: purchase.transactionId,
+                        date: (oldMv && oldMv.date) || purchase.date
+                    });
+                    if (!mv) { this._restoreState(snap); return { success: false, reason: 'stock_movement_failed' }; }
+                }
+                // (2) رصيد المخزون
+                if (p && diff !== 0) {
+                    p.stock = this.toNum(p.stock) + diff;
+                    p.archived = p.stock <= 0;
+                }
+                // (3) القيود المالية المرتبطة
+                if (purchase.transactionId) this._rescaleLinkedAmounts('merchant_purchase', purchase.transactionId, oldTotal, newTotal);
+                // (4) السجل
+                purchase.quantity = qty;
+                purchase.costPrice = price;
+                logAudit('update', 'شراء من تاجر', purchase.merchantName + ' | ' + purchase.productName,
+                    'تعديل إلى ' + qty + ' × ' + price.toFixed(2) + ' = ' + newTotal.toFixed(2) + ' ج');
+                saveData();
+                return { success: true, total: newTotal, oldTotal: oldTotal, qty: qty };
+            } catch (e) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: e && e.message };
+            }
+        },
+
+        // ─── حذف شراء من تاجر (ذرّي) ───
+        deleteMerchantPurchaseAtomic(purchaseId) {
+            const snap = this._snapshotState();
+            try {
+                const purchase = merchantPurchases.find(p => p.id == purchaseId);
+                if (!purchase) return { success: false, reason: 'not_found' };
+                const p = this.findProductForRecord(purchase);
+                const mv = purchase.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_purchase'
+                    && String(s.sourceId) === String(purchase.transactionId) && s.type === 'in') : null;
+                const qtyToRemove = (mv && this.toNum(mv.qty)) || this.toNum(purchase.quantity) || 1;
+                if (p && this.toNum(p.stock) < qtyToRemove) {
+                    return { success: false, reason: 'insufficient_stock', stock: this.toNum(p.stock), needed: qtyToRemove };
+                }
+                if (p && mv) {
+                    p.stock = this.toNum(p.stock) - qtyToRemove;
+                    p.archived = p.stock <= 0;
+                }
+                merchantPurchases = merchantPurchases.filter(x => x.id != purchaseId);
+                if (purchase.transactionId) {
+                    this.deleteTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
+                    this.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
+                }
+                logAudit('delete', 'شراء من تاجر', purchase.merchantName + ' | ' + purchase.productName,
+                    'حذف شراء بقيمة ' + (this.toNum(purchase.costPrice) * (this.toNum(purchase.quantity) || 1)).toFixed(2) + ' ج');
+                saveData();
+                return { success: true, removedQty: (p && mv) ? qtyToRemove : 0 };
+            } catch (e) {
+                this._restoreState(snap);
+                return { success: false, reason: 'exception', error: e && e.message };
+            }
+        },
+
         // ─── بيع تاجر ───
         sellToMerchant(opts) {
             let { merchantId, productId, qty, accountId, employeeId, notes, actualTotal, date } = opts;
@@ -4649,7 +5051,7 @@
             let sale = {
                 id: this.nextNumericId(merchantSales), transactionId: sourceId, merchantId, merchantName: m.name,
                 phone: m.phone, deviceName: p.name, productId: p.id,
-                sellPrice: actualUnitPrice, quantity: qty, employeeId: employeeId || null,
+                sellPrice: actualUnitPrice, quantity: qty, unitCost: this.stockUnitCost(p), employeeId: employeeId || null,
                 date: txnDate, notes: notes || ''
             };
 
@@ -4725,7 +5127,7 @@
             let prodName = productName || '';
             if (!(q > 0)) return { success: false, reason: 'invalid_qty' };
             if (!(unitCost > 0)) return { success: false, reason: 'invalid_cost' };
-            if (!prodName.trim()) return { success: false, reason: 'invalid_product_name' };
+            if (!productId && !prodName.trim()) return { success: false, reason: 'invalid_product_name' };
             let totalVal = unitCost * q;
             let cash = this.toNum(opts.cashAmount);
             let bank = this.toNum(opts.bankAmount);
@@ -4737,8 +5139,17 @@
             let sourceId = this.genId();
             let txnDate = date || new Date().toISOString();
 
-            // Find or create product
-            let existingProd = products.find(p => p.name === prodName);
+            // اختيار الصنف: productId أولًا، ثم الاسم بشرط أن يكون فريدًا (يمنع ترحيل الكمية لصنف آخر بنفس الاسم)
+            let existingProd = null;
+            if (productId) {
+                existingProd = products.find(p => p.id == productId) || null;
+                if (!existingProd) return { success: false, reason: 'product_not_found' };
+            } else {
+                let sameName = products.filter(p => p.name === prodName);
+                if (sameName.length > 1) return { success: false, reason: 'ambiguous_product_name', count: sameName.length };
+                existingProd = sameName[0] || null;
+            }
+            if (existingProd) prodName = existingProd.name;
             let wasNewProduct = false;
             if (existingProd) {
                 existingProd.stock = this.toNum(existingProd.stock) + q;
@@ -4754,7 +5165,7 @@
 
             let purchase = {
                 id: this.nextNumericId(merchantPurchases), transactionId: sourceId, merchantId, merchantName: m.name,
-                productName: prodName, productId: existingProd.id, costPrice: unitCost, quantity: q,
+                productName: prodName, productId: existingProd.id, costPrice: unitCost, quantity: q, unitCost: unitCost,
                 date: txnDate, notes: 'شراء من ' + m.name, accountId: accountId || undefined
             };
 
@@ -6368,8 +6779,8 @@
         merchantSales.filter(s => inRange(s.date, range)).forEach(s => {
             const qty = BusinessLogic.toNum(s.quantity || 1);
             revenue += BusinessLogic.toNum(s.sellPrice) * qty;
-            const prod = products.find(p => p.id == s.productId) || products.find(p => p.name === s.deviceName);
-            if (prod) cogs += BusinessLogic.stockUnitCost(prod) * qty;
+            // التكلفة من معرف المنتج المباع (أو لقطة التكلفة وقت البيع) — لا مطابقة بالاسم
+            cogs += BusinessLogic.recordUnitCost(s) * qty;
         });
 
         // إيراد العربون يُعترف به مرة واحدة عند تاريخ البيع (وليس عند أول دفعة)
@@ -6385,7 +6796,7 @@
             countedArabonSaleIds.add(a.id);
             revenue += BusinessLogic.toNum(a.sellPrice);
             let prod = products.find(p => p.id == a.productId);
-            if (prod) cogs += BusinessLogic.toNum(prod.costPrice) + BusinessLogic.toNum(prod.expenses);
+            if (prod) cogs += BusinessLogic.stockUnitCost(prod);
         });
 
         filteredInst.forEach(inst => {
@@ -6874,13 +7285,29 @@
         },
 
         // Q. MERCHANT BALANCE RECONCILIATION
+        // Q. MERCHANT BALANCE RECONCILIATION (سجل التاجر ⇄ الحركات المالية — قراءة فقط)
         checkMerchantReconciliation() {
             merchants.forEach(m => {
-                let calcBal = BusinessLogic.merchantBalanceFromTransactions(m.id);
-                if (Math.abs(calcBal) > 0.01) {
-                    let msCount = merchantSales.filter(s => s.merchantId == m.id).length;
-                    let mpCount = merchantPurchases.filter(p => p.merchantId == m.id).length;
-                    if (msCount + mpCount === 0 && Math.abs(calcBal) > 100) this.addIssue('merchants','medium','Unexpected merchant balance: '+m.name,'Balance: '+calcBal.toFixed(2), String(m.id),'balance','0 or consistent',String(calcBal.toFixed(2)),'MERCH_UNEXPECTED_BALANCE');
+                let rec = null;
+                try { rec = BusinessLogic.merchantReconciliation(m.id); } catch (e) {
+                    this.addIssue('merchants', 'high', 'Merchant reconciliation failed: ' + m.name,
+                        'Error: ' + e.message, String(m.id), 'reconciliation', 'Success', 'Exception', 'MERCH_RECON_ERROR');
+                    return;
+                }
+                if (!rec) return;
+                // كل فرق يُبلَّغ عنه بسببه — لا تعديل تلقائي لأي رصيد
+                rec.issues.forEach(is => {
+                    let sev = (is.code === 'MERCH_DUP_TX' || is.code === 'MERCH_TX_ORPHAN') ? 'high' : 'medium';
+                    this.addIssue('merchants', sev, is.label + ' — ' + m.name,
+                        (is.records != null ? 'السجل: ' + is.records + ' | الحركات: ' + is.ledger : 'مرجع: ' + (is.detail || ''))
+                            + ' [' + is.code + ']',
+                        String(m.id), 'balance', String(is.records != null ? is.records : ''), String(is.ledger != null ? is.ledger : ''), is.code);
+                });
+                if (!rec.ok) {
+                    this.addIssue('merchants', 'high', 'مطابقة رصيد التاجر تحتاج مراجعة: ' + m.name,
+                        'الرصيد المعتمد: ' + rec.recordBalance.toFixed(2) + ' | إعادة الحساب: ' + rec.recomputed.toFixed(2)
+                            + ' | عدد الفروق: ' + rec.issues.length,
+                        String(m.id), 'balance', rec.recomputed.toFixed(2), rec.recordBalance.toFixed(2), 'MERCH_RECON_MISMATCH');
                 }
             });
         },
@@ -7425,6 +7852,13 @@
         showToast('✅ تم تصدير سجل التدقيق');
     };
 
+    // مطابقة بالاسم مسموحة فقط عندما يكون الاسم فريداً (منع اختيار منتج آخر بنفس الاسم)
+    function uniqueProductByName(name) {
+        if (!name) return null;
+        const matches = products.filter(p => p.name === name);
+        return matches.length === 1 ? matches[0] : null;
+    }
+
     function calcCommission(emp, profit) {
         if (!emp || emp.commissionType === 'none' || !profit) return 0;
         if (emp.commissionType === 'percent') return profit * ((emp.commissionValue || 0) / 100);
@@ -7448,8 +7882,7 @@
             let baseSource = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
             let ms = merchantSales.find(s => s.transactionId == baseSource || s.transactionId == t.id);
             if (!ms) return 0;
-            let prod = products.find(p => p.name === ms.deviceName);
-            let cost = prod ? (prod.costPrice + (prod.expenses || 0)) * (ms.quantity || 1) : 0;
+            let cost = BusinessLogic.recordUnitCost(ms) * (ms.quantity || 1);
             return (ms.sellPrice || 0) * (ms.quantity || 1) - cost;
         }
         if (t.type === 'payment_in' && t.arabonId && !t.instId) {
@@ -7540,8 +7973,7 @@
             }
             if (!empId) return;
             counted.add('ms' + s.id);
-            let prod = s.productId ? products.find(p => p.id == s.productId) : products.find(p => p.name === s.deviceName);
-            let cost = prod ? BusinessLogic.stockUnitCost(prod) * BusinessLogic.toNum(s.quantity || 1) : 0;
+            let cost = BusinessLogic.recordUnitCost(s) * BusinessLogic.toNum(s.quantity || 1);
             let profit = BusinessLogic.toNum(s.sellPrice) * BusinessLogic.toNum(s.quantity || 1) - cost;
             events.push({ empId, profit });
         });
@@ -8260,7 +8692,7 @@
         const prodMap = {};
         function addSale(productId, name, qty, revenue) {
             let p = productId ? products.find(x => x.id == productId) : null;
-            if (!p && name) p = products.find(x => x.name === name);
+            if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
             if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
             prodMap[key].qty += qty || 1;
@@ -8331,7 +8763,7 @@
         const prodMap = {};
         function addSale(productId, name, qty, revenue) {
             let p = productId ? products.find(x => x.id == productId) : null;
-            if (!p && name) p = products.find(x => x.name === name);
+            if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
             if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
             prodMap[key].qty += qty || 1;
@@ -12146,7 +12578,7 @@
         try {
             let purchase = merchantPurchases.find(p => p.id == id);
             if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
-            let p = products.find(x => x.id == purchase.productId) || products.find(x => x.name === purchase.productName);
+            let p = BusinessLogic.findProductForRecord(purchase);
             let mv = purchase.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_purchase'
                 && String(s.sourceId) === String(purchase.transactionId) && s.type === 'in') : null;
             let qtyToRemove = BusinessLogic.toNum(mv && mv.qty) || (purchase.quantity || 1);
@@ -12156,17 +12588,16 @@
             }
             let ok = await showConfirmModal('حذف شراء "' + (purchase.productName || '') + '" من ' + (purchase.merchantName || '') + ' بقيمة ' + ((purchase.costPrice || 0) * (purchase.quantity || 1)).toFixed(2) + ' ج؟\n(سيتم خصم الكمية من المخزون)', '⚠️ تأكيد الحذف');
             if (!ok) return;
-            if (p && mv) {
-                p.stock = BusinessLogic.toNum(p.stock) - qtyToRemove;
+            let result = BusinessLogic.deleteMerchantPurchaseAtomic(id);
+            if (!result.success) {
+                if (result.reason === 'insufficient_stock') {
+                    showToast('لا يمكن حذف الشراء — الكمية مباعة/مستخدمة بالفعل (المخزون الحالي ' + result.stock + ')', 'error');
+                } else {
+                    showToast('فشل حذف الشراء: ' + result.reason, 'error');
+                }
+                return;
             }
-            merchantPurchases = merchantPurchases.filter(p => p.id != id);
-            if (purchase.transactionId) {
-                BusinessLogic.deleteTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
-                BusinessLogic.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
-            }
-            saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
-            logAudit('delete', 'شراء من تاجر', purchase.merchantName + ' | ' + purchase.productName,
-                'حذف شراء بقيمة ' + ((purchase.costPrice || 0) * (purchase.quantity || 1)).toFixed(2) + ' ج');
+            renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('تم حذف الشراء');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -12178,64 +12609,28 @@
             let purchase = merchantPurchases.find(p => p.id == id);
             if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
             let qty = purchase.quantity || 1;
-            let oldTotal = (purchase.costPrice || 0) * qty;
             let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (purchase.productName || '') + '\nالكمية الحالية: ' + qty, qty, 'تعديل الكمية');
             if (newQty === null || isNaN(newQty) || newQty < 1) { showToast('كمية غير صالحة', 'error'); return; }
             newQty = Math.floor(Number(newQty));
             let newPrice = await showNumberPromptModal('✏️ تعديل سعر شراء ' + (purchase.productName || '') + '\nسعر القطعة الحالي: ' + (purchase.costPrice || 0).toFixed(2) + ' ج', purchase.costPrice, 'تعديل السعر');
             if (newPrice === null || isNaN(newPrice) || newPrice <= 0) { showToast('سعر غير صالح', 'error'); return; }
 
-            let p = products.find(x => x.id == purchase.productId) || products.find(x => x.name === purchase.productName);
+            let p = BusinessLogic.findProductForRecord(purchase);
             let diff = newQty - qty;
             if (p && diff < 0 && BusinessLogic.toNum(p.stock) < -diff) {
                 showToast('لا يمكن تقليل الكمية — جزء منها مباع/مستخدم (المخزون الحالي ' + p.stock + ')', 'error');
                 return;
             }
-            if (p && diff !== 0) {
-                p.stock = BusinessLogic.toNum(p.stock) + diff;
-                if (p.stock <= 0) p.archived = true; else p.archived = false;
-            }
-            if (p && purchase.transactionId) {
-                let oldMv = stockMovements.find(s => s.sourceType === 'merchant_purchase'
-                    && String(s.sourceId) === String(purchase.transactionId) && s.type === 'in');
-                BusinessLogic.deleteStockMovementsBySource('merchant_purchase', purchase.transactionId);
-                let newMv = BusinessLogic.addStockMovement({
-                    productId: p.id, productName: p.name,
-                    type: 'in', qty: newQty, ref: 'شراء من تاجر',
-                    sourceType: 'merchant_purchase', sourceId: purchase.transactionId,
-                    date: oldMv?.date || purchase.date
-                });
-                if (!newMv) {
-                    p.stock = BusinessLogic.toNum(p.stock) - diff;
-                    if (oldMv) stockMovements.push(oldMv);
-                    showToast('تعذر تحديث حركة المخزون — لم يُحفظ التعديل', 'error');
-                    return;
+            let result = BusinessLogic.editMerchantPurchaseAtomic({ purchaseId: id, quantity: newQty, costPrice: newPrice });
+            if (!result.success) {
+                if (result.reason === 'insufficient_stock') {
+                    showToast('لا يمكن تقليل الكمية — جزء منها مباع/مستخدم (المخزون الحالي ' + result.stock + ')', 'error');
+                } else {
+                    showToast('تعذر تحديث الشراء — لم يُحفظ التعديل: ' + result.reason, 'error');
                 }
+                return;
             }
-
-            purchase.quantity = newQty;
-            purchase.costPrice = newPrice;
-            let newTotal = newPrice * newQty;
-            if (purchase.transactionId) {
-                let linked = BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', purchase.transactionId);
-                if (linked.length === 1) {
-                    linked[0].amount = Math.round(newTotal * 100) / 100;
-                } else if (linked.length > 1 && oldTotal > 0) {
-                    let ratio = newTotal / oldTotal;
-                    let acc = 0;
-                    linked.forEach((tr, i) => {
-                        if (i === linked.length - 1) {
-                            tr.amount = Math.round((newTotal - acc) * 100) / 100;
-                        } else {
-                            tr.amount = Math.round(tr.amount * ratio * 100) / 100;
-                            acc += tr.amount;
-                        }
-                    });
-                }
-            }
-            saveData(); renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
-            logAudit('update', 'شراء من تاجر', purchase.merchantName + ' | ' + purchase.productName,
-                'تعديل إلى ' + newQty + ' × ' + newPrice.toFixed(2) + ' = ' + newTotal.toFixed(2) + ' ج');
+            renderMerchantPage(); renderMerchantSales(); renderDashboard(); renderProducts();
             showToast('✅ تم تحديث الشراء');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -12306,7 +12701,6 @@
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
 
             let qty = sale.quantity || 1;
-            let oldTotal = (sale.sellPrice || 0) * qty;
             // اجمع كل المدخلات أولاً — لا تعديل جزئي إذا أُلغي أي خطوة
             let newQty = await showNumberPromptModal('✏️ تعديل كمية ' + (sale.deviceName || '') +
                 '\n' + 'الكمية الحالية: ' + qty, qty, 'تعديل الكمية');
@@ -12321,61 +12715,22 @@
             let newNotes = await showPromptModal('أدخل الملاحظات الجديدة:', sale.notes || '', 'تعديل الملاحظات');
             if (newNotes === null) return; // ألغى المستخدم — لا تغيير
 
-            let p = products.find(x => x.id == sale.productId) || products.find(x => x.name === sale.deviceName);
+            let p = BusinessLogic.findProductForRecord(sale);
             let diff = newQty - qty;
             if (p && diff > 0 && BusinessLogic.toNum(p.stock) < diff) {
                 showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب زيادة: ' + diff, 'error');
                 return;
             }
-
-            let newTotal = newPrice * newQty;
-            if (p && diff !== 0) {
-                p.stock = BusinessLogic.toNum(p.stock) - diff;
-                if (p.stock <= 0) p.archived = true;
-            }
-            if (p && sale.transactionId) {
-                let oldMv = stockMovements.find(s => s.sourceType === 'merchant_sale'
-                    && String(s.sourceId) === String(sale.transactionId) && s.type === 'out');
-                BusinessLogic.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
-                let newMv = BusinessLogic.addStockMovement({
-                    productId: p.id, productName: p.name,
-                    type: 'out', qty: newQty, ref: 'بيع تاجر',
-                    sourceType: 'merchant_sale', sourceId: sale.transactionId,
-                    date: oldMv?.date || sale.date
-                });
-                if (!newMv) {
-                    // تراجع عن تعديل المخزون
-                    p.stock = BusinessLogic.toNum(p.stock) + diff;
-                    if (oldMv) stockMovements.push(oldMv);
-                    showToast('تعذر تحديث حركة المخزون — لم يُحفظ التعديل', 'error');
-                    return;
+            let result = BusinessLogic.editMerchantSaleAtomic({ saleId: id, quantity: newQty, sellPrice: newPrice, notes: newNotes });
+            if (!result.success) {
+                if (result.reason === 'insufficient_stock') {
+                    showToast('الرصيد غير كافٍ! الموجود: ' + result.stock + '، المطلوب زيادة: ' + result.needed, 'error');
+                } else {
+                    showToast('تعذر تحديث حركة المخزون — لم يُحفظ التعديل: ' + result.reason, 'error');
                 }
+                return;
             }
-
-            sale.quantity = newQty;
-            sale.sellPrice = newPrice;
-            sale.notes = newNotes.trim();
-
-            if (sale.transactionId) {
-                let linked = BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
-                if (linked.length === 1) {
-                    linked[0].amount = Math.round(newTotal * 100) / 100;
-                } else if (linked.length > 1 && oldTotal > 0) {
-                    let ratio = newTotal / oldTotal;
-                    let acc = 0;
-                    linked.forEach((tr, i) => {
-                        if (i === linked.length - 1) {
-                            tr.amount = Math.round((newTotal - acc) * 100) / 100;
-                        } else {
-                            tr.amount = Math.round(tr.amount * ratio * 100) / 100;
-                            acc += tr.amount;
-                        }
-                    });
-                }
-            }
-            saveData(); renderMerchantSales(); renderMerchantPage(); renderDashboard();
-            logAudit('update', 'بيع تاجر', sale.merchantName + ' | ' + sale.deviceName,
-                'تعديل إلى ' + newQty + ' × ' + newPrice.toFixed(2) + ' = ' + newTotal.toFixed(2) + ' ج');
+            renderMerchantSales(); renderMerchantPage(); renderDashboard(); renderProducts();
             showToast('✅ تم تحديث بيانات البيع: ' + newQty + '× ' + sale.deviceName + ' @ ' + newPrice.toFixed(2) + ' ج');
         } catch (err) {
             showError('حدث خطأ', err.message);
@@ -12388,25 +12743,13 @@
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
             let ok = await showConfirmModal('حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + ((sale.sellPrice || 0) * (sale.quantity || 1)).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)', '⚠️ تأكيد الحذف');
             if (!ok) return;
-
-            let p = products.find(x => x.id == sale.productId) || products.find(x => x.name === sale.deviceName);
-            let mv = sale.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_sale'
-                && String(s.sourceId) === String(sale.transactionId) && s.type === 'out') : null;
-            // لا نعيد كمية بلا حركة مخزون — منع تضخيم المخزون
-            if (p && mv) {
-                p.stock = BusinessLogic.toNum(p.stock) + (BusinessLogic.toNum(mv.qty) || sale.quantity || 1);
-                p.archived = false;
+            let result = BusinessLogic.deleteMerchantSaleAtomic(id);
+            if (!result.success) {
+                showToast('فشل حذف البيع: ' + result.reason, 'error');
+                return;
             }
-
-            merchantSales = merchantSales.filter(s => s.id != id);
-            if (sale.transactionId) {
-                BusinessLogic.deleteTransactionsBySourcePrefix('merchant_sale', sale.transactionId);
-                BusinessLogic.deleteStockMovementsBySource('merchant_sale', sale.transactionId);
-            }
-            saveData(); renderMerchantSales(); renderMerchantPage(); renderDashboard(); renderProducts();
-            logAudit('delete', 'بيع تاجر', sale.merchantName + ' | ' + sale.deviceName,
-                'حذف بيع بقيمة ' + ((sale.sellPrice || 0) * (sale.quantity || 1)).toFixed(2) + ' ج');
-            showToast('تم حذف بيع ' + (sale.deviceName || ''));
+            renderMerchantSales(); renderMerchantPage(); renderDashboard(); renderProducts();
+            showToast('تم حذف بيع ' + (result.name || ''));
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -13826,7 +14169,7 @@
         const prodMap = {};
         function addProdSale(productId, name, qty, revenue) {
             let p = productId ? products.find(x => x.id == productId) : null;
-            if (!p && name) p = products.find(x => x.name === name);
+            if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
             if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
             prodMap[key].qty += qty || 1;
