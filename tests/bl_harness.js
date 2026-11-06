@@ -1,9 +1,9 @@
-// حزمة اختبارات منطق العمل — تشغّل BusinessLogic المستخرج من app_fixed_business_logic.html
+// حزمة اختبارات منطق العمل — تشغّل BusinessLogic المستخرج من app_fixed.html
 // على بيانات تجريبية في Node (بلا متصفح وبلا بيانات حقيقية).
 const fs = require('fs');
 const path = require('path');
 
-const FILE = path.join(__dirname, '..', 'app_fixed_business_logic.html');
+const FILE = path.join(__dirname, '..', 'app_fixed.html');
 
 function extractInline(html) {
   const m = /<script>\r?\n/.exec(html);
