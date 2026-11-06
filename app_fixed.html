@@ -5049,8 +5049,9 @@
             let cash = this.toNum(opts.cashAmount);
             let bank = this.toNum(opts.bankAmount);
             let hasSplit = cash > 0 || bank > 0;
-            if (hasSplit && !this.splitSumValid(actualTotal, cash, bank)) {
-                return { success: false, reason: 'split_mismatch', total: actualTotal, cash, bank };
+            // السماح بالسداد الجزئي: cash+bank <= actualTotal (الباقي ذمة على التاجر)
+            if (hasSplit && (cash + bank > actualTotal + 0.01)) {
+                return { success: false, reason: 'overpayment', total: actualTotal, cash, bank };
             }
 
             let sourceId = this.genId();
@@ -5090,22 +5091,14 @@
                     if (t) txns.push(t);
                 }
             } else {
-                let t = this.postTransaction({
-                    type: 'merchant_sale', amount: actualTotal,
-                    accountId: accountId || undefined,
-                    merchantId, employeeId, notes: transNotes,
-                    sourceType: 'merchant_sale', sourceId: sourceId, operationType: 'create',
-                    unitCost: this.stockUnitCost(p),
-                    date: txnDate
-                });
-                if (t) txns.push(t);
+                // بيع آجل (لا نقد): لا قيد مالي — ذمة كاملة على التاجر
             }
 
             // التحقق من اكتمال القيود قبل أي كتابة نهائية (ذرّي)
             let createdSum = txns.reduce((s, t) => s + this.toNum(t.amount), 0);
-            let expectedSum = hasSplit ? (cash + bank) : actualTotal;
+            let expectedSum = hasSplit ? (cash + bank) : 0;
             let mv = null;
-            if (txns.length && Math.abs(createdSum - expectedSum) <= 0.01) {
+            if (txns.length === 0 || Math.abs(createdSum - expectedSum) <= 0.01) {
                 mv = this.addStockMovement({
                     productId: p.id, productName: p.name,
                     type: 'out', qty: qty, ref: 'بيع تاجر',
@@ -5113,7 +5106,7 @@
                     date: txnDate
                 });
             }
-            if (!txns.length || Math.abs(createdSum - expectedSum) > 0.01 || !mv) {
+            if (!mv || (hasSplit && (!txns.length || Math.abs(createdSum - expectedSum) > 0.01))) {
                 const ids = new Set(txns.map(t => String(t.id)));
                 transactions = transactions.filter(t => !ids.has(String(t.id)));
                 this.deleteStockMovementsBySource('merchant_sale', sourceId);
@@ -5144,8 +5137,9 @@
             let cash = this.toNum(opts.cashAmount);
             let bank = this.toNum(opts.bankAmount);
             let hasSplit = cash > 0 || bank > 0;
-            if (hasSplit && !this.splitSumValid(totalVal, cash, bank)) {
-                return { success: false, reason: 'split_mismatch', total: totalVal, cash, bank };
+            // السماح بالسداد الجزئي: cash+bank <= totalVal (الباقي ذمة على التاجر/المحل)
+            if (hasSplit && (cash + bank > totalVal + 0.01)) {
+                return { success: false, reason: 'overpayment', total: totalVal, cash, bank };
             }
 
             let sourceId = this.genId();
@@ -5205,19 +5199,12 @@
                     if (t) txns.push(t);
                 }
             } else {
-                let t = this.postTransaction({
-                    type: 'merchant_purchase', amount: totalVal,
-                    accountId: accountId || undefined,
-                    merchantId, notes: transNotes,
-                    sourceType: 'merchant_purchase', sourceId: sourceId, operationType: 'create',
-                    date: txnDate
-                });
-                if (t) txns.push(t);
+                // شراء آجل (لا نقد): لا قيد مالي — ذمة كاملة على المحل
             }
             let createdSum = txns.reduce((s, t) => s + this.toNum(t.amount), 0);
-            let expectedSum = hasSplit ? (cash + bank) : totalVal;
+            let expectedSum = hasSplit ? (cash + bank) : 0;
             let mv = null;
-            if (txns.length && Math.abs(createdSum - expectedSum) <= 0.01) {
+            if (txns.length === 0 || Math.abs(createdSum - expectedSum) <= 0.01) {
                 mv = this.addStockMovement({
                     productId: existingProd.id, productName: existingProd.name,
                     type: 'in', qty: q, ref: 'شراء من تاجر',
@@ -5225,7 +5212,7 @@
                     date: txnDate
                 });
             }
-            if (!txns.length || Math.abs(createdSum - expectedSum) > 0.01 || !mv) {
+            if (!mv || (hasSplit && (!txns.length || Math.abs(createdSum - expectedSum) > 0.01))) {
                 // تراجع كامل: القيود + المخزون + الصنف الجديد
                 const ids = new Set(txns.map(t => String(t.id)));
                 transactions = transactions.filter(t => !ids.has(String(t.id)));
