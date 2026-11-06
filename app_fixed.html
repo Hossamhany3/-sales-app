@@ -10984,6 +10984,7 @@
             '<div class="receipt-row"><span>الجهاز:</span><span>' + (data.device || '—') + '</span></div>' +
             '<div class="receipt-row"><span>القسط رقم:</span><span>' + data.slot + '</span></div>' +
             (data.delayDays > 0 ? '<div class="receipt-row"><span>التأخير:</span><span style="color:#ef4444;font-weight:700;">' + data.delayDays + ' يوم</span></div>' : '') +
+            (data.slots && data.slots.length > 1 ? '<div class="receipt-row"><span>الأقساط المسددة:</span><span>' + data.slots.join('، ') + '</span></div>' : '') +
             '<div class="receipt-row receipt-total"><span>المبلغ:</span><span>' + data.amount.toFixed(2) + ' ج.م</span></div>' +
             '<div style="text-align:center; margin-top:12px; font-size:0.8rem; color:var(--text-muted);">تم السداد — شكراً لتعاملكم</div>';
         overlay.classList.add('show');
@@ -11006,6 +11007,7 @@
             '<div class="row"><span>الجهاز:</span><span>' + receiptData.device + '</span></div>' +
             '<div class="row"><span>القسط رقم:</span><span>' + receiptData.slot + '</span></div>' +
             (receiptData.delayDays > 0 ? '<div class="row"><span>التأخير:</span><span style="color:#dc2626;font-weight:700;">' + receiptData.delayDays + ' يوم</span></div>' : '') +
+            (receiptData.slots && receiptData.slots.length > 1 ? '<div class="row"><span>الأقساط المسددة:</span><span>' + receiptData.slots.join('، ') + '</span></div>' : '') +
             '<div class="row total"><span>المبلغ:</span><span>' + receiptData.amount.toFixed(2) + ' ج.م</span></div>' +
             '<p style="margin-top:20px;color:#999;font-size:0.8rem;">تم السداد — شكراً لتعاملكم معنا 🙏</p>' +
             '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
@@ -11151,6 +11153,8 @@
             let timeStr = [nowTime.getHours(), nowTime.getMinutes()].map(n => String(n).padStart(2, '0')).join(':');
             let transDateISO = new Date(payDate + 'T' + timeStr + ':00').toISOString();
 
+            let prePaidSlots = inst.schedule.map(s => !!s.isPaid);
+
             let result = BusinessLogic.recordSlotPayment({
                 installmentId: instId, slotIdx: slotIdx, amount: val,
                 accountId: paymentAccountId ? parseInt(paymentAccountId) : null,
@@ -11165,13 +11169,14 @@
             renderInstallments(); renderTransactions(); renderDashboard();
             let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
             let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
+            let paidSlots = inst.schedule.filter((s, i) => s.isPaid && !prePaidSlots[i]).map(s => s.index);
             showToast('تم تسجيل سداد القسط ' + (slotIdx + 1) + ' بمبلغ ' + val.toFixed(2) + ' ج.م');
 
             // عرض إيصال
             let dueD = new Date(slot.dueDate + 'T00:00:00');
             let paidD = new Date(payDate + 'T00:00:00');
             let delayDays = Math.round((paidD - dueD) / 86400000);
-            showReceipt({ merchant: mName, device: pName, slot: slot.index, amount: val, date: payDate, delayDays: delayDays > 0 ? delayDays : 0 });
+            showReceipt({ merchant: mName, device: pName, slot: slot.index, amount: val, date: payDate, delayDays: delayDays > 0 ? delayDays : 0, slots: paidSlots });
 
             setTimeout(() => {
                 let el = document.getElementById('schedule-' + instId);
@@ -11186,6 +11191,7 @@
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) return;
+            let prePaidSlots = (inst.schedule || []).map(s => !!s.isPaid);
             let result = await showPaymentModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل', { showDate: true, defaultDate: new Date().toISOString().split('T')[0] });
             if (!result || isNaN(result.amount)) return;
             let val = result.amount;
@@ -11206,7 +11212,13 @@
             if (!payResult.success) { showToast('فشل التسجيل: ' + payResult.reason, 'error'); return; }
 
             renderInstallments(); renderTransactions(); renderDashboard();
+            let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
+            let pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
+            let paidSlots = (inst.schedule || []).filter((s, i) => s.isPaid && !prePaidSlots[i]).map(s => s.index);
             showToast('تم تسجيل السداد وإضافته للخزينة');
+            if (val > 0) {
+                showReceipt({ merchant: mName, device: pName, slot: paidSlots.length ? paidSlots[0] : 1, amount: val, date: payDate, delayDays: 0, slots: paidSlots });
+            }
         } catch (err) {
             showError('حدث خطأ أثناء تسجيل السداد', err.message);
         }
