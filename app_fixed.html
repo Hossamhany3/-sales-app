@@ -3408,7 +3408,7 @@
             let { type, amount, accountId, productId, merchantId, employeeId,
                   notes, category, discount, sourceType, sourceId, operationType,
                   date, instId, arabonId, partnerId, toAccountId, fromAccountId,
-                  paymentSeq, slotIndex } = opts;
+                  paymentSeq, slotIndex, unitCost } = opts;
             let amt = parseFloat(amount);
             if (!isFinite(amt) || amt <= 0) {
                 console.warn('postTransaction: مبلغ غير صالح', { type, amount, sourceType, sourceId });
@@ -3440,6 +3440,7 @@
             if (fromAccountId) txn.fromAccountId = fromAccountId;
             if (paymentSeq != null) txn.paymentSeq = paymentSeq;
             if (slotIndex != null) txn.slotIndex = slotIndex;
+            if (unitCost != null && isFinite(unitCost)) txn.unitCost = unitCost;
             transactions.push(txn);
             return txn;
         },
@@ -3668,6 +3669,7 @@
                 notes: notes || 'بيع نقدي | ' + p.name,
                 discount: discountTotal,
                 sourceType: 'sale_cash', sourceId: sourceId, operationType: 'create',
+                unitCost: this.stockUnitCost(p),
                 date: txnDate
             });
             if (!txn) return { success: false, reason: 'transaction_failed' };
@@ -3723,6 +3725,7 @@
                         productId: p.id, accountId: cashAccountId || undefined,
                         notes: transNotes,
                         sourceType: 'purchase', sourceId: sourceId + '_c', operationType: 'create',
+                        unitCost: this.stockUnitCost(p),
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3733,6 +3736,7 @@
                         productId: p.id, accountId: bankAccountId || undefined,
                         notes: transNotes,
                         sourceType: 'purchase', sourceId: sourceId + '_b', operationType: 'create',
+                        unitCost: this.stockUnitCost(p),
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -3743,6 +3747,7 @@
                     productId: p.id, accountId: accountId || p.accountId,
                     notes: transNotes,
                     sourceType: 'purchase', sourceId: sourceId, operationType: 'create',
+                        unitCost: this.stockUnitCost(p),
                     date: txnDate
                 });
                 if (t) txns.push(t);
@@ -3851,6 +3856,7 @@
                 id: instId, contractNo: getNextContractNo(), merchantId: parseInt(merchantId),
                 productId: parseInt(productId), deviceName: deviceName || p.name,
                 purchasePrice: purchasePrice, paidUpfront: paidUpfront || 0,
+                unitCost: BusinessLogic.stockUnitCost(p),
                 interestRate: interestRate || 0, totalAfterInterest: totalFinanced,
                 remainingBalance: totalFinanced, numInstallments: numInstallments,
                 monthlyAmount: monthly, firstDueDate: firstDueDate,
@@ -3880,6 +3886,7 @@
                     notes: 'مقدم عقد تقسيط | ' + mName + ' - ' + (deviceName || p.name),
                     category: 'تحصيل', employeeId: employeeId || null,
                     instId: instId,
+                    unitCost: BusinessLogic.stockUnitCost(p),
                     sourceType: 'installment', sourceId: sourceId, operationType: 'upfront',
                     date: txnDate
                 });
@@ -4464,6 +4471,7 @@
             let newArabon = {
                 id: arabonId, merchantId: parseInt(merchantId), productId: parseInt(productId),
                 deviceName: deviceName || p.name,
+                unitCost: BusinessLogic.stockUnitCost(p),
                 sellPrice: price, depositAmount: deposit, remainingAmount: remaining,
                 remainingPaymentMethod: '', accountId: accountId, dueDate: dueDate || '',
                 interestRate: 0, numInstallments: 0, monthlyAmount: 0,
@@ -4494,6 +4502,7 @@
                     notes: 'عربون بيع | ' + mName + ' - ' + (deviceName || p.name),
                     category: 'تحصيل', employeeId: employeeId || null,
                     arabonId: arabonId,
+                    unitCost: BusinessLogic.stockUnitCost(p),
                     sourceType: 'arabon', sourceId: sourceId, operationType: 'deposit',
                     date: txnDate
                 });
@@ -5064,6 +5073,7 @@
                         accountId: opts.cashAccountId || undefined,
                         merchantId, employeeId, notes: transNotes,
                         sourceType: 'merchant_sale', sourceId: sourceId + '_c', operationType: 'create',
+                        unitCost: this.stockUnitCost(p),
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -5074,6 +5084,7 @@
                         accountId: opts.bankAccountId,
                         merchantId, employeeId, notes: transNotes,
                         sourceType: 'merchant_sale', sourceId: sourceId + '_b', operationType: 'create',
+                        unitCost: this.stockUnitCost(p),
                         date: txnDate
                     });
                     if (t) txns.push(t);
@@ -5084,6 +5095,7 @@
                     accountId: accountId || undefined,
                     merchantId, employeeId, notes: transNotes,
                     sourceType: 'merchant_sale', sourceId: sourceId, operationType: 'create',
+                    unitCost: this.stockUnitCost(p),
                     date: txnDate
                 });
                 if (t) txns.push(t);
@@ -6747,15 +6759,12 @@
             if (t.type === 'sell_cash' || t.type === 'sell') {
                 revenue += t.amount;
                 totalDiscounts += t.discount || 0;
-                let prod = products.find(p => p.id == t.productId);
-                if (prod) {
-                    let qty = 1;
-                    if (t.sourceId) {
-                        let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
-                        if (mv && mv.qty) qty = mv.qty;
-                    }
-                    cogs += BusinessLogic.stockUnitCost(prod) * qty;
+                let qty = 1;
+                if (t.sourceId) {
+                    let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
+                    if (mv && mv.qty) qty = mv.qty;
                 }
+                cogs += BusinessLogic.recordUnitCost(t) * qty;
             }
             // الإيرادات اليدوية
             if (t.type === 'income') {
@@ -6795,8 +6804,7 @@
             if (!inRange(saleDate, range)) return;
             countedArabonSaleIds.add(a.id);
             revenue += BusinessLogic.toNum(a.sellPrice);
-            let prod = products.find(p => p.id == a.productId);
-            if (prod) cogs += BusinessLogic.stockUnitCost(prod);
+            cogs += BusinessLogic.recordUnitCost(a);
         });
 
         filteredInst.forEach(inst => {
@@ -6807,8 +6815,7 @@
             }
             revenue += inst.purchasePrice;
             totalDiscounts += inst.discount || 0;
-            let prod = products.find(p => p.id == inst.productId);
-            if (prod) cogs += BusinessLogic.stockUnitCost(prod);
+            cogs += BusinessLogic.recordUnitCost(inst);
             interestProfit += (inst.totalAfterInterest - (inst.purchasePrice - (inst.paidUpfront || 0)));
         });
 
@@ -7869,14 +7876,12 @@
     // الربح (هامش) لعملية بيع واحدة = قيمة البيع - تكلفتها
     function calcTransactionProfit(t) {
         if (t.type === 'sell_cash' || t.type === 'sell') {
-            let prod = products.find(p => p.id == t.productId);
-            if (!prod) return t.amount;
             let qty = 1;
             if (t.sourceId) {
                 let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
                 if (mv && mv.qty) qty = mv.qty;
             }
-            return t.amount - (prod.costPrice + (prod.expenses || 0)) * qty;
+            return t.amount - BusinessLogic.recordUnitCost(t) * qty;
         }
         if (t.type === 'merchant_sale') {
             let baseSource = t.sourceId ? String(t.sourceId).replace(/_[cb]$/, '') : t.sourceId;
@@ -7888,8 +7893,7 @@
         if (t.type === 'payment_in' && t.arabonId && !t.instId) {
             let arabonObj = arabonSales.find(a => a.id == t.arabonId);
             if (arabonObj) {
-                let prod = products.find(p => p.id == arabonObj.productId);
-                let cost = prod ? (prod.costPrice + (prod.expenses || 0)) : 0;
+                let cost = BusinessLogic.recordUnitCost(arabonObj);
                 return arabonObj.sellPrice - cost;
             }
             return t.amount;
@@ -7983,8 +7987,7 @@
             if (!inRange(inst.date, range)) return;
             if (counted.has('inst' + inst.id)) return;
             counted.add('inst' + inst.id);
-            let prod = products.find(p => p.id == inst.productId);
-            let cost = prod ? (prod.costPrice + (prod.expenses || 0)) : 0;
+            let cost = BusinessLogic.recordUnitCost(inst);
             let profit = (inst.purchasePrice || 0) - cost;
             events.push({ empId: inst.employeeId, profit: profit });
         });
@@ -8690,13 +8693,15 @@
     function renderProductProfit() {
         const range = getDateRange();
         const prodMap = {};
-        function addSale(productId, name, qty, revenue) {
+        function addSale(productId, name, qty, revenue, unitCost) {
             let p = productId ? products.find(x => x.id == productId) : null;
             if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
-            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), costTotal: 0, qty: 0, revenue: 0 };
             prodMap[key].qty += qty || 1;
             prodMap[key].revenue += revenue;
+            const uc = (unitCost != null && isFinite(unitCost)) ? unitCost : (p ? (p.costPrice + (p.expenses || 0)) : 0);
+            prodMap[key].costTotal += uc * (qty || 1);
         }
 
         // 1) مبيعات نقدية
@@ -8735,7 +8740,7 @@
 
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
         const totalRev = sorted.reduce((s, e) => s + e[1].revenue, 0);
-        const totalCost = sorted.reduce((s, e) => s + (e[1].cost * e[1].qty), 0);
+        const totalCost = sorted.reduce((s, e) => s + e[1].costTotal, 0);
         const totalProfit = totalRev - totalCost;
         let html = '<div style="margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap;">' +
             '<span class="badge badge-primary">إجمالي الإيرادات: ' + totalRev.toFixed(2) + ' ج</span>' +
@@ -8743,13 +8748,13 @@
             '<span class="badge" style="background:' + (totalProfit >= 0 ? 'var(--success)' : 'var(--danger)') + ';color:#fff;">' + (totalProfit >= 0 ? 'صافي الربح' : 'صافي الخسارة') + ': ' + totalProfit.toFixed(2) + ' ج</span>' +
         '</div>';
         sorted.forEach(([id, d]) => {
-            const profit = d.revenue - (d.cost * d.qty);
+            const profit = d.revenue - d.costTotal;
             const margin = d.revenue ? (profit / d.revenue * 100).toFixed(1) : 0;
             html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
                 '<div class="flex-between"><strong>📱 ' + d.name + '</strong><span class="badge badge-primary">' + d.qty + ' قطعة</span></div>' +
                 '<div style="display:flex;gap:16px;font-size:0.85rem;margin-top:4px;color:var(--text-muted);">' +
                     '<span>💰 إيرادات: ' + d.revenue.toFixed(2) + ' ج</span>' +
-                    '<span>📦 تكلفة: ' + (d.cost * d.qty).toFixed(2) + ' ج</span>' +
+                    '<span>📦 تكلفة: ' + d.costTotal.toFixed(2) + ' ج</span>' +
                     '<span style="color:' + (profit >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">' + (profit >= 0 ? '📈 ربح' : '📉 خسارة') + ': ' + profit.toFixed(2) + ' ج (' + margin + '%)</span>' +
                 '</div></div>';
         });
@@ -8761,13 +8766,15 @@
     window.exportProductProfitCSV = function() {
         const range = getDateRange();
         const prodMap = {};
-        function addSale(productId, name, qty, revenue) {
+        function addSale(productId, name, qty, revenue, unitCost) {
             let p = productId ? products.find(x => x.id == productId) : null;
             if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
-            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), costTotal: 0, qty: 0, revenue: 0 };
             prodMap[key].qty += qty || 1;
             prodMap[key].revenue += revenue;
+            const uc = (unitCost != null && isFinite(unitCost)) ? unitCost : (p ? (p.costPrice + (p.expenses || 0)) : 0);
+            prodMap[key].costTotal += uc * (qty || 1);
         }
         transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
             if (!t.productId) return;
@@ -8805,11 +8812,11 @@
         ];
         let totalCost = 0, totalRev = 0;
         sorted.forEach(([id, d]) => {
-            const profit = d.revenue - (d.cost * d.qty);
+            const profit = d.revenue - d.costTotal;
             const margin = d.revenue ? (profit / d.revenue * 100).toFixed(1) : 0;
-            totalCost += d.cost * d.qty;
+            totalCost += d.costTotal;
             totalRev += d.revenue;
-            rows.push([d.name, d.qty, d.cost.toFixed(2), (d.cost * d.qty).toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin]);
+            rows.push([d.name, d.qty, (d.costTotal / (d.qty || 1)).toFixed(2), d.costTotal.toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin]);
         });
         rows.push([]);
         rows.push(['الإجمالي', '', '', totalCost.toFixed(2), totalRev.toFixed(2), (totalRev - totalCost).toFixed(2), '']);
@@ -14210,9 +14217,9 @@
             title: 'أرباح الأصناف (' + dateLabel + ')',
             header: ['#', 'الصنف', 'الكمية المباعة', 'التكلفة الكلية', 'الإيرادات', 'الربح/الخسارة', 'الهامش %'],
             rows: Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue).map(([id, d], i) => {
-                const profit = d.revenue - (d.cost * d.qty);
+                const profit = d.revenue - d.costTotal;
                 const margin = d.revenue ? (profit / d.revenue * 100) : 0;
-                return [i + 1, d.name, d.qty, (d.cost * d.qty).toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin.toFixed(1)];
+                return [i + 1, d.name, d.qty, d.costTotal.toFixed(2), d.revenue.toFixed(2), profit.toFixed(2), margin.toFixed(1)];
             })
         });
         if (employees.length) {
