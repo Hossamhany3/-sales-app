@@ -8254,10 +8254,10 @@
         });
         let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
         todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
             else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense') expenses += t.amount;
-            else if (t.type === 'purchase') purchases += t.amount;
+            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
+            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = BusinessLogic.openingLiquid();
@@ -8293,10 +8293,10 @@
         });
         let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
         todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
             else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense') expenses += t.amount;
-            else if (t.type === 'purchase') purchases += t.amount;
+            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
+            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = BusinessLogic.openingLiquid();
@@ -8336,10 +8336,10 @@
         });
         let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
         todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += t.amount;
+            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
             else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense') expenses += t.amount;
-            else if (t.type === 'purchase') purchases += t.amount;
+            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
+            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
         });
         const netFlow = cashSales + collections - expenses - purchases;
         let cash = BusinessLogic.openingLiquid();
