@@ -3315,8 +3315,6 @@
                     issues.push({ code, label, records: +fromRecords.toFixed(2), ledger: +fromLedger.toFixed(2) });
                 }
             };
-            cmp('السداد الفوري عند البيع', parts.saleCash, ledger.saleCash, 'MERCH_LEDGER_SALE_CASH');
-            cmp('السداد الفوري عند الشراء', parts.purchaseCash, ledger.purchaseCash, 'MERCH_LEDGER_PURCHASE_CASH');
             cmp('الدفعات المستلمة من التاجر', parts.manualPaymentsIn, ledger.paymentsIn, 'MERCH_LEDGER_PAY_IN');
             cmp('الدفعات المدفوعة للتاجر', parts.manualPaymentsOut, ledger.paymentsOut, 'MERCH_LEDGER_PAY_OUT');
 
@@ -3328,17 +3326,7 @@
                 if (seen[key] !== undefined) issues.push({ code: 'MERCH_DUP_TX', label: 'قيد مكرر على نفس المصدر', detail: String(t.sourceId) });
                 seen[key] = t.id;
             });
-            // سجلات بلا قيود مالية
-            sales.forEach(s => {
-                if (s.transactionId && !this.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length) {
-                    issues.push({ code: 'MERCH_SALE_NO_TX', label: 'بيع بلا قيد مالي', detail: String(s.id) });
-                }
-            });
-            purchases.forEach(p => {
-                if (p.transactionId && !this.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length) {
-                    issues.push({ code: 'MERCH_PURCHASE_NO_TX', label: 'شراء بلا قيد مالي', detail: String(p.id) });
-                }
-            });
+            // السجلات آجلة بطبيعتها ولا يُشترط لها قيد مالي فوري (السداد عبر دفعات منفصلة)
             inPays.forEach(p => {
                 const ids = p.transactionIds || (p.transactionId ? [p.transactionId] : []);
                 if (ids.length && !ids.every(id => transactions.find(t => String(t.id) === String(id)))) {
@@ -3368,27 +3356,14 @@
                     if (!hit) issues.push({ code: 'MERCH_TX_ORPHAN', label: 'قيد دفعة بلا سجل دفعة', detail: String(t.id) });
                 }
             });
-            // كشف البيع/الشراء غير المسدد بالكامل (ذمة بين الطرفين) — إبلاغ فقط بلا تصحيح
-            sales.forEach(s => {
-                const total = this.toNum(s.sellPrice) * (this.toNum(s.quantity) || 1);
-                const cash = this.merchantSaleCash(s);
-                if (cash + 0.01 < total) {
-                    issues.push({ code: 'MERCH_SALE_UNSETTLED', label: 'بيع لم يُسدد بالكامل (ذمة على التاجر)', detail: String(s.id), records: +total.toFixed(2), ledger: +cash.toFixed(2) });
-                }
-            });
-            purchases.forEach(p => {
-                const total = this.toNum(p.costPrice) * (this.toNum(p.quantity) || 1);
-                const cash = this.merchantPurchaseCash(p);
-                if (cash + 0.01 < total) {
-                    issues.push({ code: 'MERCH_PURCHASE_UNSETTLED', label: 'شراء لم يُسدد بالكامل (ذمة لنا على التاجر)', detail: String(p.id), records: +total.toFixed(2), ledger: +cash.toFixed(2) });
-                }
-            });
+            // ملاحظة: البيع/الشراء للتاجر آجل بطبيعته (ذمة)، والسداد يُسجَّل عبر «دفعة منه/دفعة له».
             // إعادة حساب الرصيد من الأطراف المستقلة ومقارنته بالرصيد المعتمد
+            // السداد الفوري عند البيع/الشراء لا يدخل في رصيد التاجر (يُدار عبر دفعات منفصلة)
             const recomputed = parseFloat((
                 sum(sales, s => this.toNum(s.sellPrice) * (this.toNum(s.quantity) || 1))
                 - sum(purchases, p => this.toNum(p.costPrice) * (this.toNum(p.quantity) || 1))
-                - (sum(inPays, p => p.amount) + parts.saleCash)
-                + (sum(outPays, p => p.amount) + parts.purchaseCash)
+                - sum(inPays, p => p.amount)
+                + sum(outPays, p => p.amount)
             ).toFixed(2));
             if (Math.abs(recomputed - parts.balance) > 0.01) {
                 issues.push({ code: 'MERCH_BALANCE_RECOMPUTE', label: 'فرق بين الرصيد المحسوب وإعادة الحساب', records: parts.balance, ledger: recomputed });
@@ -3615,8 +3590,9 @@
                 .reduce((sum, p) => sum + this.toNum(p.amount), 0);
             const saleCash = sales.reduce((sum, s) => sum + this.merchantSaleCash(s), 0);
             const purchaseCash = purchases.reduce((sum, p) => sum + this.merchantPurchaseCash(p), 0);
-            const totalPayments = manualPaymentsIn + saleCash;
-            const totalPaymentsOut = manualPaymentsOut + purchaseCash;
+            // السداد الفوري عند البيع/الشراء لا يُعدّ تسوية تلقائية — ذمة التاجر = مبيعات - مشتريات - مدفوعات يدوية + مدفوعات صادرة
+            const totalPayments = manualPaymentsIn;
+            const totalPaymentsOut = manualPaymentsOut;
             return {
                 totalSales,
                 totalPurchases,
@@ -5046,13 +5022,7 @@
             if (!(qty > 0)) return { success: false, reason: 'invalid_qty' };
             if (!isFinite(actualTotal) || actualTotal <= 0) return { success: false, reason: 'invalid_total' };
             if ((p.stock || 0) < qty) return { success: false, reason: 'insufficient_stock' };
-            let cash = this.toNum(opts.cashAmount);
-            let bank = this.toNum(opts.bankAmount);
-            let hasSplit = cash > 0 || bank > 0;
-            // السماح بالسداد الجزئي: cash+bank <= actualTotal (الباقي ذمة على التاجر)
-            if (hasSplit && (cash + bank > actualTotal + 0.01)) {
-                return { success: false, reason: 'overpayment', total: actualTotal, cash, bank };
-            }
+            // البيع للتاجر آجل بطبيعته — لا سداد فوري عند البيع (السداد يُسجَّل عبر «دفعة منه»)
 
             let sourceId = this.genId();
             let txnDate = date || new Date().toISOString();
@@ -5065,50 +5035,14 @@
                 date: txnDate, notes: notes || ''
             };
 
-            let txns = [];
-            let transNotes = 'بيع لتاجر: ' + m.name + ' - ' + p.name + ' ×' + qty;
-            if (hasSplit) {
-                if (cash > 0) {
-                    let t = this.postTransaction({
-                        type: 'merchant_sale', amount: cash,
-                        accountId: opts.cashAccountId || undefined,
-                        merchantId, employeeId, notes: transNotes,
-                        sourceType: 'merchant_sale', sourceId: sourceId + '_c', operationType: 'create',
-                        unitCost: this.stockUnitCost(p),
-                        date: txnDate
-                    });
-                    if (t) txns.push(t);
-                }
-                if (bank > 0) {
-                    let t = this.postTransaction({
-                        type: 'merchant_sale', amount: bank,
-                        accountId: opts.bankAccountId,
-                        merchantId, employeeId, notes: transNotes,
-                        sourceType: 'merchant_sale', sourceId: sourceId + '_b', operationType: 'create',
-                        unitCost: this.stockUnitCost(p),
-                        date: txnDate
-                    });
-                    if (t) txns.push(t);
-                }
-            } else {
-                // بيع آجل (لا نقد): لا قيد مالي — ذمة كاملة على التاجر
-            }
-
-            // التحقق من اكتمال القيود قبل أي كتابة نهائية (ذرّي)
-            let createdSum = txns.reduce((s, t) => s + this.toNum(t.amount), 0);
-            let expectedSum = hasSplit ? (cash + bank) : 0;
-            let mv = null;
-            if (txns.length === 0 || Math.abs(createdSum - expectedSum) <= 0.01) {
-                mv = this.addStockMovement({
-                    productId: p.id, productName: p.name,
-                    type: 'out', qty: qty, ref: 'بيع تاجر',
-                    sourceType: 'merchant_sale', sourceId: sourceId,
-                    date: txnDate
-                });
-            }
-            if (!mv || (hasSplit && (!txns.length || Math.abs(createdSum - expectedSum) > 0.01))) {
-                const ids = new Set(txns.map(t => String(t.id)));
-                transactions = transactions.filter(t => !ids.has(String(t.id)));
+            // بيع آجل: لا قيد مالي — ذمة كاملة على التاجر
+            let mv = this.addStockMovement({
+                productId: p.id, productName: p.name,
+                type: 'out', qty: qty, ref: 'بيع تاجر',
+                sourceType: 'merchant_sale', sourceId: sourceId,
+                date: txnDate
+            });
+            if (!mv) {
                 this.deleteStockMovementsBySource('merchant_sale', sourceId);
                 return { success: false, reason: 'transaction_failed' };
             }
@@ -5119,7 +5053,7 @@
 
             logAudit('create', 'بيع تاجر', m.name + ' | ' + p.name + ' ×' + qty, 'قيمة ' + actualTotal + ' ج');
             saveData();
-            return { success: true, saleId: sale.id, transactionIds: txns.map(t => t.id), sourceId };
+            return { success: true, saleId: sale.id, transactionIds: [], sourceId };
         },
 
         // ─── شراء من تاجر ───
@@ -5133,14 +5067,7 @@
             if (!(q > 0)) return { success: false, reason: 'invalid_qty' };
             if (!(unitCost > 0)) return { success: false, reason: 'invalid_cost' };
             if (!productId && !prodName.trim()) return { success: false, reason: 'invalid_product_name' };
-            let totalVal = unitCost * q;
-            let cash = this.toNum(opts.cashAmount);
-            let bank = this.toNum(opts.bankAmount);
-            let hasSplit = cash > 0 || bank > 0;
-            // السماح بالسداد الجزئي: cash+bank <= totalVal (الباقي ذمة على التاجر/المحل)
-            if (hasSplit && (cash + bank > totalVal + 0.01)) {
-                return { success: false, reason: 'overpayment', total: totalVal, cash, bank };
-            }
+            // الشراء من التاجر آجل بطبيعته — لا سداد فوري عند الشراء (السداد يُسجَّل عبر «دفعة له»)
 
             let sourceId = this.genId();
             let txnDate = date || new Date().toISOString();
@@ -5175,47 +5102,15 @@
                 date: txnDate, notes: 'شراء من ' + m.name, accountId: accountId || undefined
             };
 
-            let txns = [];
-            let transNotes = 'شراء من تاجر: ' + m.name + ' - ' + prodName + ' ×' + q;
-            if (hasSplit) {
-                if (cash > 0) {
-                    let t = this.postTransaction({
-                        type: 'merchant_purchase', amount: cash,
-                        accountId: opts.cashAccountId || undefined,
-                        merchantId, notes: transNotes,
-                        sourceType: 'merchant_purchase', sourceId: sourceId + '_c', operationType: 'create',
-                        date: txnDate
-                    });
-                    if (t) txns.push(t);
-                }
-                if (bank > 0) {
-                    let t = this.postTransaction({
-                        type: 'merchant_purchase', amount: bank,
-                        accountId: opts.bankAccountId,
-                        merchantId, notes: transNotes,
-                        sourceType: 'merchant_purchase', sourceId: sourceId + '_b', operationType: 'create',
-                        date: txnDate
-                    });
-                    if (t) txns.push(t);
-                }
-            } else {
-                // شراء آجل (لا نقد): لا قيد مالي — ذمة كاملة على المحل
-            }
-            let createdSum = txns.reduce((s, t) => s + this.toNum(t.amount), 0);
-            let expectedSum = hasSplit ? (cash + bank) : 0;
-            let mv = null;
-            if (txns.length === 0 || Math.abs(createdSum - expectedSum) <= 0.01) {
-                mv = this.addStockMovement({
-                    productId: existingProd.id, productName: existingProd.name,
-                    type: 'in', qty: q, ref: 'شراء من تاجر',
-                    sourceType: 'merchant_purchase', sourceId: sourceId,
-                    date: txnDate
-                });
-            }
-            if (!mv || (hasSplit && (!txns.length || Math.abs(createdSum - expectedSum) > 0.01))) {
-                // تراجع كامل: القيود + المخزون + الصنف الجديد
-                const ids = new Set(txns.map(t => String(t.id)));
-                transactions = transactions.filter(t => !ids.has(String(t.id)));
+            // شراء آجل: لا قيد مالي — ذمة كاملة على المحل
+            let mv = this.addStockMovement({
+                productId: existingProd.id, productName: existingProd.name,
+                type: 'in', qty: q, ref: 'شراء من تاجر',
+                sourceType: 'merchant_purchase', sourceId: sourceId,
+                date: txnDate
+            });
+            if (!mv) {
+                // تراجع كامل: المخزون + الصنف الجديد
                 this.deleteStockMovementsBySource('merchant_purchase', sourceId);
                 if (wasNewProduct) {
                     products = products.filter(p => p.id != existingProd.id);
@@ -5229,7 +5124,7 @@
             if (wasNewProduct) refreshSelectors();
 
             saveData();
-            return { success: true, purchaseId: purchase.id, transactionIds: txns.map(t => t.id), sourceId };
+            return { success: true, purchaseId: purchase.id, transactionIds: [], sourceId };
         },
 
         // ─── دفعة من تاجر (محصلة) ───
@@ -5755,10 +5650,7 @@
                 records.forEach(r => {
                     if (!r.transactionId) return;
                     let linked = this.findTransactionsBySourcePrefix(sourceType, r.transactionId);
-                    if (!linked.length) {
-                        issues.push({ type: 'merchant_transaction_missing', entity: label, name: r.deviceName || r.productName || label, recordId: r.id, calculated: 0, stored: expectedVal(r), diff: 0 });
-                        return;
-                    }
+                    if (!linked.length) return; // البيع/الشراء الآجل لا يُشترط له قيد مالي فوري
                     let sum = linked.reduce((s, t) => s + this.toNum(t.amount), 0);
                     // السداد الجزئي عند البيع/الشراء مسموح: الحركات المرتبطة قد تكون أقل من القيمة الكاملة (الباقي ذمة).
                     // لا نرفع إشعاراً إلا عند تجاوز المدفوع لقيمة السجل (دفعة زائدة تستحق المراجعة).
@@ -7061,19 +6953,17 @@
         checkMerchants() {
             const mIds = {};
             merchants.forEach(m => { if (mIds[m.id]) this.addIssue('merchants','critical','Duplicate merchant ID: '+m.id,'',String(m.id),'id','Unique','Duplicate','MERCH_DUPLICATE_ID'); mIds[m.id] = true; if (!m.name) this.addIssue('merchants','medium','Merchant #'+m.id+' has no name','',String(m.id),'name','Present','Missing','MERCH_MISSING_NAME'); });
-            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); if (s.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','Sale #'+s.id+' refs missing transaction','',String(s.id),'transactionId','Existing','Missing','MERCH_SALE_TX_ORPHAN'); });
-            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); if (p.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','Purchase #'+p.id+' refs missing transaction','',String(p.id),'transactionId','Existing','Missing','MERCH_PURCHASE_TX_ORPHAN'); });
+            merchantSales.forEach(s => { if (s.merchantId && !merchants.find(m => m.id == s.merchantId)) this.addIssue('merchants','high','Sale #'+s.id+' refs missing merchant','Merchant #'+s.merchantId, String(s.id),'merchantId','Existing','Missing','MERCH_SALE_ORPHAN'); });
+            merchantPurchases.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Purchase #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PURCHASE_ORPHAN'); });
             merchantPayments.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYMENT_ORPHAN'); if (p.amount <= 0) this.addIssue('merchants','medium','Zero/negative merchant payment #'+p.id,'Amount: '+p.amount, String(p.id),'amount','> 0',String(p.amount),'MERCH_ZERO_PAYMENT'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYMENT_TX_ORPHAN'); }); });
             merchantPaymentsOut.forEach(p => { if (p.merchantId && !merchants.find(m => m.id == p.merchantId)) this.addIssue('merchants','high','Merchant payment out #'+p.id+' refs missing merchant','',String(p.id),'merchantId','Existing','Missing','MERCH_PAYOUT_ORPHAN'); if (p.transactionIds) p.transactionIds.forEach(tid => { if (!transactions.find(t => t.id == tid)) this.addIssue('merchants','medium','Merchant payment out #'+p.id+' refs missing tx #'+tid,'',String(p.id),'transactionIds','Existing','Missing','MERCH_PAYOUT_TX_ORPHAN'); }); });
             merchants.forEach(m => {
-                // حساب مستقل من السجلات: الاستحقاق + المدفوعات اليدوية + السداد الفوري عند البيع/الشراء
+                // حساب مستقل من السجلات: الاستحقاق + المدفوعات اليدوية فقط (السداد يُدار عبر دفعات منفصلة)
                 let msTotal = merchantSales.filter(s => s.merchantId == m.id).reduce((sum, s) => sum + (s.sellPrice || 0) * (s.quantity || 1), 0);
                 let mpTotal = merchantPayments.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.amount || 0), 0);
                 let mprTotal = merchantPurchases.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.costPrice || 0) * (p.quantity || 1), 0);
                 let mpoTotal = merchantPaymentsOut.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + (p.amount || 0), 0);
-                let saleCash = merchantSales.filter(s => s.merchantId == m.id).reduce((sum, s) => sum + BusinessLogic.merchantSaleCash(s), 0);
-                let purchaseCash = merchantPurchases.filter(p => p.merchantId == m.id).reduce((sum, p) => sum + BusinessLogic.merchantPurchaseCash(p), 0);
-                let expected = msTotal + mpoTotal + purchaseCash - mpTotal - saleCash - mprTotal;
+                let expected = msTotal + mpoTotal - mpTotal - mprTotal;
                 let calcBalance = BusinessLogic.merchantBalanceFromTransactions(m.id);
                 if (Math.abs(expected - calcBalance) > 1) this.addIssue('merchants','high','Merchant balance calculation mismatch: '+m.name,'Expected '+expected.toFixed(2)+' vs calculated '+calcBalance.toFixed(2), String(m.id),'balance',expected.toFixed(2),String(calcBalance),'MERCH_BALANCE_MISMATCH');
             });
@@ -7169,11 +7059,9 @@
             });
             merchantSales.forEach(s => {
                 if (s.merchantId && !merchIds.has(String(s.merchantId))) this.addIssue('merchants','high','MerchantSale #'+s.id+' refs missing merchant #'+s.merchantId,'',String(s.id),'merchantId','Existing merchant','Missing','ORPHAN_MS_MERCHANT');
-                if (s.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_sale', s.transactionId).length === 0) this.addIssue('merchants','medium','MerchantSale #'+s.id+' refs missing transaction #'+s.transactionId,'',String(s.id),'transactionId','Existing','Missing','ORPHAN_MS_TX');
             });
             merchantPurchases.forEach(p => {
                 if (p.merchantId && !merchIds.has(String(p.merchantId))) this.addIssue('merchants','high','MerchantPurchase #'+p.id+' refs missing merchant #'+p.merchantId,'',String(p.id),'merchantId','Existing merchant','Missing','ORPHAN_MP_MERCHANT');
-                if (p.transactionId && BusinessLogic.findTransactionsBySourcePrefix('merchant_purchase', p.transactionId).length === 0) this.addIssue('merchants','medium','MerchantPurchase #'+p.id+' refs missing transaction #'+p.transactionId,'',String(p.id),'transactionId','Existing','Missing','ORPHAN_MP_TX');
             });
         },
 
@@ -8375,7 +8263,7 @@
     function statementPendingAmount() {
         let total = installments.reduce((s, i) => s + installmentRemaining(i), 0);
         total += arabonSales.reduce((s, a) => s + Math.max(a.remainingAmount || 0, 0), 0);
-        // صافي ذمة التجار بعد احتساب السداد الفوري عند البيع/الشراء (وليس إجمالي المبيعات)
+        // صافي ذمة التجار: مبيعات - مشتريات - دفعات مستلمة + دفعات مدفوعة (السداد الفوري القديم لا يدخل)
         total += merchants.reduce((s, m) => s + BusinessLogic.merchantBalanceParts(m.id).balance, 0);
         return total;
     }
@@ -8462,26 +8350,20 @@
             });
         });
 
-        // 4) مبيعات التجار (يُدرج فقط المتبقي غير المسدد؛ السداد الفوري النقدي مُدرج في بند الحركة النقدية أعلى)
+        // 4) مبيعات التجار (القيمة الكاملة — ذمة على التاجر، السداد يُدار عبر دفعات منفصلة)
         merchantSales.forEach(s => {
             let qty = s.quantity || 1;
             let total = (s.sellPrice || 0) * qty;
-            let residual = total - BusinessLogic.merchantSaleCash(s);
-            if (Math.abs(residual) < 0.005) return;
             let desc = 'بيع لتاجر - ' + (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '') + ' - ' + custName(s.merchantId);
-            if (residual > 0) rows.push({ date: s.date, desc, debit: residual, credit: 0 });
-            else rows.push({ date: s.date, desc: desc + ' (دفعة زائدة)', debit: 0, credit: -residual });
+            rows.push({ date: s.date, desc, debit: total, credit: 0 });
         });
 
-        // 5) شراء من التجار (يُدرج فقط المتبقي غير المسدد)
+        // 5) شراء من التجار (القيمة الكاملة — ذمة على المحل، السداد يُدار عبر دفعات منفصلة)
         merchantPurchases.forEach(p => {
             let qty = p.quantity || 1;
             let total = (p.costPrice || 0) * qty;
-            let residual = total - BusinessLogic.merchantPurchaseCash(p);
-            if (Math.abs(residual) < 0.005) return;
             let desc = 'شراء من تاجر - ' + (p.productName || '') + (qty > 1 ? ' ×' + qty : '') + ' - ' + custName(p.merchantId);
-            if (residual > 0) rows.push({ date: p.date, desc, debit: 0, credit: residual });
-            else rows.push({ date: p.date, desc: desc + ' (دفعة زائدة)', debit: -residual, credit: 0 });
+            rows.push({ date: p.date, desc, debit: 0, credit: total });
         });
 
         // 6) دفعات من التجار
@@ -11901,22 +11783,18 @@
             });
         });
 
-        // 3) مبيعات التجار (القيمة الكاملة + السداد الفوري إن وُجد)
+        // 3) مبيعات التجار (القيمة الكاملة)
         merchantSales.filter(s => s.merchantId == merchantId).forEach(s => {
             let qty = s.quantity || 1;
             let label = (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: s.date, desc: 'بيع لتاجر - ' + label, debit: (s.sellPrice || 0) * qty, credit: 0 });
-            let cashNow = BusinessLogic.merchantSaleCash(s);
-            if (cashNow > 0.005) rows.push({ date: s.date, desc: 'سداد فوري عند البيع - ' + label, debit: 0, credit: cashNow });
         });
 
-        // 4) شراء من تاجر (القيمة الكاملة + السداد الفوري إن وُجد)
+        // 4) شراء من تاجر (القيمة الكاملة)
         merchantPurchases.filter(p => p.merchantId == merchantId).forEach(p => {
             let qty = p.quantity || 1;
             let label = (p.productName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: p.date, desc: 'شراء من تاجر - ' + label, debit: 0, credit: (p.costPrice || 0) * qty });
-            let cashNow = BusinessLogic.merchantPurchaseCash(p);
-            if (cashNow > 0.005) rows.push({ date: p.date, desc: 'سداد فوري عند الشراء - ' + label, debit: cashNow, credit: 0 });
         });
 
         // 5) دفعات منه
@@ -12155,8 +12033,6 @@
             let totalPrice = (s.sellPrice || 0) * qty;
             let label = (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: s.date, desc: 'بيع: ' + label, debit: totalPrice, credit: 0 });
-            let cashNow = BusinessLogic.merchantSaleCash(s);
-            if (cashNow > 0.005) rows.push({ date: s.date, desc: 'سداد فوري عند البيع: ' + label, debit: 0, credit: cashNow });
         });
         payments.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
@@ -12166,8 +12042,6 @@
             let totalPrice = (p.costPrice || 0) * qty;
             let label = (p.productName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: p.date, desc: 'شراء: ' + label, debit: 0, credit: totalPrice });
-            let cashNow = BusinessLogic.merchantPurchaseCash(p);
-            if (cashNow > 0.005) rows.push({ date: p.date, desc: 'سداد فوري عند الشراء: ' + label, debit: cashNow, credit: 0 });
         });
         paymentsOut.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
@@ -12236,8 +12110,6 @@
             let totalPrice = (s.sellPrice || 0) * qty;
             let label = (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: s.date, desc: 'بيع: ' + label, debit: totalPrice, credit: 0 });
-            let cashNow = BusinessLogic.merchantSaleCash(s);
-            if (cashNow > 0.005) rows.push({ date: s.date, desc: 'سداد فوري عند البيع: ' + label, debit: 0, credit: cashNow });
         });
         payments.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount });
@@ -12247,8 +12119,6 @@
             let totalPrice = (p.costPrice || 0) * qty;
             let label = (p.productName || '') + (qty > 1 ? ' ×' + qty : '');
             rows.push({ date: p.date, desc: 'شراء: ' + label, debit: 0, credit: totalPrice });
-            let cashNow = BusinessLogic.merchantPurchaseCash(p);
-            if (cashNow > 0.005) rows.push({ date: p.date, desc: 'سداد فوري عند الشراء: ' + label, debit: cashNow, credit: 0 });
         });
         paymentsOut.forEach(p => {
             rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 });
@@ -12437,9 +12307,9 @@
     window.recordMerchantPurchase = async (merchantId) => {
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
-        let result = await showPaymentModal('شراء من ' + m.name + '\nأدخل سعر الشراء الإجمالي', '', '📥 شراء من تاجر');
-        if (!result || isNaN(result.amount) || result.amount <= 0) return;
-        let val = result.amount;
+        let result = await showNumberPromptModal('شراء من ' + m.name + '\nأدخل سعر الشراء الإجمالي', '', '📥 شراء من تاجر');
+        if (result === null || isNaN(result) || result <= 0) return;
+        let val = result;
 
         // Ask for product name
         let prodName = await showPromptModal('اسم المنتج المشترى من ' + m.name + ':', '', '🏷️ اسم المنتج');
@@ -12456,10 +12326,8 @@
 
         let purchaseResult = BusinessLogic.purchaseFromMerchant({
             merchantId: merchantId, productId: null, qty: qty,
-            costPrice: costPrice, accountId: result.accountId || null,
+            costPrice: costPrice, accountId: null,
             notes: 'شراء من ' + m.name, productName: prodName,
-            cashAmount: result.cashAmount || 0, bankAmount: result.bankAmount || 0,
-            cashAccountId: result.cashAccountId || null, bankAccountId: result.bankAccountId || null,
             date: new Date().toISOString()
         });
         if (!purchaseResult.success) { showToast('فشل الشراء: ' + purchaseResult.reason, 'error'); return; }
@@ -12667,10 +12535,10 @@
         if (qty < 1) qty = 1;
         if (p.stock < qty) { showToast('الرصيد غير كافٍ! الموجود: ' + p.stock + '، المطلوب: ' + qty, 'error'); return; }
 
-        // Show payment modal with price and account
+        // Show price prompt (البيع آجل بطبيعته — السداد يُسجَّل عبر «دفعة منه»)
         let totalVal = p.sellPrice * qty;
-        let result = await showPaymentModal('بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + '\nسعر القطعة: ' + p.sellPrice.toFixed(2) + ' ج\nالإجمالي: ' + totalVal.toFixed(2) + ' ج', totalVal.toString(), '💳 بيع لتاجر');
-        if (!result || isNaN(result.amount) || result.amount <= 0) return;
+        let enteredTotal = await showNumberPromptModal('بيع ' + qty + '× ' + p.name + ' إلى ' + m.name + '\nسعر القطعة: ' + p.sellPrice.toFixed(2) + ' ج\nالإجمالي: ' + totalVal.toFixed(2) + ' ج', totalVal, '💳 بيع لتاجر');
+        if (enteredTotal === null || isNaN(enteredTotal) || enteredTotal <= 0) return;
 
         // Ask for the responsible employee (commission)
         let empId = null;
@@ -12682,17 +12550,15 @@
         }
 
         // The price entered could be different from sellPrice (discount etc.)
-        let actualTotal = result.amount;
+        let actualTotal = enteredTotal;
 
         // Ask for notes
         let notes = await showPromptModal('ملاحظات (اختياري):', '', '📝 ملاحظات');
 
         let saleResult = BusinessLogic.sellToMerchant({
             merchantId: merchantId, productId: p.id, qty: qty,
-            accountId: result.accountId || null, employeeId: empId,
+            accountId: null, employeeId: empId,
             notes: notes?.trim() || '', actualTotal: actualTotal,
-            cashAmount: result.cashAmount || 0, bankAmount: result.bankAmount || 0,
-            cashAccountId: result.cashAccountId || null, bankAccountId: result.bankAccountId || null,
             date: new Date().toISOString()
         });
         if (!saleResult.success) { showToast('فشل البيع: ' + saleResult.reason, 'error'); return; }
@@ -12920,8 +12786,6 @@
                 let totalPrice = (s.sellPrice || 0) * qty;
                 let label = (s.deviceName || '') + (qty > 1 ? ' ×' + qty : '');
                 rows.push({ date: s.date, desc: 'بيع: ' + label, debit: totalPrice, credit: 0 });
-                let cashNow = BusinessLogic.merchantSaleCash(s);
-                if (cashNow > 0.005) rows.push({ date: s.date, desc: 'سداد فوري عند البيع: ' + label, debit: 0, credit: cashNow });
             });
             payments.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة', debit: 0, credit: p.amount }));
             purchases.forEach(p => {
@@ -12929,8 +12793,6 @@
                 let totalPrice = (p.costPrice || 0) * qty;
                 let label = (p.productName || '') + (qty > 1 ? ' ×' + qty : '');
                 rows.push({ date: p.date, desc: 'شراء: ' + label, debit: 0, credit: totalPrice });
-                let cashNow = BusinessLogic.merchantPurchaseCash(p);
-                if (cashNow > 0.005) rows.push({ date: p.date, desc: 'سداد فوري عند الشراء: ' + label, debit: cashNow, credit: 0 });
             });
             paymentsOut.forEach(p => rows.push({ date: p.date, desc: p.notes || 'دفعة له', debit: p.amount, credit: 0 }));
             rows.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));

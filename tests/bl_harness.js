@@ -441,7 +441,7 @@ test('مخزون: بيع نقدي', () => {
 
 test('مخزون: بيع لتاجر + عقد + عربون مطابقة كاملة', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   newInst();
   newArabon({ productId: 3, sellPrice: 8000, depositAmount: 1000, deviceName: 'Samsung A54' });
   const bad = D().products.filter(p => {
@@ -466,25 +466,25 @@ test('مخزون: حذف عقد بلا دفعات يعيد الكمية', () => 
 // ═══════════ 4) اختبارات التجار ═══════════
 test('تجار: بيع للتاجر ثم الرصيد', () => {
   factory.seed(BASE());
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(r.success, 'فشل البيع: ' + r.reason);
   let parts = BL.merchantBalanceParts(2);
   eq(parts.totalSales, 26000, 'إجمالي المبيعات');
-  eq(parts.saleCash, 26000, 'البيع يسدد فوراً بحركة خزينة (سلوك الواجهة الحالي)');
-  eq(parts.balance, 26000 + 0 - 26000 - 0, 'الرصيد بعد البيع المسدد');
+  eq(parts.saleCash, 0, 'البيع الآجل لا يُنشئ سداداً فورياً');
+  eq(parts.balance, 26000, 'الرصيد بعد البيع الآجل = كامل القيمة');
   ok(BL.merchantReconciliation(2).ok, 'المطابقة بعد البيع');
   const pay = BL.recordMerchantPaymentIn({ merchantId: 2, amount: 10000, accountId: 1, date: '2026-01-04T10:00:00.000Z' });
   ok(pay.success, 'فشل الدفعة: ' + pay.reason);
   parts = BL.merchantBalanceParts(2);
-  eq(parts.balance, -10000, 'رصيد دائن للتاجر بعد تحصيل زائد');
+  eq(parts.balance, 16000, 'الرصيد بعد تحصيل 10000');
   eq(parts.balance, parts.totalSales + parts.totalPaymentsOut - parts.totalPayments - parts.totalPurchases, 'معادلة الرصيد');
-  return 'رصيد -10000';
+  return 'رصيد 16000';
 });
 
 test('تجار: شراء من التاجر ودفعات', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const pay = BL.recordMerchantPaymentIn({ merchantId: 2, amount: 5000, accountId: 1, date: '2026-01-05T10:00:00.000Z' });
   ok(pay.success, 'فشل الدفعة: ' + pay.reason);
@@ -492,7 +492,7 @@ test('تجار: شراء من التاجر ودفعات', () => {
   ok(out.success, 'فشل الدفعة الصادرة: ' + out.reason);
   const parts = BL.merchantBalanceParts(2);
   eq(parts.totalPurchases, 500, 'المشتريات');
-  eq(parts.balance, -3000, 'الرصيد الصافي بعد الخصم والمشتريات والدفعتين');
+  eq(parts.balance, 22500, 'الرصيد الصافي بعد الخصم والمشتريات والدفعتين');
   eq(parts.balance, parts.totalSales + parts.totalPaymentsOut - parts.totalPayments - parts.totalPurchases, 'معادلة الرصيد');
   const rec = BL.merchantReconciliation(2);
   ok(rec.ok, 'المطابقة يجب أن تنجح: ' + JSON.stringify(rec.issues));
@@ -502,20 +502,22 @@ test('تجار: شراء من التاجر ودفعات', () => {
 test('تجار: منتجان بنفس الاسم بتكلفتين مختلفتين — التكلفة بالمعرف', () => {
   factory.seed(BASE());
   // بيع المنتج رقم 2 (تكلفة 9000) واسمه مطابق للمنتج رقم 1 (تكلفة 10500)
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 2, qty: 2, actualTotal: 24000, cashAmount: 24000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 2, qty: 2, actualTotal: 24000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(r.success, 'فشل البيع: ' + r.reason);
   const inc = computeIncomeStatement({ from: null, to: null });
   eq(inc.revenue, 24000, 'الإيراد');
   eq(inc.cogs, 18000, 'التكلفة = 9000 × 2 (منتج البيع نفسه)');
   eq(inc.grossProfit, 6000, 'إجمالي الربح');
-  const t = D().transactions.find(t => t.type === 'merchant_sale');
-  eq(calcTransactionProfit(t), 6000, 'ربح العملية للعمولة');
+  const sale = D().merchantSales[0];
+  eq(sale.unitCost, 9000, 'لقطة التكلفة من المنتج المباع');
+  const ms = D().merchantSales[0];
+  eq(calcTransactionProfit({ type: 'merchant_sale', amount: 24000, sourceId: ms.transactionId }), 6000, 'ربح العملية للعمولة');
   return 'COGS 18000 لا 21000';
 });
 
 test('تجار: سجل قديم بلا معرف وتكلفة من لقطة البيع', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   eq(d.merchantSales[0].unitCost, 10500, 'لقطة التكلفة محفوظة');
   // سجل قديم: بلا productId والاسم مكرر → لا يجوز اختيار تكلفة عشوائية
@@ -528,10 +530,10 @@ test('تجار: سجل قديم بلا معرف وتكلفة من لقطة ال�
 
 test('تجار: كشف المطابقة يكتشف قيداً مكرراً', () => {
   factory.seed(BASE());
-  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
-  ok(sale.success, 'فشل البيع: ' + sale.reason);
+  const pay = BL.recordMerchantPaymentIn({ merchantId: 2, amount: 5000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  ok(pay.success, 'فشل تسجيل الدفعة: ' + pay.reason);
   const d = D();
-  const dup = Object.assign({}, d.transactions.find(t => t.type === 'merchant_sale'));
+  const dup = Object.assign({}, d.transactions.find(t => t.type === 'payment_in'));
   dup.id = 'dup-1';
   factory.set('transactions', d.transactions.concat([dup]));
   const rec = BL.merchantReconciliation(2);
@@ -542,7 +544,7 @@ test('تجار: كشف المطابقة يكتشف قيداً مكرراً', () 
 
 test('تجار: كشف المطابقة يكتشف قيداً يتيماً', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   factory.set('transactions', d.transactions.concat([{
     id: 'orphan-1', type: 'merchant_sale', amount: 999, merchantId: 2,
@@ -554,35 +556,39 @@ test('تجار: كشف المطابقة يكتشف قيداً يتيماً', () 
   return rec.issues.map(i => i.code).join(',');
 });
 
-test('تجار: كشف المطابقة يكتشف سجلاً بلا قيد مالي', () => {
+test('تجار: كشف المطابقة يكتشف دفعة بلا قيد مالي', () => {
   factory.seed(BASE());
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const pay = BL.recordMerchantPaymentIn({ merchantId: 2, amount: 5000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  ok(pay.success, 'فشل تسجيل الدفعة: ' + pay.reason);
   const d = D();
-  factory.set('transactions', d.transactions.filter(t => !t.sourceId || !String(t.sourceId).startsWith(String(r.sourceId))));
+  const ids = pay.transactionIds || [];
+  factory.set('transactions', d.transactions.filter(t => !ids.includes(t.id)));
   const rec = BL.merchantReconciliation(2);
-  ok(rec.issues.some(i => i.code === 'MERCH_SALE_NO_TX'), 'كود السجل بلا قيد');
+  ok(rec.issues.some(i => i.code === 'MERCH_PAY_IN_NO_TX'), 'كود الدفعة بلا قيد');
   return rec.issues.map(i => i.code).join(',');
 });
 
-test('تجار: بيع مسدد جزئياً (سجل قديم) يظهر كذمة ويُبلَّغ عنه', () => {
+test('تجار: السداد الفوري القديم لا يدخل في رصيد التاجر ولا يُبلَّغ عنه كذمة', () => {
   factory.seed(BASE());
-  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(sale.success, 'فشل البيع: ' + sale.reason);
-  // محاكاة سجل قديم حُصّل منه 13000 فقط من أصل 26000
+  // محاكاة سجل قديم أنشأ قيد «سداد فوري» بمبلغ 13000 عند البيع
   const d = D();
-  factory.set('transactions', d.transactions.map(t =>
-    t.sourceType === 'merchant_sale' ? Object.assign({}, t, { amount: 13000 }) : t));
+  factory.set('transactions', d.transactions.concat([{
+    id: 'legacy-cash-1', type: 'merchant_sale', amount: 13000, merchantId: 2,
+    sourceType: 'merchant_sale', sourceId: String(sale.sourceId) + '_c', operationType: 'create',
+    date: '2026-01-03T10:00:00.000Z'
+  }]));
   const parts = BL.merchantBalanceParts(2);
-  eq(parts.balance, 13000, 'الرصيد يعكس النصف غير المسدد');
+  eq(parts.balance, 26000, 'الرصيد = كامل قيمة البيع الآجل');
   const rec = BL.merchantReconciliation(2);
-  eq(rec.ok, false, 'يجب الإبلاغ عن البيع غير المسدد');
-  ok(rec.issues.some(i => i.code === 'MERCH_SALE_UNSETTLED'), 'كود البيع غير المسدد');
-  return 'ذمة 13000';
+  eq(rec.ok, true, 'لا يُبلَّغ عن ذمة: ' + JSON.stringify(rec.issues));
+  return 'ذمة 26000 بلا سداد فوري';
 });
 
 test('تجار: المطابقة لا تعدّل أي رصيد تلقائياً', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   factory.set('transactions', d.transactions.concat([{
     id: 'orphan-2', type: 'merchant_sale', amount: 500, merchantId: 2,
@@ -703,7 +709,7 @@ test('فشل: تعديل عربون ثم إعادة المحاولة بلا تك
 // ═══════════ 6) تجار: تعديل وحذف بيع/شراء (ذرّي) ═══════════
 test('تجار: تعديل بيع ذرّي يضبط المخزون والحركة والقيد', () => {
   factory.seed(BASE());
-  const s = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const s = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(s.success, 'فشل البيع: ' + s.reason);
   eq(stockOf(1), 8, 'المخزون بعد البيع');
   const saleId = D().merchantSales[0].id;
@@ -718,15 +724,14 @@ test('تجار: تعديل بيع ذرّي يضبط المخزون والحرك�
   eq(mv.length, 1, 'حركة مخزون واحدة');
   eq(mv[0].qty, 3, 'كمية الحركة');
   const tx = d.transactions.filter(t => t.sourceType === 'merchant_sale');
-  eq(tx.length, 1, 'قيد مالي واحد');
-  eq(tx[0].amount, 42000, 'قيمة القيد');
+  eq(tx.length, 0, 'البيع الآجل لا يُنشئ قيداً مالياً');
   eq(stockMatchesMovements(1, 10), 7, 'مطابقة الحركات');
   return '3 × 14000';
 });
 
 test('تجار: تعديل بيع يفشل عند نقص المخزون بلا أي تغيير', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   const before = JSON.stringify(D());
   const r = BL.editMerchantSaleAtomic({ saleId, quantity: 20, sellPrice: 13000 });
@@ -738,7 +743,7 @@ test('تجار: تعديل بيع يفشل عند نقص المخزون بلا �
 
 test('تجار: تعديل بيع يتراجع عند فشل حركة المخزون', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   const before = JSON.stringify(D());
   const r = withBroken('addStockMovement', () => BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 }));
@@ -750,7 +755,7 @@ test('تجار: تعديل بيع يتراجع عند فشل حركة المخز
 
 test('تجار: حذف بيع يعيد الكمية مرة واحدة ويترك بيانات نظيفة', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   eq(stockOf(1), 8, 'قبل الحذف');
   const r = BL.deleteMerchantSaleAtomic(D().merchantSales[0].id);
   ok(r.success, 'فشل الحذف: ' + r.reason);
@@ -764,7 +769,7 @@ test('تجار: حذف بيع يعيد الكمية مرة واحدة ويترك
 
 test('تجار: تعديل شراء ذرّي يضبط المخزون والقيد', () => {
   factory.seed(BASE());
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const rec = D().merchantPurchases[0];
   const pid = rec.productId;
@@ -779,15 +784,14 @@ test('تجار: تعديل شراء ذرّي يضبط المخزون والقي�
   eq(mv.length, 1, 'حركة شراء واحدة');
   eq(mv[0].qty, 2, 'كمية الحركة');
   const tx = d.transactions.filter(t => t.sourceType === 'merchant_purchase');
-  eq(tx.length, 1, 'قيد واحد');
-  eq(tx[0].amount, 240, 'قيمة القيد');
+  eq(tx.length, 0, 'الشراء الآجل لا يُنشئ قيداً مالياً');
   eq(BL.merchantBalanceParts(2).totalPurchases, 240, 'المشتريات في الرصيد');
   return '5 → 2 بمبلغ 240';
 });
 
 test('تجار: حذف شراء مرفوض إذا نفد المخزون', () => {
   factory.seed(BASE());
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const rec = D().merchantPurchases[0];
   BL.sellCash({ productId: rec.productId, qty: 4, accountId: 1, date: '2026-01-05T10:00:00.000Z' });
@@ -801,15 +805,14 @@ test('تجار: حذف شراء مرفوض إذا نفد المخزون', () => 
 
 test('تجار: إعادة المحاولة بعد فشل تعديل البيع بلا تكرار', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   withBroken('addStockMovement', () => BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 }));
   const r = BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 });
   ok(r.success, 'إعادة المحاولة يجب أن تنجح: ' + r.reason);
   const d = D();
   eq(d.stockMovements.filter(m => m.sourceType === 'merchant_sale').length, 1, 'حركة واحدة');
-  eq(d.transactions.filter(t => t.sourceType === 'merchant_sale').length, 1, 'قيد واحد');
-  eq(d.transactions.find(t => t.sourceType === 'merchant_sale').amount, 42000, 'القيد محدّث مرة واحدة');
+  eq(d.transactions.filter(t => t.sourceType === 'merchant_sale').length, 0, 'لا قيود مالية للبيع الآجل');
   eq(stockOf(1), 7, 'خصم 3 فقط');
   return 'بلا تكرار';
 });
@@ -818,7 +821,7 @@ test('تجار: إعادة المحاولة بعد فشل تعديل البيع 
 test('تجار: شراء بـ productId يذهب للصنف الصحيح مع تكرار الاسم', () => {
   factory.seed(BASE());
   const s1 = stockOf(1), s2 = stockOf(2);
-  const r = BL.purchaseFromMerchant({ merchantId: 2, productId: 2, qty: 3, costPrice: 100, cashAmount: 300, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
+  const r = BL.purchaseFromMerchant({ merchantId: 2, productId: 2, qty: 3, costPrice: 100, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
   ok(r.success, 'فشل الشراء: ' + r.reason);
   eq(stockOf(2), s2 + 3, 'مخزون الصنف المطلوب');
   eq(stockOf(1), s1, 'الصنف الآخر بلا تغيير');
@@ -833,7 +836,7 @@ test('تجار: شراء بـ productId يذهب للصنف الصحيح مع ت
 test('تجار: شراء باسم مكرر بلا productId يُرفض بلا تغيير', () => {
   factory.seed(BASE());
   const before = JSON.stringify(D());
-  const r = BL.purchaseFromMerchant({ merchantId: 2, qty: 2, costPrice: 100, cashAmount: 200, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
+  const r = BL.purchaseFromMerchant({ merchantId: 2, qty: 2, costPrice: 100, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
   eq(r.success, false, 'يجب الرفض');
   eq(r.reason, 'ambiguous_product_name', 'سبب الرفض');
   eq(JSON.stringify(D()), before, 'لا تغيير في البيانات');
