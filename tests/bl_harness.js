@@ -441,7 +441,7 @@ test('مخزون: بيع نقدي', () => {
 
 test('مخزون: بيع لتاجر + عقد + عربون مطابقة كاملة', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   newInst();
   newArabon({ productId: 3, sellPrice: 8000, depositAmount: 1000, deviceName: 'Samsung A54' });
   const bad = D().products.filter(p => {
@@ -466,7 +466,7 @@ test('مخزون: حذف عقد بلا دفعات يعيد الكمية', () => 
 // ═══════════ 4) اختبارات التجار ═══════════
 test('تجار: بيع للتاجر ثم الرصيد', () => {
   factory.seed(BASE());
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(r.success, 'فشل البيع: ' + r.reason);
   let parts = BL.merchantBalanceParts(2);
   eq(parts.totalSales, 26000, 'إجمالي المبيعات');
@@ -483,8 +483,8 @@ test('تجار: بيع للتاجر ثم الرصيد', () => {
 
 test('تجار: شراء من التاجر ودفعات', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const pay = BL.recordMerchantPaymentIn({ merchantId: 2, amount: 5000, accountId: 1, date: '2026-01-05T10:00:00.000Z' });
   ok(pay.success, 'فشل الدفعة: ' + pay.reason);
@@ -502,7 +502,7 @@ test('تجار: شراء من التاجر ودفعات', () => {
 test('تجار: منتجان بنفس الاسم بتكلفتين مختلفتين — التكلفة بالمعرف', () => {
   factory.seed(BASE());
   // بيع المنتج رقم 2 (تكلفة 9000) واسمه مطابق للمنتج رقم 1 (تكلفة 10500)
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 2, qty: 2, actualTotal: 24000, date: '2026-01-03T10:00:00.000Z' });
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 2, qty: 2, actualTotal: 24000, cashAmount: 24000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(r.success, 'فشل البيع: ' + r.reason);
   const inc = computeIncomeStatement({ from: null, to: null });
   eq(inc.revenue, 24000, 'الإيراد');
@@ -515,7 +515,7 @@ test('تجار: منتجان بنفس الاسم بتكلفتين مختلفتي
 
 test('تجار: سجل قديم بلا معرف وتكلفة من لقطة البيع', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   eq(d.merchantSales[0].unitCost, 10500, 'لقطة التكلفة محفوظة');
   // سجل قديم: بلا productId والاسم مكرر → لا يجوز اختيار تكلفة عشوائية
@@ -528,7 +528,7 @@ test('تجار: سجل قديم بلا معرف وتكلفة من لقطة ال�
 
 test('تجار: كشف المطابقة يكتشف قيداً مكرراً', () => {
   factory.seed(BASE());
-  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(sale.success, 'فشل البيع: ' + sale.reason);
   const d = D();
   const dup = Object.assign({}, d.transactions.find(t => t.type === 'merchant_sale'));
@@ -542,7 +542,7 @@ test('تجار: كشف المطابقة يكتشف قيداً مكرراً', () 
 
 test('تجار: كشف المطابقة يكتشف قيداً يتيماً', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   factory.set('transactions', d.transactions.concat([{
     id: 'orphan-1', type: 'merchant_sale', amount: 999, merchantId: 2,
@@ -556,7 +556,7 @@ test('تجار: كشف المطابقة يكتشف قيداً يتيماً', () 
 
 test('تجار: كشف المطابقة يكتشف سجلاً بلا قيد مالي', () => {
   factory.seed(BASE());
-  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   factory.set('transactions', d.transactions.filter(t => !t.sourceId || !String(t.sourceId).startsWith(String(r.sourceId))));
   const rec = BL.merchantReconciliation(2);
@@ -566,7 +566,7 @@ test('تجار: كشف المطابقة يكتشف سجلاً بلا قيد ما
 
 test('تجار: بيع مسدد جزئياً (سجل قديم) يظهر كذمة ويُبلَّغ عنه', () => {
   factory.seed(BASE());
-  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  const sale = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(sale.success, 'فشل البيع: ' + sale.reason);
   // محاكاة سجل قديم حُصّل منه 13000 فقط من أصل 26000
   const d = D();
@@ -582,7 +582,7 @@ test('تجار: بيع مسدد جزئياً (سجل قديم) يظهر كذمة
 
 test('تجار: المطابقة لا تعدّل أي رصيد تلقائياً', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, cashAmount: 13000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const d = D();
   factory.set('transactions', d.transactions.concat([{
     id: 'orphan-2', type: 'merchant_sale', amount: 500, merchantId: 2,
@@ -703,7 +703,7 @@ test('فشل: تعديل عربون ثم إعادة المحاولة بلا تك
 // ═══════════ 6) تجار: تعديل وحذف بيع/شراء (ذرّي) ═══════════
 test('تجار: تعديل بيع ذرّي يضبط المخزون والحركة والقيد', () => {
   factory.seed(BASE());
-  const s = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  const s = BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   ok(s.success, 'فشل البيع: ' + s.reason);
   eq(stockOf(1), 8, 'المخزون بعد البيع');
   const saleId = D().merchantSales[0].id;
@@ -726,7 +726,7 @@ test('تجار: تعديل بيع ذرّي يضبط المخزون والحرك�
 
 test('تجار: تعديل بيع يفشل عند نقص المخزون بلا أي تغيير', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   const before = JSON.stringify(D());
   const r = BL.editMerchantSaleAtomic({ saleId, quantity: 20, sellPrice: 13000 });
@@ -738,7 +738,7 @@ test('تجار: تعديل بيع يفشل عند نقص المخزون بلا �
 
 test('تجار: تعديل بيع يتراجع عند فشل حركة المخزون', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   const before = JSON.stringify(D());
   const r = withBroken('addStockMovement', () => BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 }));
@@ -750,7 +750,7 @@ test('تجار: تعديل بيع يتراجع عند فشل حركة المخز
 
 test('تجار: حذف بيع يعيد الكمية مرة واحدة ويترك بيانات نظيفة', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   eq(stockOf(1), 8, 'قبل الحذف');
   const r = BL.deleteMerchantSaleAtomic(D().merchantSales[0].id);
   ok(r.success, 'فشل الحذف: ' + r.reason);
@@ -764,7 +764,7 @@ test('تجار: حذف بيع يعيد الكمية مرة واحدة ويترك
 
 test('تجار: تعديل شراء ذرّي يضبط المخزون والقيد', () => {
   factory.seed(BASE());
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const rec = D().merchantPurchases[0];
   const pid = rec.productId;
@@ -787,7 +787,7 @@ test('تجار: تعديل شراء ذرّي يضبط المخزون والقي�
 
 test('تجار: حذف شراء مرفوض إذا نفد المخزون', () => {
   factory.seed(BASE());
-  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
+  const p = BL.purchaseFromMerchant({ merchantId: 2, qty: 5, costPrice: 100, cashAmount: 500, accountId: 1, productName: 'جراب', date: '2026-01-04T10:00:00.000Z' });
   ok(p.success, 'فشل الشراء: ' + p.reason);
   const rec = D().merchantPurchases[0];
   BL.sellCash({ productId: rec.productId, qty: 4, accountId: 1, date: '2026-01-05T10:00:00.000Z' });
@@ -801,7 +801,7 @@ test('تجار: حذف شراء مرفوض إذا نفد المخزون', () => 
 
 test('تجار: إعادة المحاولة بعد فشل تعديل البيع بلا تكرار', () => {
   factory.seed(BASE());
-  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, date: '2026-01-03T10:00:00.000Z' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 2, actualTotal: 26000, cashAmount: 26000, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
   const saleId = D().merchantSales[0].id;
   withBroken('addStockMovement', () => BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 }));
   const r = BL.editMerchantSaleAtomic({ saleId, quantity: 3, sellPrice: 14000 });
@@ -818,7 +818,7 @@ test('تجار: إعادة المحاولة بعد فشل تعديل البيع 
 test('تجار: شراء بـ productId يذهب للصنف الصحيح مع تكرار الاسم', () => {
   factory.seed(BASE());
   const s1 = stockOf(1), s2 = stockOf(2);
-  const r = BL.purchaseFromMerchant({ merchantId: 2, productId: 2, qty: 3, costPrice: 100, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
+  const r = BL.purchaseFromMerchant({ merchantId: 2, productId: 2, qty: 3, costPrice: 100, cashAmount: 300, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
   ok(r.success, 'فشل الشراء: ' + r.reason);
   eq(stockOf(2), s2 + 3, 'مخزون الصنف المطلوب');
   eq(stockOf(1), s1, 'الصنف الآخر بلا تغيير');
@@ -833,7 +833,7 @@ test('تجار: شراء بـ productId يذهب للصنف الصحيح مع ت
 test('تجار: شراء باسم مكرر بلا productId يُرفض بلا تغيير', () => {
   factory.seed(BASE());
   const before = JSON.stringify(D());
-  const r = BL.purchaseFromMerchant({ merchantId: 2, qty: 2, costPrice: 100, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
+  const r = BL.purchaseFromMerchant({ merchantId: 2, qty: 2, costPrice: 100, cashAmount: 200, accountId: 1, productName: 'iPhone 13', date: '2026-01-04T10:00:00.000Z' });
   eq(r.success, false, 'يجب الرفض');
   eq(r.reason, 'ambiguous_product_name', 'سبب الرفض');
   eq(JSON.stringify(D()), before, 'لا تغيير في البيانات');
