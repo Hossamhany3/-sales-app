@@ -912,6 +912,116 @@ test('حسابات: منع رأس مال افتتاحي مع وجود أرصدة
   return 'مصدر واحد لرأس المال';
 });
 
+// ═══════════ 8) المرحلة الثانية: كود ثابت + قفل النوع + الأرشفة ═══════════
+test('حسابات: إسناد كود ثابت للحسابات القديمة دون تغيير الأكواد الصالحة', () => {
+  factory.seed(BASE());
+  factory.set('accounts', [
+    { id: 1, name: 'خزينة', type: 'cash', balance: 0 },
+    { id: 2, name: 'بنك', type: 'bank', balance: 0, code: 'ACC-007' },
+    { id: 3, name: 'محفظة', type: 'vodafone', balance: 0 }
+  ]);
+  const assigned = BL.ensureAccountCodes();
+  const accs = factory.get('accounts');
+  eq(assigned, 2, 'عدد الأكواد المُسندة');
+  eq(accs[0].code, 'ACC-008', 'أول حساب قديم يأخذ أكبر رقم + 1');
+  eq(accs[1].code, 'ACC-007', 'الكود الصالح لا يتغير');
+  eq(accs[2].code, 'ACC-009', 'الحساب التالي يكمل التسلسل');
+  eq(BL.nextAccountCode(), 'ACC-010', 'الكود التالي');
+  eq(BL.ensureAccountCodes(), 0, 'تشغيل الترحيل مرة ثانية لا يغيّر شيئًا');
+  return 'ACC-007 محفوظ + ACC-008/009 مُسندان';
+});
+
+test('حسابات: إصلاح الأكواد المكررة وعدم تكرارها', () => {
+  factory.seed(BASE());
+  factory.set('accounts', [
+    { id: 1, name: 'A', type: 'cash', balance: 0, code: 'acc-001' },
+    { id: 2, name: 'B', type: 'bank', balance: 0, code: 'ACC-001' },
+    { id: 3, name: 'C', type: 'bank', balance: 0, code: 'ACC-001' }
+  ]);
+  BL.ensureAccountCodes();
+  const accs = factory.get('accounts');
+  const codes = accs.map(a => a.code);
+  eq(codes[0], 'ACC-001', 'الكود الأول محفوظ ومطبّع');
+  eq(new Set(codes).size, 3, 'كل الأكواد فريدة');
+  eq(codes[1], 'ACC-002', 'المكرر الأول يُعاد إسناده');
+  eq(codes[2], 'ACC-003', 'المكرر الثاني يُعاد إسناده');
+  return codes.join(', ');
+});
+
+test('حسابات: قفل نوع الحساب بعد أول حركة', () => {
+  factory.seed(BASE());
+  factory.set('transactions', [
+    { id: 't1', type: 'sell_cash', amount: 100, accountId: 1, date: '2026-01-01T10:00:00.000Z' }
+  ]);
+  const locked = BL.validateAccount({ id: 1, name: 'الخزينة', type: 'bank', balance: 0 });
+  eq(locked.success, false, 'تغيير النوع مرفوض بعد الحركة');
+  eq(locked.reason, 'type_locked', 'سبب الرفض');
+  eq(locked.currentType, 'cash', 'النوع الحالي');
+  const sameType = BL.validateAccount({ id: 1, name: 'الخزينة', type: 'cash', balance: 0 });
+  eq(sameType.success, true, 'نفس النوع مسموح');
+  const rename = BL.validateAccount({ id: 1, name: 'الخزينة الرئيسية', type: 'cash', balance: 0 });
+  eq(rename.success, true, 'تغيير الاسم مسموح مع قفل النوع');
+  factory.set('transactions', []);
+  const free = BL.validateAccount({ id: 1, name: 'الخزينة', type: 'bank', balance: 0 });
+  eq(free.success, true, 'تغيير النوع مسموح قبل أي حركة');
+  return 'النوع مقفول بعد الحركة وحر قبلها';
+});
+
+test('حسابات: الأرشفة بدل الحذف مع حفظ التاريخ والرصيد الصفري', () => {
+  factory.seed(BASE());
+  factory.set('transactions', [
+    { id: 't1', type: 'sell_cash', amount: 100, accountId: 1, date: '2026-01-01T10:00:00.000Z' }
+  ]);
+  const nonZero = BL.archiveAccount(2);
+  eq(nonZero.success, true, 'حساب برصيد صفري يُؤرشف');
+  eq(BL.accountActivity(2), 0, 'لا حركات على الحساب الثاني');
+  const blocked = BL.archiveAccount(1);
+  eq(blocked.success, false, 'لا يُؤرشف حساب برصيد غير صفري');
+  eq(blocked.reason, 'nonzero_balance', 'سبب الرفض');
+  const acc1 = factory.get('accounts').find(a => a.id == 1);
+  eq(!!acc1.archived, false, 'الحساب غير المؤرشف بقي نشطًا');
+  const acc2 = factory.get('accounts').find(a => a.id == 2);
+  eq(acc2.archived, true, 'الحساب المؤرشف محفوظ في البيانات');
+  eq(typeof acc2.archivedAt, 'string', 'تاريخ الأرشفة مسجّل');
+  eq(BL.activeAccounts().length, 1, 'القوائم النشطة تستثني المؤرشف');
+  eq(BL.archivedAccounts().length, 1, 'قسم الأرشيف يعرضه');
+  eq(BL.defaultAccountId(), 1, 'الحساب الافتراضي لا يكون مؤرشفًا');
+  const restored = BL.restoreAccount(2);
+  eq(restored.success, true, 'الاستعادة تنجح');
+  eq(factory.get('accounts').find(a => a.id == 2).archived, false, 'عاد نشطًا');
+  return 'أرشفة/استعادة سليمة مع منع الرصيد غير الصفري';
+});
+
+test('حسابات: الأرشيف مع حركة محفوظة + قواعد الحذف النهائي', () => {
+  factory.seed(BASE());
+  factory.set('transactions', [
+    { id: 't1', type: 'sell_cash', amount: 100, accountId: 1, date: '2026-01-01T10:00:00.000Z' },
+    { id: 't2', type: 'expense', amount: 100, accountId: 1, date: '2026-01-02T10:00:00.000Z' }
+  ]);
+  eq(BL.accountActivity(1), 2, 'عدد الحركات المرتبطة');
+  eq(BL.archiveAccount(1).success, true, 'يُؤرشف رغم وجود حركات لأن رصيده صفر');
+  eq(BL.canPurgeAccount(1).success, false, 'الحذف النهائي ممنوع لوجود حركات');
+  eq(BL.canPurgeAccount(1).reason, 'has_activity', 'سبب منع الحذف');
+  eq(BL.archiveAccount(1).success, false, 'لا يُؤرشف مرتين');
+  eq(BL.canPurgeAccount(2).success, false, 'الحساب النشط لا يُحذف نهائيًا');
+  BL.restoreAccount(1);
+  return 'التاريخ محفوظ بعد الأرشفة';
+});
+
+test('حسابات: إعادة استخدام اسم حساب مؤرشف مسموحة مع منع تكرار النشط', () => {
+  factory.seed(BASE());
+  factory.set('accounts', [
+    { id: 1, name: 'بنك مصر', type: 'bank', balance: 0, archived: true, code: 'ACC-001' },
+    { id: 2, name: 'الخزينة', type: 'cash', balance: 0, archived: false, code: 'ACC-002' }
+  ]);
+  const reuse = BL.validateAccount({ id: null, name: 'بنك مصر', type: 'bank', balance: 0 });
+  eq(reuse.success, true, 'اسم حساب مؤرشف يمكن استخدامه من جديد');
+  const dup = BL.validateAccount({ id: null, name: 'الخزينة', type: 'cash', balance: 0 });
+  eq(dup.success, false, 'اسم حساب نشط لا يتكرر');
+  eq(dup.reason, 'duplicate_name', 'سبب الرفض');
+  return 'الأرشيف لا يحجز الأسماء';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;

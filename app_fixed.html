@@ -1799,6 +1799,10 @@
                 </div>
                 <form id="accountForm" style="display:none;">
                     <input type="hidden" id="accountId">
+                    <div class="form-group" id="accountCodeGroup" style="display:none;">
+                        <label>كود الحساب (ثابت)</label>
+                        <input type="text" id="accountCode" disabled placeholder="ACC-001">
+                    </div>
                     <div class="grid-2">
                         <div class="form-group">
                             <label>اسم الحساب</label>
@@ -1811,6 +1815,7 @@
                                 <option value="vodafone">📱 فودافون كاش</option>
                                 <option value="cash">💵 كاش (يدوي)</option>
                             </select>
+                            <div id="accountTypeLockMsg" class="text-xs text-muted" style="display:none;margin-top:4px;color:var(--danger);">🔒 النوع ثابت بعد أول حركة مالية على الحساب</div>
                         </div>
                     </div>
                     <div class="grid-2">
@@ -2662,9 +2667,9 @@
             document.getElementById('modalBankAmountInput').value = 0;
             document.getElementById('modalSplitTotal').textContent = total.toFixed(2) + ' ج';
             const cashAccSel = document.getElementById('modalSplitCashSelect');
-            cashAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
+            cashAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
             const bankAccSel = document.getElementById('modalSplitBankSelect');
-            bankAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'bank' || a.type === 'vodafone').map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
+            bankAccSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && (a.type === 'bank' || a.type === 'vodafone')).map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
             document.getElementById('modalAccountRow').style.display = 'none';
         } else {
             fields.classList.remove('show');
@@ -2693,7 +2698,7 @@
         return new Promise((resolve) => {
             _modalResolve = resolve;
             const accSel = document.getElementById('modalAccountSelect');
-            accSel.innerHTML = '<option value="">🏦 بدون حساب</option>' + accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+            accSel.innerHTML = '<option value="">🏦 بدون حساب</option>' + accounts.filter(a => !a.archived).map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
             document.getElementById('modalIcon').textContent = '💵';
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalMessage').textContent = message;
@@ -3497,9 +3502,10 @@
 
         // ─── الحساب الذي تستوعب إليه الحركات غير المسندة (أو المسندة لحساب محذوف) ───
         defaultAccountId() {
-            if (!accounts.length) return null;
-            const cash = accounts.find(a => a.type === 'cash');
-            return (cash || accounts[0]).id;
+            const active = this.activeAccounts();
+            if (!active.length) return null;
+            const cash = active.find(a => a.type === 'cash');
+            return (cash || active[0]).id;
         },
 
         // ─── رأس المال الافتتاحي الكلي: رأس المال في الإعدادات + أرصدة الافتتاح للحسابات ───
@@ -3517,7 +3523,70 @@
             });
         },
 
-        // ─── التحقق من مدخلات الحساب (اسم فريد + منع ازدواج رأس المال) ───
+        // ─── كود الحساب الثابت (يُولَّد مرة واحدة ولا يتغير بعد الإنشاء) ───
+        normalizeAccountCode(code) {
+            return String(code == null ? '' : code).trim().toUpperCase();
+        },
+
+        nextAccountCode() {
+            let max = 0;
+            accounts.forEach(a => {
+                const m = /^ACC-(\d+)$/.exec(this.normalizeAccountCode(a && a.code));
+                if (m) max = Math.max(max, parseInt(m[1], 10));
+            });
+            return 'ACC-' + String(max + 1).padStart(3, '0');
+        },
+
+        // يُسند أكوادًا للحسابات القديمة مرة واحدة فقط، ولا يغيّر أي كود صالح وفريد
+        ensureAccountCodes() {
+            const seen = new Set();
+            let max = 0;
+            let assigned = 0;
+            accounts.forEach(a => {
+                const m = /^ACC-(\d+)$/.exec(this.normalizeAccountCode(a && a.code));
+                if (m) max = Math.max(max, parseInt(m[1], 10));
+            });
+            accounts.forEach(a => {
+                if (!a) return;
+                const code = this.normalizeAccountCode(a.code);
+                if (/^ACC-\d+$/.test(code) && !seen.has(code)) {
+                    a.code = code;
+                    seen.add(code);
+                    return;
+                }
+                max += 1;
+                a.code = 'ACC-' + String(max).padStart(3, '0');
+                seen.add(a.code);
+                assigned += 1;
+            });
+            return assigned;
+        },
+
+        activeAccounts() { return accounts.filter(a => a && !a.archived); },
+        archivedAccounts() { return accounts.filter(a => a && a.archived); },
+
+        // ─── هل الحساب مستخدم في أي حركة أو ارتباط؟ (يمنع تغيير النوع بعد أول حركة) ───
+        accountActivity(accountId) {
+            const id = String(accountId);
+            const hit = v => v != null && v !== '' && String(v) === id;
+            let count = 0;
+            const scan = (arr) => {
+                if (!Array.isArray(arr)) return;
+                arr.forEach(r => {
+                    if (!r) return;
+                    if (hit(r.accountId) || hit(r.toAccountId) || hit(r.fromAccountId) || hit(r.cashAccountId) || hit(r.bankAccountId)) count += 1;
+                });
+            };
+            scan(transactions);
+            scan(merchantSales); scan(merchantPurchases);
+            scan(merchantPayments); scan(merchantPaymentsOut);
+            scan(installments); scan(arabonSales); scan(recurringExpenses);
+            return count;
+        },
+
+        accountHasActivity(accountId) { return this.accountActivity(accountId) > 0; },
+
+        // ─── التحقق من مدخلات الحساب (اسم فريد + قفل النوع + منع ازدواج رأس المال) ───
         validateAccount(opts) {
             const { id, name, type, balance } = opts || {};
             const editingId = (id != null && id !== '') ? parseInt(id) : null;
@@ -3527,10 +3596,15 @@
             const bal = this.toNum(balance);
             if (!isFinite(bal) || bal < 0) return { success: false, reason: 'invalid_balance' };
             const old = editingId != null ? accounts.find(a => a.id == editingId) : null;
+            if (old && old.archived) return { success: false, reason: 'archived' };
+            // النوع ثابت بعد أول حركة/ارتباط — منع التحويل بين كاش/بنك/فودافون بعدها
+            if (old && old.type !== type && this.accountHasActivity(editingId)) {
+                return { success: false, reason: 'type_locked', currentType: old.type, activity: this.accountActivity(editingId) };
+            }
             const norm = v => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase();
-            // منع تكرار الاسم عند الإضافة أو عند تغيير الاسم فعليًا
+            // منع تكرار الاسم بين الحسابات النشطة (المؤرشفة خارج القوائم فتُسمح إعادة استخدام اسمها)
             if (!(old && norm(old.name) === norm(nm))) {
-                const dup = accounts.find(a => a.id != editingId && norm(a.name) === norm(nm));
+                const dup = accounts.find(a => a.id != editingId && !a.archived && norm(a.name) === norm(nm));
                 if (dup) return { success: false, reason: 'duplicate_name', accountId: dup.id, accountName: dup.name };
             }
             // منع ازدواج رأس المال الافتتاحي: إعدادات رأس المال أو أرصدة افتتاح الحسابات — وليس الاثنان
@@ -3540,6 +3614,37 @@
                 if (bal !== oldBal) return { success: false, reason: 'double_opening', openingCapital: cap };
             }
             return { success: true, name: nm, balance: bal };
+        },
+
+        // ─── أرشفة حساب بدل حذفه (يحفظ التاريخ ويمنع اختفاء الأرصدة) ───
+        archiveAccount(accountId) {
+            const a = accounts.find(x => x.id == accountId);
+            if (!a) return { success: false, reason: 'not_found' };
+            if (a.archived) return { success: false, reason: 'already_archived' };
+            const bal = this.accountBalance(accountId);
+            if (Math.abs(bal) > 0.01) return { success: false, reason: 'nonzero_balance', balance: bal };
+            a.archived = true;
+            a.archivedAt = new Date().toISOString();
+            return { success: true, account: a, activity: this.accountActivity(accountId) };
+        },
+
+        restoreAccount(accountId) {
+            const a = accounts.find(x => x.id == accountId);
+            if (!a) return { success: false, reason: 'not_found' };
+            if (!a.archived) return { success: false, reason: 'not_archived' };
+            a.archived = false;
+            a.archivedAt = null;
+            return { success: true, account: a };
+        },
+
+        // الحذف النهائي مسموح فقط لحساب مؤرشف بلا أي حركة وبلا رصيد
+        canPurgeAccount(accountId) {
+            const a = accounts.find(x => x.id == accountId);
+            if (!a) return { success: false, reason: 'not_found' };
+            if (!a.archived) return { success: false, reason: 'not_archived' };
+            if (this.accountActivity(accountId) > 0) return { success: false, reason: 'has_activity' };
+            if (Math.abs(this.accountBalance(accountId)) > 0.01) return { success: false, reason: 'nonzero_balance' };
+            return { success: true };
         },
 
         // ─── التحقق من رأس المال الافتتاحي (منع ازدواجه مع أرصدة افتتاح الحسابات) ───
@@ -5847,6 +5952,13 @@
             return s;
         });
         if (!Array.isArray(auditLog)) { auditLog = []; changed = true; }
+        // ترحيل الحسابات: إضافة حالة الأرشفة + إسناد كود ثابت للحسابات القديمة مرة واحدة
+        accounts = accounts.map(a => {
+            if (!a || typeof a !== 'object') return a;
+            if (a.archived === undefined) { a.archived = false; changed = true; }
+            return a;
+        });
+        if (BusinessLogic.ensureAccountCodes() > 0) changed = true;
         employees = employees.map(em => {
             if (em.role === undefined) { em.role = 'admin'; changed = true; }
             if (em.pinHash === undefined) { em.pinHash = ''; changed = true; }
@@ -6569,8 +6681,9 @@
         const filteredProducts = filterList(activeProducts, '', ['name']);
         const prodOptions = '<option value="">-- اختر صنف --</option>' + filteredProducts.map(p => '<option value="' + p.id + '">' + p.name + ' (باقي ' + p.stock + ') - ' + p.sellPrice + ' ج</option>').join('');
         const merchOptions = '<option value="">-- بدون عميل/نقدي --</option>' + merchants.map(m => '<option value="' + m.id + '">' + m.name + '</option>').join('');
-        const accountOptions = '<option value="">اختر الحساب...</option>' + accounts.map(a => '<option value="' + a.id + '">' + a.name + ' (' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ')</option>').join('');
-        const accountOptionsNoEmpty = accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+        const activeAccs = accounts.filter(a => a && !a.archived);
+        const accountOptions = '<option value="">اختر الحساب...</option>' + activeAccs.map(a => '<option value="' + a.id + '">' + a.name + ' (' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ')' + (a.code ? ' - ' + a.code : '') + '</option>').join('');
+        const accountOptionsNoEmpty = activeAccs.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + (a.code ? ' [' + a.code + ']' : '') + '</option>').join('');
 
         // إعادة البناء مع الإبقاء على القيمة المختارة إن كانت لا تزال موجودة
         const setSel = (id, html) => {
@@ -6961,12 +7074,18 @@
         // E. ACCOUNT INTEGRITY + RECONCILIATION
         checkAccounts() {
             const accIds = {};
+            const accCodes = {};
             accounts.forEach(a => {
                 if (accIds[a.id]) this.addIssue('accounts','critical','Duplicate account ID: '+a.id,'',String(a.id),'id','Unique','Duplicate','ACC_DUPLICATE_ID');
                 accIds[a.id] = true;
                 if (typeof a.balance !== 'number' || isNaN(a.balance)) this.addIssue('accounts','high','Invalid balance: '+a.name,'Balance is '+a.balance, String(a.id),'balance','Number',String(a.balance),'ACC_INVALID_BALANCE');
                 if (!['cash','bank','vodafone'].includes(a.type)) this.addIssue('accounts','medium','Invalid account type: '+a.name,'Type: '+a.type, String(a.id),'type','cash|bank|vodafone',a.type,'ACC_INVALID_TYPE');
                 if (!a.name) this.addIssue('accounts','medium','Account #'+a.id+' has no name','',String(a.id),'name','Present','Missing','ACC_MISSING_NAME');
+                const code = BusinessLogic.normalizeAccountCode(a.code);
+                if (!code) this.addIssue('accounts','medium','حساب بلا كود ثابت: '+(a.name||('#'+a.id)),'سيُسند كود تلقائيًا عند التحميل',String(a.id),'code','ACC-###','Missing','ACC_MISSING_CODE');
+                else if (accCodes[code]) this.addIssue('accounts','high','تكرار كود الحساب: '+code,'الحسابان #'+accCodes[code]+' و #'+a.id, String(a.id),'code','Unique',code,'ACC_DUPLICATE_CODE');
+                else accCodes[code] = a.id;
+                if (a.archived && Math.abs(BusinessLogic.accountBalance(a.id)) > 0.01) this.addIssue('accounts','high','حساب مؤرشف برصيد غير صفري: '+(a.name||('#'+a.id)),'الرصيد '+BusinessLogic.accountBalance(a.id).toFixed(2)+' — استعده أو صحّحه',String(a.id),'archived','Zero balance','Non-zero','ACC_ARCHIVED_BALANCE');
             });
             transactions.forEach(t => {
                 if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('accounts','high','Orphan transaction account ref: #'+t.id,'Account #'+t.accountId+' missing', String(t.id),'accountId','Existing',String(t.accountId),'ACC_ORPHAN_REF');
@@ -9468,7 +9587,7 @@
 
             let sellTotal = p.sellPrice;
             let sellQty = 1;
-            let accOpts = '<option value="">💵 الخزينة</option>' + accounts.map(a => '<option value="' + a.id + '" ' + (a.id == p.accountId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+            let accOpts = '<option value="">💵 الخزينة</option>' + accounts.filter(a => !a.archived || a.id == p.accountId).map(a => '<option value="' + a.id + '" ' + (a.id == p.accountId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
 
             document.getElementById('modalIcon').textContent = '💵';
             document.getElementById('modalTitle').textContent = 'بيع من المخزن';
@@ -10162,7 +10281,7 @@
                     '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">📋 نوع الحركة:</strong>' + typeHtml + '</div>' +
                     '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">💰 المبلغ (ج.م):</strong><input type="number" id="editTransAmount" value="' + (t.amount || 0) + '" step="any" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
                     '<div style="margin-bottom:12px;"><strong style="display:block;margin-bottom:4px;">📅 التاريخ:</strong><input type="date" id="editTransDate" value="' + (t.date ? t.date.slice(0,10) : '') + '" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
-                    '<div style="margin-bottom:8px;"><strong style="display:block;margin-bottom:4px;">🏦 الحساب:</strong><select id="editTransAccount" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"><option value="">اختر الحساب...</option>' + accounts.map(a => '<option value="' + a.id + '" ' + (t.accountId == a.id ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('') + '</select></div>' +
+                    '<div style="margin-bottom:8px;"><strong style="display:block;margin-bottom:4px;">🏦 الحساب:</strong><select id="editTransAccount" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;background:var(--card-bg);color:var(--text-main);"><option value="">اختر الحساب...</option>' + accounts.filter(a => !a.archived || a.id == t.accountId).map(a => '<option value="' + a.id + '" ' + (t.accountId == a.id ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('') + '</select></div>' +
                     '<div style="margin-bottom:8px;"><strong style="display:block;margin-bottom:4px;">📝 الملاحظات:</strong><input type="text" id="editTransNotes" value="' + (t.notes || '').replace(/"/g, '&quot;') + '" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;"></div>' +
                 '</div>';
 
@@ -10985,7 +11104,7 @@
             html += '<div class="form-group"><label>💵 المبلغ</label><input type="number" step="any" id="payAmount-' + instId + '" value="' + remaining.toFixed(2) + '"></div>';
             html += '<div class="form-group"><label>📅 تاريخ الدفع</label><input type="date" id="payDate-' + instId + '" value="' + new Date().toISOString().split('T')[0] + '"></div>';
             html += '</div>';
-            html += '<div class="form-group"><label>🏦 الحساب (اختياري)</label><select id="payAccount-' + instId + '"><option value="">💵 بدون حساب</option>' + accounts.map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('') + '</select></div>';
+            html += '<div class="form-group"><label>🏦 الحساب (اختياري)</label><select id="payAccount-' + instId + '"><option value="">💵 بدون حساب</option>' + accounts.filter(a => !a.archived || a.id == inst.accountId).map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('') + '</select></div>';
             html += '<div class="split-toggle" onclick="instSplitToggle(' + instId + ')"><div class="split-check" id="paySplitCheck-' + instId + '">✓</div><span>💰💵 تقسيم كاش + بنك</span></div>';
             html += '<div class="split-fields" id="paySplitFields-' + instId + '">';
             html += '<label>💵 المبلغ كاش (خزينة)</label><input type="number" step="any" id="payCash-' + instId + '" oninput="instSplitSync(' + instId + ',\'cash\')">';
@@ -11006,9 +11125,9 @@
 
             // تعبئة قوائم تقسيم كاش/بنك
             const cashSel = document.getElementById('payCashSelect-' + instId);
-            cashSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
+            cashSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
             const bankSel = document.getElementById('payBankSelect-' + instId);
-            bankSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => a.type === 'bank' || a.type === 'vodafone').map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
+            bankSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && (a.type === 'bank' || a.type === 'vodafone')).map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -11609,7 +11728,7 @@
             let remaining = a.remainingAmount || 0;
             if (remaining <= 0) { showToast('لا يوجد متبقي', 'error'); return; }
             let mName = merchants.find(x => x.id == a.merchantId)?.name || 'عميل';
-            let accOpts = accounts.map(ac => '<option value="' + ac.id + '">' + (ac.type === 'bank' ? '🏦' : ac.type === 'vodafone' ? '📱' : '💵') + ' ' + ac.name + '</option>').join('');
+            let accOpts = accounts.filter(ac => !ac.archived).map(ac => '<option value="' + ac.id + '">' + (ac.type === 'bank' ? '🏦' : ac.type === 'vodafone' ? '📱' : '💵') + ' ' + ac.name + '</option>').join('');
 
             let html = '<div style="margin-bottom:12px;"><strong>العميل:</strong> ' + mName + '</div>' +
                 '<div style="margin-bottom:12px;"><strong>الجهاز:</strong> ' + (a.deviceName || '') + '</div>' +
@@ -11626,7 +11745,7 @@
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;">💵 المبلغ كاش (خزينة)</label>' +
                 '<input type="number" step="any" id="arabonSplitCash" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="window._syncArabonSplit(\'cash\')">' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">💵 الحساب المحصّل (كاش)</label>' +
-                '<select id="arabonSplitCashAccSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;">' + accounts.filter(ac => ac.type === 'cash').map(ac => '<option value="' + ac.id + '">💵 ' + ac.name + '</option>').join('') + '</select>' +
+                '<select id="arabonSplitCashAccSelect" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;">' + accounts.filter(ac => !ac.archived && ac.type === 'cash').map(ac => '<option value="' + ac.id + '">💵 ' + ac.name + '</option>').join('') + '</select>' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">🏦 المبلغ بنك / فودافون</label>' +
                 '<input type="number" step="any" id="arabonSplitBank" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);font-size:0.9rem;box-sizing:border-box;" oninput="window._syncArabonSplit(\'bank\')">' +
                 '<label style="display:block;font-weight:600;margin-bottom:4px;font-size:0.85rem;margin-top:8px;">🏦 الحساب البنكي / فودافون كاش</label>' +
@@ -13230,10 +13349,11 @@
             } catch(e) {}
         }
 
-        let filtered = [...accounts];
+        const archivedList = accounts.filter(a => a && a.archived);
+        let filtered = accounts.filter(a => a && !a.archived);
         filtered.sort((a, b) => a.name.localeCompare(b.name));
 
-        if (filtered.length === 0) {
+        if (filtered.length === 0 && archivedList.length === 0) {
             let debugInfo = '';
             try {
                 const lsCount = (JSON.parse(localStorage.getItem('accounts') || '[]')).length;
@@ -13268,8 +13388,12 @@
                 : '') +
         '</div>';
 
-        const pag = paginate(filtered, 'accounts');
-        let listHtml = '<div class="text-sm text-muted mb-2">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
+        let listHtml = '';
+        if (filtered.length === 0) {
+            listHtml = '<div class="empty-state" style="padding:20px;"><div class="empty-icon">🏦</div><div class="empty-text">لا توجد حسابات نشطة</div><div class="empty-sub">كل الحسابات مؤرشفة — يمكنك استعادتها من قسم الأرشيف أدناه</div></div>';
+        }
+        const pag = filtered.length ? paginate(filtered, 'accounts') : { start: 0, end: 0, total: 0, totalPages: 1, items: [] };
+        if (filtered.length) listHtml += '<div class="text-sm text-muted mb-2">عرض ' + (pag.start + 1) + '-' + pag.end + ' من ' + pag.total + '</div>';
         pag.items.forEach(a => {
             let bal = getAccountBalance(a);
             let typeIcon = a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵';
@@ -13280,7 +13404,10 @@
             '<div class="card" style="border-right:4px solid ' + (a.type === 'bank' ? 'var(--primary)' : a.type === 'vodafone' ? '#25D366' : 'var(--accent)') + ';padding:16px;">' +
                 '<div class="flex-between mb-2">' +
                     '<strong class="text-lg">' + typeIcon + ' ' + esc(a.name) + '</strong>' +
-                    '<span style="font-size:0.75rem;padding:3px 10px;border-radius:12px;background:' + (a.type === 'bank' ? 'var(--primary-light)' : a.type === 'vodafone' ? '#dcfce7' : '#fef3c7') + ';color:' + (a.type === 'bank' ? 'var(--primary)' : a.type === 'vodafone' ? '#16a34a' : '#d97706') + ';font-weight:600;">' + typeName + '</span>' +
+                    '<div class="flex gap-2" style="align-items:center;flex-wrap:wrap;justify-content:flex-end;">' +
+                        (a.code ? '<span style="font-size:0.72rem;padding:3px 8px;border-radius:8px;background:var(--background);border:1px solid var(--border);color:var(--text-muted);font-weight:700;direction:ltr;">' + esc(a.code) + '</span>' : '') +
+                        '<span style="font-size:0.75rem;padding:3px 10px;border-radius:12px;background:' + (a.type === 'bank' ? 'var(--primary-light)' : a.type === 'vodafone' ? '#dcfce7' : '#fef3c7') + ';color:' + (a.type === 'bank' ? 'var(--primary)' : a.type === 'vodafone' ? '#16a34a' : '#d97706') + ';font-weight:600;">' + typeName + '</span>' +
+                    '</div>' +
                 '</div>' +
                 '<div style="background:var(--background);border-radius:var(--radius-sm);padding:12px;margin:8px 0 12px;text-align:center;">' +
                     '<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">الرصيد الحالي</div>' +
@@ -13293,28 +13420,53 @@
                 '<div class="flex flex-wrap gap-2 pt-3 border-t">' +
                     '<button class="btn-sm flex-1" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;justify-content:center;" onclick="showAccountStatement(' + a.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> كشف حساب</button>' +
                     '<button class="btn-sm" style="background:#f59e0b;color:#fff;border:none;display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="transferBetweenAccounts(' + a.id + ')">🔄 تحويل</button>' +
-                    '<button class="btn-sm btn-outline flex-shrink-0" onclick="editAccount(' + a.id + ')">✏️</button>' +
-                    '<button class="btn-sm btn-danger flex-shrink-0" onclick="deleteAccount(' + a.id + ')">🗑️</button>' +
+                    '<button class="btn-sm btn-outline flex-shrink-0" onclick="editAccount(' + a.id + ')" title="تعديل">✏️</button>' +
+                    '<button class="btn-sm flex-shrink-0" style="background:#64748b;color:#fff;border:none;display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="archiveAccount(' + a.id + ')" title="أرشفة (بدل الحذف)">📦</button>' +
                 '</div>' +
             '</div>';
         });
-        const page = getPage('accounts');
-        listHtml += '<div class="pagination">';
-        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',0);renderAccounts()">‹‹</button>';
-        listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (page - 1) + ');renderAccounts()">‹</button>';
-        for (let i = Math.max(0, page - 2); i <= Math.min(pag.totalPages - 1, page + 2); i++) {
-            listHtml += '<button class="' + (i === page ? 'active' : '') + '" onclick="setPage(\'accounts\',' + i + ');renderAccounts()">' + (i + 1) + '</button>';
+        if (filtered.length) {
+            const page = getPage('accounts');
+            listHtml += '<div class="pagination">';
+            listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',0);renderAccounts()">‹‹</button>';
+            listHtml += '<button ' + (page <= 0 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (page - 1) + ');renderAccounts()">‹</button>';
+            for (let i = Math.max(0, page - 2); i <= Math.min(pag.totalPages - 1, page + 2); i++) {
+                listHtml += '<button class="' + (i === page ? 'active' : '') + '" onclick="setPage(\'accounts\',' + i + ');renderAccounts()">' + (i + 1) + '</button>';
+            }
+            listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (page + 1) + ');renderAccounts()">›</button>';
+            listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (pag.totalPages - 1) + ');renderAccounts()">››</button>';
+            listHtml += '</div>';
         }
-        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (page + 1) + ');renderAccounts()">›</button>';
-        listHtml += '<button ' + (page >= pag.totalPages - 1 ? 'disabled' : '') + ' onclick="setPage(\'accounts\',' + (pag.totalPages - 1) + ');renderAccounts()">››</button>';
-        listHtml += '</div>';
+
+        // قسم الأرشيف: الحسابات المؤرشفة تبقى قابلة للاستعادة والاطلاع على كشوفها
+        if (archivedList.length) {
+            const archRows = archivedList.slice().sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''))).map(a => {
+                const bal = getAccountBalance(a);
+                const typeName = a.type === 'bank' ? '🏦 بنك' : a.type === 'vodafone' ? '📱 فودافون كاش' : '💵 كاش';
+                const canPurge = BusinessLogic.accountActivity(a.id) === 0 && Math.abs(bal) <= 0.01;
+                return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border);">' +
+                    (a.code ? '<span style="font-size:0.72rem;padding:2px 7px;border-radius:7px;background:var(--background);border:1px solid var(--border);color:var(--text-muted);font-weight:700;direction:ltr;">' + esc(a.code) + '</span>' : '') +
+                    '<strong style="flex:1;min-width:120px;">' + esc(a.name) + '</strong>' +
+                    '<span class="text-sm text-muted">' + typeName + ' | ' + bal.toFixed(2) + ' ج</span>' +
+                    '<button class="btn-sm btn-outline" onclick="showAccountStatement(' + a.id + ')">📋 كشف</button>' +
+                    '<button class="btn-sm btn-success" onclick="restoreAccount(' + a.id + ')">↩️ استعادة</button>' +
+                    (canPurge ? '<button class="btn-sm btn-danger" onclick="purgeAccount(' + a.id + ')" title="حذف نهائي">🗑️</button>' : '') +
+                '</div>';
+            }).join('');
+            listHtml += '<details class="card" style="margin-top:16px;padding:12px 16px;">' +
+                '<summary style="cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;">📦 الحسابات المؤرشفة (' + archivedList.length + ')</summary>' +
+                '<div style="margin-top:8px;">' + archRows + '</div>' +
+            '</details>';
+        }
+
         container.innerHTML = totalHtml + listHtml;
     };
 
     window.transferBetweenAccounts = async (preselectedId) => {
-        if (accounts.length < 2) { showToast('يجب أن يكون لديك حسابان على الأقل للتحويل', 'error'); return; }
-        let srcOpts = accounts.map(a => '<option value="' + a.id + '" ' + (a.id == preselectedId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
-        let dstOpts = accounts.map(a => '<option value="' + a.id + '" ' + (a.id != preselectedId ? '' : 'disabled') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + '</option>').join('');
+        const activeAccs = BusinessLogic.activeAccounts();
+        if (activeAccs.length < 2) { showToast('يجب أن يكون لديك حسابان نشطان على الأقل للتحويل', 'error'); return; }
+        let srcOpts = activeAccs.map(a => '<option value="' + a.id + '" ' + (a.id == preselectedId ? 'selected' : '') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + (a.code ? ' [' + a.code + ']' : '') + '</option>').join('');
+        let dstOpts = activeAccs.map(a => '<option value="' + a.id + '" ' + (a.id != preselectedId ? '' : 'disabled') + '>' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + a.name + (a.code ? ' [' + a.code + ']' : '') + '</option>').join('');
 
         document.getElementById('modalIcon').textContent = '🔄';
         document.getElementById('modalTitle').textContent = 'تحويل بين الحسابات';
@@ -13375,40 +13527,109 @@
     window.editAccount = (id) => {
         let a = accounts.find(x => x.id == id);
         if (!a) return;
+        if (a.archived) { showToast('الحساب مؤرشف — استعده أولاً للتعديل', 'error'); return; }
         document.getElementById('accountId').value = a.id;
+        document.getElementById('accountCode').value = a.code || '';
+        document.getElementById('accountCodeGroup').style.display = '';
         document.getElementById('accountName').value = a.name;
         document.getElementById('accountType').value = a.type;
         document.getElementById('accountNumber').value = a.accountNumber || '';
         document.getElementById('accountBalance').value = a.balance || 0;
         document.getElementById('accountNotes').value = a.notes || '';
+        const locked = BusinessLogic.accountHasActivity(a.id);
+        const typeSel = document.getElementById('accountType');
+        typeSel.disabled = locked;
+        document.getElementById('accountTypeLockMsg').style.display = locked ? '' : 'none';
         document.querySelector('#accountForm button[type="submit"]').textContent = '💾 تحديث الحساب';
         setFormVisible('accountForm', 'accountToggleIcon', true);
     };
 
-    window.deleteAccount = async (id) => {
+    function resetAccountFormState() {
+        const typeSel = document.getElementById('accountType');
+        if (typeSel) typeSel.disabled = false;
+        const codeGroup = document.getElementById('accountCodeGroup');
+        if (codeGroup) codeGroup.style.display = 'none';
+        const codeInput = document.getElementById('accountCode');
+        if (codeInput) codeInput.value = '';
+        const lockMsg = document.getElementById('accountTypeLockMsg');
+        if (lockMsg) lockMsg.style.display = 'none';
+    }
+
+    // الأرشفة بدل الحذف: الحساب يبقى في البيانات وتاريخه محفوظ، ويخرج من القوائم النشطة فقط
+    window.archiveAccount = async (id) => {
         try {
             if (!requireAdmin()) return;
             let a = accounts.find(x => x.id == id);
             if (!a) return;
-            let used = transactions.some(t => t.accountId == id || t.toAccountId == id || t.fromAccountId == id);
-            let usedRec = recurringExpenses.some(r => r.accountId == id);
-            if (used || usedRec) {
-                showToast('لا يمكن حذف الحساب لوجود حركات مالية أو مصروفات متكررة مرتبطة به', 'error');
-                return;
-            }
+            if (a.archived) { showToast('الحساب مؤرشف بالفعل', 'error'); return; }
             let bal = BusinessLogic.toNum(BusinessLogic.accountBalance(id));
             if (Math.abs(bal) > 0.01) {
-                showToast('لا يمكن حذف حساب برصيد غير صفري (' + bal.toFixed(2) + ' ج). حوّل الرصيد أولاً', 'error');
+                showToast('لا يمكن أرشفة حساب برصيد غير صفري (' + bal.toFixed(2) + ' ج). حوّل الرصيد أولاً', 'error');
                 return;
             }
-            let ok = await showConfirmModal('حذف الحساب "' + a.name + '"?', '⚠️ حذف حساب');
+            let activity = BusinessLogic.accountActivity(id);
+            let ok = await showConfirmModal(
+                'أرشفة الحساب "' + a.name + '"؟' + (activity ? ' سيظل تاريخه (' + activity + ' حركة/ارتباط) محفوظًا ولن يظهر في القوائم الجديدة.' : ''),
+                '📦 أرشفة حساب'
+            );
+            if (!ok) return;
+            let res = BusinessLogic.archiveAccount(id);
+            if (!res.success) {
+                if (res.reason === 'nonzero_balance') showToast('لا يمكن أرشفة حساب برصيد غير صفري (' + res.balance.toFixed(2) + ' ج). حوّل الرصيد أولاً', 'error');
+                else showToast('تعذر أرشفة الحساب', 'error');
+                return;
+            }
+            if (document.getElementById('accountId').value == id) {
+                document.getElementById('accountForm').reset();
+                document.getElementById('accountId').value = '';
+                document.querySelector('#accountForm button[type="submit"]').textContent = '💾 إضافة الحساب';
+                resetAccountFormState();
+                setFormVisible('accountForm', 'accountToggleIcon', false);
+            }
+            saveData(); renderAccounts(); refreshSelectors(); renderDashboard();
+            logAudit('archive', 'حساب', a.code || a.id, 'أرشفة حساب ' + a.name + (activity ? ' (' + activity + ' حركة/ارتباط محفوظة)' : ''));
+            showToast('📦 تم أرشفة الحساب ' + a.name);
+        } catch (err) {
+            showError('حدث خطأ أثناء أرشفة الحساب', err.message);
+        }
+    };
+
+    window.restoreAccount = async (id) => {
+        try {
+            if (!requireAdmin()) return;
+            let a = accounts.find(x => x.id == id);
+            if (!a) return;
+            let res = BusinessLogic.restoreAccount(id);
+            if (!res.success) { showToast('تعذر استعادة الحساب', 'error'); return; }
+            saveData(); renderAccounts(); refreshSelectors(); renderDashboard();
+            logAudit('restore', 'حساب', a.code || a.id, 'استعادة حساب ' + a.name);
+            showToast('✅ تم استعادة الحساب ' + a.name);
+        } catch (err) {
+            showError('حدث خطأ أثناء استعادة الحساب', err.message);
+        }
+    };
+
+    // حذف نهائي اختياري: فقط لحساب مؤرشف بلا أي حركة وبلا رصيد (تنظيف الأخطاء)
+    window.purgeAccount = async (id) => {
+        try {
+            if (!requireAdmin()) return;
+            let a = accounts.find(x => x.id == id);
+            if (!a) return;
+            let chk = BusinessLogic.canPurgeAccount(id);
+            if (!chk.success) {
+                if (chk.reason === 'has_activity') showToast('لا يمكن الحذف النهائي — الحساب مرتبط بحركات محفوظة', 'error');
+                else if (chk.reason === 'nonzero_balance') showToast('لا يمكن الحذف النهائي — رصيد الحساب غير صفري', 'error');
+                else showToast('الحساب غير مؤهل للحذف النهائي', 'error');
+                return;
+            }
+            let ok = await showConfirmModal('حذف الحساب "' + a.name + '" نهائيًا؟ لا يمكن التراجع.', '⚠️ حذف نهائي');
             if (!ok) return;
             accounts = accounts.filter(x => x.id != id);
             saveData(); renderAccounts(); refreshSelectors();
-            logAudit('delete', 'حساب', id, 'حذف حساب ' + a.name);
-            showToast('تم حذف الحساب ' + a.name);
+            logAudit('delete', 'حساب', a.code || a.id, 'حذف نهائي لحساب مؤرشف بلا حركات: ' + a.name);
+            showToast('تم حذف الحساب نهائيًا: ' + a.name);
         } catch (err) {
-            showError('حدث خطأ أثناء حذف الحساب', err.message);
+            showError('حدث خطأ أثناء الحذف النهائي', err.message);
         }
     };
 
@@ -13429,6 +13650,8 @@
             if (!check.success) {
                 if (check.reason === 'duplicate_name') showToast('يوجد حساب بنفس الاسم بالفعل: ' + check.accountName, 'error');
                 else if (check.reason === 'double_opening') showToast('⚠️ رأس المال الافتتاحي مسجّل في الإعدادات (' + check.openingCapital.toFixed(2) + ' ج). استخدم إما رأس المال في الإعدادات أو أرصدة افتتاح الحسابات — وليس الاثنين', 'error');
+                else if (check.reason === 'type_locked') showToast('🔒 لا يمكن تغيير نوع الحساب بعد وجود ' + check.activity + ' حركة/ارتباط مالي. النوع الحالي: ' + check.currentType, 'error');
+                else if (check.reason === 'archived') showToast('الحساب مؤرشف — استعده أولاً للتعديل', 'error');
                 else if (check.reason === 'invalid_balance') showToast('الرصيد الافتتاحي لا يمكن أن يكون سالباً', 'error');
                 else if (check.reason === 'invalid_type') showToast('نوع الحساب غير صالح', 'error');
                 else showToast('أدخل اسم الحساب', 'error');
@@ -13438,28 +13661,34 @@
             balance = check.balance;
 
             if (editingId != null) {
-                let oldDetail = 'من "' + old.name + '" (' + old.type + ' | ' + (parseFloat(old.balance) || 0).toFixed(2) + ' ج)';
+                let oldDetail = 'من "' + old.name + '" [' + (old.code || '') + '] (' + old.type + ' | ' + (parseFloat(old.balance) || 0).toFixed(2) + ' ج)';
                 old.name = name;
                 old.type = type;
                 old.accountNumber = accountNumber;
                 old.balance = balance;
                 old.notes = notes;
-                logAudit('update', 'حساب', name, oldDetail + ' إلى "' + name + '" (' + type + ' | ' + balance.toFixed(2) + ' ج)');
+                // الكود ثابت: لا يُعاد توليده ولا يُستبدل عند التعديل
+                logAudit('update', 'حساب', old.code || name, oldDetail + ' إلى "' + name + '" [' + (old.code || '') + '] (' + type + ' | ' + balance.toFixed(2) + ' ج)');
             } else {
+                let newCode = BusinessLogic.nextAccountCode();
                 accounts.push({
                     id: Date.now(),
+                    code: newCode,
                     name: name,
                     type: type,
                     accountNumber: accountNumber,
                     balance: balance,
                     notes: notes,
+                    archived: false,
+                    archivedAt: null,
                     createdAt: new Date().toISOString()
                 });
-                logAudit('create', 'حساب', name, 'إضافة حساب ' + type + ' برصيد افتتاحي ' + balance.toFixed(2) + ' ج');
+                logAudit('create', 'حساب', newCode, 'إضافة حساب ' + newCode + ' - ' + name + ' (' + type + ') برصيد افتتاحي ' + balance.toFixed(2) + ' ج');
             }
             document.getElementById('accountForm').reset();
             document.getElementById('accountId').value = '';
             document.querySelector('#accountForm button[type="submit"]').textContent = '💾 إضافة الحساب';
+            resetAccountFormState();
             setFormVisible('accountForm', 'accountToggleIcon', false);
             saveData(); renderAccounts(); refreshSelectors();
             showToast('✅ تم ' + (editingId != null ? 'تحديث' : 'إضافة') + ' الحساب ' + name);
@@ -13511,6 +13740,7 @@
         '<div class="customer-statement-modal">' +
             '<div class="customer-statement-header">' +
                 '<div><h2 style="display:flex;align-items:center;gap:8px;">' + ASI.doc + ' كشف حساب: ' + typeIcon + ' ' + a.name + '</h2><div style="font-size:0.82rem;opacity:0.85;margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;">' +
+                    (a.code ? '🆔 ' + esc(a.code) + ' | ' : '') +
                     typeName +
                     (a.accountNumber ? ' | 🔢 ' + a.accountNumber : '') +
                     (a.notes ? ' | 📝 ' + a.notes : '') +
@@ -13578,6 +13808,7 @@
             '<div style="background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:16px;margin-bottom:20px;">' +
                 '<table style="width:100%;border-collapse:collapse;text-align:right;">' +
                     '<tr><td style="padding:6px 4px;"><strong>اسم الحساب:</strong> ' + a.name + '</td><td style="padding:6px 4px;"><strong>النوع:</strong> ' + typeName + '</td></tr>' +
+                    '<tr><td style="padding:6px 4px;"><strong>كود الحساب:</strong> ' + (a.code || '—') + '</td><td style="padding:6px 4px;"></td></tr>' +
                     (a.accountNumber ? '<tr><td style="padding:6px 4px;"><strong>رقم الحساب:</strong> ' + a.accountNumber + '</td><td style="padding:6px 4px;"></td></tr>' : '') +
                     (a.notes ? '<tr><td style="padding:6px 4px;" colspan="2"><strong>ملاحظات:</strong> ' + a.notes + '</td></tr>' : '') +
                 '</table>' +
