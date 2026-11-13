@@ -83,6 +83,8 @@ function refreshSelectors() {}
 function renderProducts() {}
 function renderTransactions() {}
 function renderDashboard() {}
+const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'purchase_return', 'installment_paid', 'arabon_paid'];
+const EXPENSE_TRANS_TYPES = ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'];
 ${blSrc}
 ${FN}
 return {
@@ -93,15 +95,17 @@ return {
     employees = d.employees || []; partners = [];
     transactions = []; installments = []; arabonSales = []; stockMovements = [];
     merchantSales = []; merchantPurchases = []; merchantPayments = []; merchantPaymentsOut = [];
-    auditLog = []; openingCapital = 0; __seq = 0;
+    auditLog = []; openingCapital = d.openingCapital || 0; __seq = 0;
   },
   dump() {
-    return JSON.parse(JSON.stringify({ products, merchants, transactions, installments, arabonSales, stockMovements, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, accounts }));
+    return JSON.parse(JSON.stringify({ products, merchants, transactions, installments, arabonSales, stockMovements, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, accounts, openingCapital }));
   },
   set(name, v) {
     if (name === 'transactions') transactions = v;
     else if (name === 'products') products = v;
     else if (name === 'merchantSales') merchantSales = v;
+    else if (name === 'accounts') accounts = v;
+    else if (name === 'openingCapital') openingCapital = v;
   },
   get(name) { return eval(name); }
 };
@@ -844,6 +848,68 @@ test('تجار: شراء باسم مكرر بلا productId يُرفض بلا ت
   ok(okr.success, 'الاسم الفريد يجب أن يعمل: ' + okr.reason);
   eq(D().products.filter(p => p.name === 'جراب فريد').length, 1, 'صنف جديد واحد');
   return 'رفض المكرر وقبول الفريد';
+});
+
+// ═══════════ 7) الحسابات: ضوابط المرحلة الأولى ═══════════
+test('حسابات: تحويل المبالغ النصية عند حساب الرصيد', () => {
+  factory.seed(BASE());
+  factory.set('transactions', [
+    { id: 's1', type: 'sell_cash', amount: '1500', accountId: 1, date: '2026-01-01T10:00:00.000Z' },
+    { id: 'e1', type: 'expense', amount: '500', accountId: 1, date: '2026-01-02T10:00:00.000Z' }
+  ]);
+  eq(BL.accountBalance(1), 1000, 'الرصيد بعد جمع/خصم نصوص رقمية');
+  return '1500 - 500 = 1000';
+});
+
+test('حسابات: أنواع التحصيل القديمة تُحتسب داخلًا', () => {
+  factory.seed(BASE());
+  factory.set('transactions', [
+    { id: 'old1', type: 'installment_paid', amount: 700, accountId: 1, date: '2026-01-01T10:00:00.000Z' },
+    { id: 'old2', type: 'arabon_paid', amount: 300, accountId: 2, date: '2026-01-02T10:00:00.000Z' }
+  ]);
+  eq(BL.accountBalance(1), 700, 'قسط قديم داخل الخزينة');
+  eq(BL.accountBalance(2), 300, 'عربون قديم داخل البنك');
+  eq(BL.liquidTotals().total, 1000, 'إجمالي السيولة يشمل النوعين');
+  return '700 + 300';
+});
+
+test('حسابات: منع ازدواج رأس المال عند إضافة/تعديل حساب', () => {
+  factory.seed(BASE());
+  factory.set('openingCapital', 10000);
+  const addWithSeed = BL.validateAccount({ id: null, name: 'حساب جديد', type: 'bank', balance: 5000 });
+  eq(addWithSeed.success, false, 'يجب رفض رصيد افتتاحي مع رأس مال مسجل');
+  eq(addWithSeed.reason, 'double_opening', 'سبب الرفض');
+  const addZero = BL.validateAccount({ id: null, name: 'حساب جديد', type: 'bank', balance: 0 });
+  eq(addZero.success, true, 'رصيد صفري مسموح');
+  const editSame = BL.validateAccount({ id: 1, name: 'الخزينة', type: 'cash', balance: 0 });
+  eq(editSame.success, true, 'تعديل بيانات حساب قائم دون تغيير رصيده مسموح');
+  return 'منع الازدواج';
+});
+
+test('حسابات: منع تكرار الاسم مع السماح بتعديل حساب قائم بنفس اسمه', () => {
+  factory.seed(BASE());
+  const dup = BL.validateAccount({ id: null, name: ' البنك ', type: 'bank', balance: 0 });
+  eq(dup.success, false, 'يجب رفض الاسم المكرر');
+  eq(dup.reason, 'duplicate_name', 'سبب الرفض');
+  const renameDup = BL.validateAccount({ id: 1, name: 'البنك', type: 'cash', balance: 0 });
+  eq(renameDup.success, false, 'يجب رفض إعادة التسمية لاسم موجود');
+  const keep = BL.validateAccount({ id: 1, name: 'الخزينة', type: 'cash', balance: 0 });
+  eq(keep.success, true, 'الإبقاء على الاسم نفسه مسموح');
+  const renameOk = BL.validateAccount({ id: 1, name: 'الخزينة الرئيسية', type: 'cash', balance: 0 });
+  eq(renameOk.success, true, 'اسم جديد غير مكرر مسموح');
+  return 'اسم فريد';
+});
+
+test('حسابات: منع رأس مال افتتاحي مع وجود أرصدة افتتاح حسابات', () => {
+  factory.seed(BASE());
+  factory.set('accounts', [{ id: 1, name: 'الخزينة', type: 'cash', balance: 5000 }]);
+  const blocked = BL.validateOpeningCapital(10000);
+  eq(blocked.success, false, 'يجب رفض رأس المال مع وجود أرصدة افتتاح');
+  eq(blocked.reason, 'double_opening', 'سبب الرفض');
+  eq(BL.validateOpeningCapital(0).success, true, 'تصفير رأس المال مسموح');
+  factory.set('accounts', [{ id: 1, name: 'الخزينة', type: 'cash', balance: 0 }]);
+  eq(BL.validateOpeningCapital(10000).success, true, 'رأس مال بدون أرصدة افتتاح مسموح');
+  return 'مصدر واحد لرأس المال';
 });
 
 // ─────────── التقرير ───────────

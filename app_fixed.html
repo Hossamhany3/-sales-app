@@ -2944,7 +2944,9 @@
     }
 
     // أنواع الحركات الداخلة والخارجة (مصدر واحد لكل الحسابات)
-    const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'purchase_return'];
+    // installment_paid / arabon_paid: أنواع قديمة للتحصيل — تُحتسب داخلًا حتى لا تُفقد أرصدة قديمة.
+    // opening_balance: لا تُحتسب هنا لأن رصيد الافتتاح يُخزَّن على الحساب نفسه (منع الازدواج).
+    const INCOME_TRANS_TYPES = ['sell_cash', 'payment_in', 'sell', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'purchase_return', 'installment_paid', 'arabon_paid'];
     const EXPENSE_TRANS_TYPES = ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'];
 
     // ====== تشفير كلمة المرور (SHA-256 + Salt) ======
@@ -3515,13 +3517,50 @@
             });
         },
 
+        // ─── التحقق من مدخلات الحساب (اسم فريد + منع ازدواج رأس المال) ───
+        validateAccount(opts) {
+            const { id, name, type, balance } = opts || {};
+            const editingId = (id != null && id !== '') ? parseInt(id) : null;
+            const nm = String(name == null ? '' : name).trim().replace(/\s+/g, ' ');
+            if (!nm) return { success: false, reason: 'invalid_name' };
+            if (!['cash', 'bank', 'vodafone'].includes(type)) return { success: false, reason: 'invalid_type' };
+            const bal = this.toNum(balance);
+            if (!isFinite(bal) || bal < 0) return { success: false, reason: 'invalid_balance' };
+            const old = editingId != null ? accounts.find(a => a.id == editingId) : null;
+            const norm = v => String(v == null ? '' : v).trim().replace(/\s+/g, ' ').toLowerCase();
+            // منع تكرار الاسم عند الإضافة أو عند تغيير الاسم فعليًا
+            if (!(old && norm(old.name) === norm(nm))) {
+                const dup = accounts.find(a => a.id != editingId && norm(a.name) === norm(nm));
+                if (dup) return { success: false, reason: 'duplicate_name', accountId: dup.id, accountName: dup.name };
+            }
+            // منع ازدواج رأس المال الافتتاحي: إعدادات رأس المال أو أرصدة افتتاح الحسابات — وليس الاثنان
+            const cap = this.toNum(openingCapital);
+            if (bal > 0 && cap > 0) {
+                const oldBal = old ? this.toNum(old.balance) : 0;
+                if (bal !== oldBal) return { success: false, reason: 'double_opening', openingCapital: cap };
+            }
+            return { success: true, name: nm, balance: bal };
+        },
+
+        // ─── التحقق من رأس المال الافتتاحي (منع ازدواجه مع أرصدة افتتاح الحسابات) ───
+        validateOpeningCapital(amount) {
+            const amt = this.toNum(amount);
+            if (!isFinite(amt) || amt < 0) return { success: false, reason: 'invalid_amount' };
+            const seedAccounts = accounts.reduce((s, a) => s + this.toNum(a.balance), 0);
+            if (amt > 0 && seedAccounts > 0 && this.toNum(openingCapital) === 0) {
+                return { success: false, reason: 'double_opening', seedAccounts };
+            }
+            return { success: true, amount: amt, seedAccounts, warning: amt > 0 && seedAccounts > 0 };
+        },
+
         // ─── رصيد حساب من المعاملات ───
         accountBalance(accountId) {
             let acc = accounts.find(a => a.id == accountId);
             let balance = (acc && parseFloat(acc.balance)) || 0;
             this.accountTransactions(accountId).forEach(t => {
-                if (INCOME_TRANS_TYPES.includes(t.type)) balance += t.amount;
-                if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= t.amount;
+                const amt = this.toNum(t && t.amount);
+                if (INCOME_TRANS_TYPES.includes(t.type)) balance += amt;
+                if (EXPENSE_TRANS_TYPES.includes(t.type)) balance -= amt;
             });
             return balance;
         },
@@ -6860,6 +6899,7 @@
             transactions.forEach(t => {
                 if (t.amount == null || isNaN(t.amount)) { this.addIssue('transactions','critical','Transaction has invalid amount','Amount is NaN or null',String(t.id),'amount','Number',String(t.amount),'TX_INVALID_AMOUNT'); return; }
                 if (t.amount < 0 && !['sale_return','purchase_return','partner_withdrawal','transfer_out','payment_out','expense'].includes(t.type)) this.addIssue('transactions','medium','Negative amount on '+t.type,'Unexpected negative',String(t.id),'amount','Positive',String(t.amount),'TX_NEGATIVE_AMOUNT');
+                if (t.type === 'opening_balance') this.addIssue('transactions','medium','قيد رصيد افتتاحي قديم غير محتسب في السيولة','رصيد الافتتاح يُسجَّل على الحساب نفسه — راجع/ارحّل هذا القيد يدويًا',String(t.id),'type','Opening balance on account',String(t.type),'TX_OPENING_BALANCE_LEGACY');
                 if (t.type && !this._VALID_TYPES.includes(t.type)) this.addIssue('transactions','high','Unknown transaction type: "'+t.type+'"','Type not in valid list', String(t.id), 'type', 'Known type', t.type,'TX_UNKNOWN_TYPE');
                 if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('transactions','high','Transaction refs missing account','Account #'+t.accountId+' not found',String(t.id),'accountId','Existing account','Missing','TX_MISSING_ACCOUNT');
                 if (t.productId && !products.find(p => p.id == t.productId)) this.addIssue('transactions','medium','Transaction refs missing product','Product #'+t.productId, String(t.id),'productId','Existing product','Missing','TX_MISSING_PRODUCT');
@@ -7146,8 +7186,8 @@
             // (4) تنبيه: رأس المال في الإعدادات + أرصدة الافتتاح للحسابات قد يكون مضاعفة لنفس المال
             const seedAccounts = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
             if ((parseFloat(openingCapital) || 0) > 0 && seedAccounts > 0) {
-                this.addIssue('accounts','low','رأس المال الافتتاحي مضاف مرتين',
-                    'رأس المال في الإعدادات: '+(parseFloat(openingCapital)||0).toFixed(2)+' + أرصدة افتتاح الحسابات: '+seedAccounts.toFixed(2),
+                this.addIssue('accounts','high','رأس المال الافتتاحي مسجّل في مكانين (ازدواج)',
+                    'رأس المال في الإعدادات: '+(parseFloat(openingCapital)||0).toFixed(2)+' + أرصدة افتتاح الحسابات: '+seedAccounts.toFixed(2)+' — استخدم أحدهما فقط',
                     '', 'openingCapital', 'أحدهما فقط', ((parseFloat(openingCapital)||0) + seedAccounts).toFixed(2), 'ACC_DOUBLE_OPENING');
             }
         },
@@ -9620,13 +9660,30 @@
         try {
             let val = parseFloat(document.getElementById('capitalInput').value);
             if (isNaN(val) || val < 0) { showToast('أدخل مبلغاً صحيحاً', 'error'); return; }
-            openingCapital = val;
+            let check = BusinessLogic.validateOpeningCapital(val);
+            if (!check.success) {
+                if (check.reason === 'double_opening') {
+                    showToast('⚠️ يوجد أرصدة افتتاحية في الحسابات (' + check.seedAccounts.toFixed(2) + ' ج). استخدم إما رأس المال في الإعدادات أو أرصدة افتتاح الحسابات — وليس الاثنين', 'error');
+                } else {
+                    showToast('أدخل مبلغاً صحيحاً', 'error');
+                }
+                return;
+            }
+            let oldCapital = parseFloat(openingCapital) || 0;
+            openingCapital = check.amount;
             localStorage.setItem('openingCapital', String(openingCapital));
             document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
+            if (oldCapital !== openingCapital) {
+                logAudit('update', 'رأس المال', 'openingCapital', 'من ' + oldCapital.toFixed(2) + ' ج إلى ' + openingCapital.toFixed(2) + ' ج');
+            }
             saveData();
             renderTransactions();
             renderDashboard();
-            showToast('✅ تم حفظ رأس المال: ' + openingCapital.toLocaleString() + ' ج');
+            if (check.warning) {
+                showToast('تم الحفظ مع تنبيه: يوجد أرصدة افتتاحية في الحسابات (ازدواج محتمل لرأس المال)', 'error');
+            } else {
+                showToast('✅ تم حفظ رأس المال: ' + openingCapital.toLocaleString() + ' ج');
+            }
         } catch (err) {
             showError('حدث خطأ أثناء الحفظ', err.message);
         }
@@ -13363,18 +13420,31 @@
             let accountNumber = document.getElementById('accountNumber').value.trim();
             let balance = parseFloat(document.getElementById('accountBalance').value) || 0;
             let notes = document.getElementById('accountNotes').value.trim();
-            if (!name) { showToast('أدخل اسم الحساب', 'error'); return; }
-
             let id = document.getElementById('accountId').value;
-            if (id) {
-                let idx = accounts.findIndex(x => x.id == parseInt(id));
-                if (idx >= 0) {
-                    accounts[idx].name = name;
-                    accounts[idx].type = type;
-                    accounts[idx].accountNumber = accountNumber;
-                    accounts[idx].balance = balance;
-                    accounts[idx].notes = notes;
-                }
+            let editingId = id ? parseInt(id) : null;
+            let old = editingId != null ? accounts.find(x => x.id == editingId) : null;
+            if (editingId != null && !old) { showToast('الحساب غير موجود', 'error'); return; }
+
+            let check = BusinessLogic.validateAccount({ id: editingId, name: name, type: type, balance: balance });
+            if (!check.success) {
+                if (check.reason === 'duplicate_name') showToast('يوجد حساب بنفس الاسم بالفعل: ' + check.accountName, 'error');
+                else if (check.reason === 'double_opening') showToast('⚠️ رأس المال الافتتاحي مسجّل في الإعدادات (' + check.openingCapital.toFixed(2) + ' ج). استخدم إما رأس المال في الإعدادات أو أرصدة افتتاح الحسابات — وليس الاثنين', 'error');
+                else if (check.reason === 'invalid_balance') showToast('الرصيد الافتتاحي لا يمكن أن يكون سالباً', 'error');
+                else if (check.reason === 'invalid_type') showToast('نوع الحساب غير صالح', 'error');
+                else showToast('أدخل اسم الحساب', 'error');
+                return;
+            }
+            name = check.name;
+            balance = check.balance;
+
+            if (editingId != null) {
+                let oldDetail = 'من "' + old.name + '" (' + old.type + ' | ' + (parseFloat(old.balance) || 0).toFixed(2) + ' ج)';
+                old.name = name;
+                old.type = type;
+                old.accountNumber = accountNumber;
+                old.balance = balance;
+                old.notes = notes;
+                logAudit('update', 'حساب', name, oldDetail + ' إلى "' + name + '" (' + type + ' | ' + balance.toFixed(2) + ' ج)');
             } else {
                 accounts.push({
                     id: Date.now(),
@@ -13385,13 +13455,14 @@
                     notes: notes,
                     createdAt: new Date().toISOString()
                 });
+                logAudit('create', 'حساب', name, 'إضافة حساب ' + type + ' برصيد افتتاحي ' + balance.toFixed(2) + ' ج');
             }
             document.getElementById('accountForm').reset();
             document.getElementById('accountId').value = '';
             document.querySelector('#accountForm button[type="submit"]').textContent = '💾 إضافة الحساب';
             setFormVisible('accountForm', 'accountToggleIcon', false);
             saveData(); renderAccounts(); refreshSelectors();
-            showToast('✅ تم ' + (id ? 'تحديث' : 'إضافة') + ' الحساب ' + name);
+            showToast('✅ تم ' + (editingId != null ? 'تحديث' : 'إضافة') + ' الحساب ' + name);
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
