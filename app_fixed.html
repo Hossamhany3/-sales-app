@@ -1866,6 +1866,7 @@
                     <button class="tab-btn" data-tab="tabStatement" onclick="switchReportTab('tabStatement')">📋 كشف الحساب العام</button>
                     <button class="tab-btn" data-tab="tabCommissions" onclick="switchReportTab('tabCommissions')">🧑‍💼 تقرير العمولات</button>
                     <button class="tab-btn" data-tab="tabAuditLog" onclick="switchReportTab('tabAuditLog')">📋 سجل التدقيق</button>
+                    <button class="tab-btn" data-tab="tabCoA" onclick="switchReportTab('tabCoA')">📚 شجرة الحسابات</button>
                 </div>
 
                 <!-- P&L -->
@@ -2070,6 +2071,18 @@
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="exportAuditLogCSV()">📎 CSV</button>
                     </div>
                     <div id="auditLogContent"></div>
+                </div>
+
+                <!-- شجرة الحسابات وميزان المراجعة -->
+                <div id="tabCoA" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:4px;">📚 شجرة الحسابات وميزان المراجعة</h3>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">ميزان مراجعة تراكمي مبني على نفس محركات التقارير. أي فرق لا تفسره البيانات يظهر صراحةً في سطر «فروق غير مفسرة» بدل إخفائه.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="renderChartOfAccounts()">🔄 تحديث</button>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="printChartOfAccounts()">🖨️ طباعة / PDF</button>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="exportChartOfAccountsCSV()">📎 CSV</button>
+                    </div>
+                    <div id="coaContent"></div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -3645,6 +3658,182 @@
             if (this.accountActivity(accountId) > 0) return { success: false, reason: 'has_activity' };
             if (Math.abs(this.accountBalance(accountId)) > 0.01) return { success: false, reason: 'nonzero_balance' };
             return { success: true };
+        },
+
+        // ─── طرف حساب في شجرة الحسابات: يتحول تلقائيًا إلى مدين/دائن حسب الإشارة ───
+        coaLeaf(parent, code, name, debit, credit) {
+            const d = Math.max(this.toNum(debit), 0);
+            const c = Math.max(this.toNum(credit), 0);
+            const net = d - c;
+            return { parent, code, name, debit: net > 0 ? net : 0, credit: net < 0 ? -net : 0, balance: net };
+        },
+
+        // ─── شجرة حسابات رسمية (5 مجموعات / 3 مستويات) + ميزان مراجعة تحليلي ───
+        // الميزان مشتق من نفس محركات التقارير (السيولة، المخزون، الذمم، قائمة الدخل)
+        // أي فرق لا تفسره البيانات يظهر كسطر «فروق غير مفسرة» بدل إخفائه.
+        buildTrialBalance() {
+            const inc = computeIncomeStatement({ from: null, to: null });
+            const liq = this.liquidTotals();
+            const stock = this.stockValue();
+            const custRecv = this.receivablesTotal();
+
+            let mRecv = 0, mPay = 0;
+            merchants.forEach(m => {
+                const b = this.merchantBalanceParts(m.id).balance;
+                if (b > 0) mRecv += b;
+                else if (b < 0) mPay += -b;
+            });
+
+            // رأس المال الكلي = رأس المال في الإعدادات + أرصدة افتتاح الحسابات
+            const capital = this.openingLiquid();
+            // الجزء النقدي في الإعدادات فقط — أرصدة افتتاح الحسابات تظهر بالفعل داخل أرصدة الحسابات نفسها
+            const settingsCapital = this.toNum(openingCapital);
+            const partner = partners.reduce((s, p) => s + this.toNum(p.balance), 0);
+            const otherIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + this.toNum(t.amount), 0);
+            const salesRevenue = this.toNum(inc.revenue) - otherIncome;
+
+            const leaves = [];
+            const push = (parent, code, name, debit, credit) => leaves.push(this.coaLeaf(parent, code, name, debit, credit));
+
+            // 111/112/113: حسابات السيولة الفعلية (كاش/بنك/فودافون) + رأس المال النقدي الافتتاحي
+            accounts.forEach(a => {
+                if (!a) return;
+                const bal = this.accountBalance(a.id);
+                if (Math.abs(bal) < 0.01) return;
+                const parent = a.type === 'bank' ? '112' : a.type === 'vodafone' ? '113' : '111';
+                push(parent, a.code || ('ACC-' + a.id), a.name, bal > 0 ? bal : 0, bal < 0 ? -bal : 0);
+            });
+            if (Math.abs(settingsCapital) >= 0.01) push('111', 'CAP-CASH', 'رأس المال الافتتاحي النقدي', settingsCapital > 0 ? settingsCapital : 0, settingsCapital < 0 ? -settingsCapital : 0);
+
+            // حماية: أي سيولة غير مسندة لأي حساب تظهر كسطر مستقل بدل أن تُفقد
+            const leafLiq = leaves.filter(l => ['111', '112', '113'].includes(l.parent)).reduce((s, l) => s + l.balance, 0);
+            const unallocated = this.toNum(liq.total) - leafLiq;
+            if (Math.abs(unallocated) >= 0.01) push('111', '111-UNALLOC', 'حركات سيولة غير مسندة', unallocated > 0 ? unallocated : 0, unallocated < 0 ? -unallocated : 0);
+
+            // 114/115/116: أصول أخرى
+            push('114', '114-INV', 'المخزون (بالتكلفة)', stock > 0 ? stock : 0, stock < 0 ? -stock : 0);
+            push('115', '115-AR', 'ذمم العملاء (أقساط/عربون)', custRecv > 0 ? custRecv : 0, custRecv < 0 ? -custRecv : 0);
+            push('116', '116-MAR', 'ذمم التجار (مدينة)', mRecv > 0 ? mRecv : 0, mRecv < 0 ? -mRecv : 0);
+
+            // 211/212: التزامات
+            push('211', '211-AP', 'ذمم التجار (دائنة)', mPay < 0 ? -mPay : 0, mPay > 0 ? mPay : 0);
+            push('212', '212-PTR', 'أرصدة الشركاء', partner < 0 ? -partner : 0, partner > 0 ? partner : 0);
+
+            // 311: حقوق الملكية — رأس المال
+            push('311', '311-CAP', 'رأس المال الافتتاحي', capital < 0 ? -capital : 0, capital > 0 ? capital : 0);
+
+            // 4: الإيرادات
+            push('411', '411-SAL', 'إيرادات المبيعات', salesRevenue < 0 ? -salesRevenue : 0, salesRevenue > 0 ? salesRevenue : 0);
+            push('412', '412-OTH', 'إيرادات أخرى', otherIncome < 0 ? -otherIncome : 0, otherIncome > 0 ? otherIncome : 0);
+            push('413', '413-INT', 'فوائد التقسيط', inc.interestProfit < 0 ? -inc.interestProfit : 0, inc.interestProfit > 0 ? inc.interestProfit : 0);
+
+            // 5: المصروفات
+            push('511', '511-COGS', 'تكلفة البضاعة المباعة', inc.cogs > 0 ? inc.cogs : 0, inc.cogs < 0 ? -inc.cogs : 0);
+            push('521', '521-EXP', 'مصروفات تشغيلية', inc.expenses > 0 ? inc.expenses : 0, inc.expenses < 0 ? -inc.expenses : 0);
+            push('522', '522-COM', 'عمولات الموظفين', inc.totalCommissions > 0 ? inc.totalCommissions : 0, inc.totalCommissions < 0 ? -inc.totalCommissions : 0);
+
+            const sum = (arr, k) => arr.reduce((s, l) => s + this.toNum(l[k]), 0);
+            let totalDebit = sum(leaves, 'debit');
+            let totalCredit = sum(leaves, 'credit');
+            let difference = totalDebit - totalCredit;
+
+            const trialRows = leaves.filter(l => Math.abs(l.balance) >= 0.01)
+                .slice().sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+            // 321/322: نتيجة الأعمال + فروق غير مفسرة (للعرض في الشجرة فقط، 321 خارج الميزان)
+            const profitNode = this.coaLeaf('32', '321', 'نتيجة الأعمال (صافي الربح/الخسارة)', inc.netProfit < 0 ? -inc.netProfit : 0, inc.netProfit > 0 ? inc.netProfit : 0);
+            const diffNode = this.coaLeaf('32', '322', 'فروق غير مفسرة (تحتاج مراجعة)', difference < 0 ? -difference : 0, difference > 0 ? difference : 0);
+            const treeLeaves = leaves.concat([profitNode]);
+            if (Math.abs(difference) >= 0.01) treeLeaves.push(diffNode);
+
+            // بناء الشجرة: تعريف ثابت 3 مستويات ثم تجميع تصاعدي
+            const defs = [
+                ['1', 'الأصول', null],
+                ['11', 'الأصول المتداولة', '1'],
+                ['111', 'النقدية (كاش)', '11'],
+                ['112', 'البنوك', '11'],
+                ['113', 'المحافظ الإلكترونية', '11'],
+                ['114', 'المخزون', '11'],
+                ['115', 'ذمم العملاء', '11'],
+                ['116', 'ذمم التجار المدينة', '11'],
+                ['2', 'الالتزامات', null],
+                ['21', 'الالتزامات المتداولة', '2'],
+                ['211', 'ذمم التجار الدائنة', '21'],
+                ['212', 'أرصدة الشركاء', '21'],
+                ['3', 'حقوق الملكية', null],
+                ['31', 'رأس المال', '3'],
+                ['311', 'رأس المال الافتتاحي', '31'],
+                ['32', 'نتائج الأعمال', '3'],
+                ['321', 'صافي الربح / الخسارة', '32'],
+                ['322', 'فروق غير مفسرة', '32'],
+                ['4', 'الإيرادات', null],
+                ['41', 'إيرادات النشاط', '4'],
+                ['411', 'إيرادات المبيعات', '41'],
+                ['412', 'إيرادات أخرى', '41'],
+                ['413', 'فوائد التقسيط', '41'],
+                ['5', 'المصروفات', null],
+                ['51', 'تكلفة المبيعات', '5'],
+                ['511', 'تكلفة البضاعة المباعة', '51'],
+                ['52', 'المصروفات التشغيلية', '5'],
+                ['521', 'مصروفات متنوعة', '52'],
+                ['522', 'عمولات الموظفين', '52']
+            ];
+            const nodes = {};
+            defs.forEach(([code, name, parent]) => {
+                nodes[code] = { code, name, parent, level: parent ? (nodes[parent] ? nodes[parent].level + 1 : 2) : 1, debit: 0, credit: 0 };
+            });
+            treeLeaves.forEach(l => {
+                // لو الكود نفسه عقدة معرّفة (321/322) تُجمَّع عليه، وإلا تُجمَّع على الأب
+                const target = nodes[l.code] || nodes[l.parent];
+                if (!target) return;
+                target.debit += l.debit;
+                target.credit += l.credit;
+            });
+            // تجميع من الأوراق إلى الجذور (الأكواد الأطول أولًا)
+            const codesDesc = Object.keys(nodes).sort((a, b) => b.length - a.length);
+            codesDesc.forEach(code => {
+                const n = nodes[code];
+                if (n.parent && nodes[n.parent]) {
+                    nodes[n.parent].debit += n.debit;
+                    nodes[n.parent].credit += n.credit;
+                }
+            });
+            const tree = defs.map(([code]) => nodes[code]).filter(n => n && (Math.abs(n.debit) >= 0.01 || Math.abs(n.credit) >= 0.01 || n.level <= 2));
+
+            const assets = ['111', '112', '113', '114', '115', '116'].reduce((s, c) => s + (nodes[c].debit - nodes[c].credit), 0);
+            const liabilities = ['211', '212'].reduce((s, c) => s + (nodes[c].credit - nodes[c].debit), 0);
+            const capitalNet = nodes['311'].credit - nodes['311'].debit;
+            const totalDebitAll = totalDebit;
+            const totalCreditAll = totalCredit;
+
+            return {
+                asOf: new Date().toISOString(),
+                leaves: trialRows,
+                tree,
+                totals: {
+                    debit: totalDebitAll,
+                    credit: totalCreditAll,
+                    difference,
+                    balanced: Math.abs(difference) < 0.01
+                },
+                summary: {
+                    assets,
+                    liabilities,
+                    capital: capitalNet,
+                    netProfit: inc.netProfit,
+                    difference,
+                    balanced: Math.abs(difference) < 0.01
+                },
+                income: {
+                    revenue: inc.revenue,
+                    otherIncome,
+                    interest: inc.interestProfit,
+                    cogs: inc.cogs,
+                    expenses: inc.expenses,
+                    commissions: inc.totalCommissions,
+                    netProfit: inc.netProfit
+                }
+            };
         },
 
         // ─── التحقق من رأس المال الافتتاحي (منع ازدواجه مع أرصدة افتتاح الحسابات) ───
@@ -6962,7 +7151,7 @@
                 ['checkDuplicates','transactions'], ['checkCrossModule','database'],
                 ['checkAccountReconciliation','accounts'], ['checkPartnerReconciliation','partners'],
                 ['checkMerchantReconciliation','merchants'], ['checkArabonReconciliation','arabon'],
-                ['checkIMEI','inventory'], ['checkLedgerConsistency','transactions']
+                ['checkIMEI','inventory'], ['checkLedgerConsistency','transactions'], ['checkTrialBalance','accounts']
             ];
             checks.forEach(([fn, mod]) => {
                 try { this[fn](); } catch(e) {
@@ -7090,6 +7279,19 @@
             transactions.forEach(t => {
                 if (t.accountId && !accounts.find(a => a.id == t.accountId)) this.addIssue('accounts','high','Orphan transaction account ref: #'+t.id,'Account #'+t.accountId+' missing', String(t.id),'accountId','Existing',String(t.accountId),'ACC_ORPHAN_REF');
             });
+        },
+
+        // E2. TRIAL BALANCE (شجرة الحسابات): يكشف أي فرق غير مفسر بين المدين والدائن
+        checkTrialBalance() {
+            let tb;
+            try { tb = BusinessLogic.buildTrialBalance(); } catch (e) { return; }
+            if (!tb || !tb.totals) return;
+            const diff = tb.totals.difference;
+            if (Math.abs(diff) > 0.01) {
+                this.addIssue('accounts','medium','ميزان المراجعة غير متوازن',
+                    'إجمالي المدين '+tb.totals.debit.toFixed(2)+' | إجمالي الدائن '+tb.totals.credit.toFixed(2),
+                    'COA','difference','0.00',diff.toFixed(2),'COA_TRIAL_DIFF');
+            }
         },
 
         // F. ARABON INTEGRITY
@@ -7834,6 +8036,7 @@
         if (tabId === 'tabStatement') { setTimeout(() => renderGeneralStatement(), 50); }
         if (tabId === 'tabCommissions') { setTimeout(() => renderCommissions(), 50); }
         if (tabId === 'tabAuditLog') { setTimeout(() => renderAuditLog(), 50); }
+        if (tabId === 'tabCoA') { setTimeout(() => renderChartOfAccounts(), 50); }
     }
 
     // ====== سجل التدقيق (عرض + تصدير) ======
@@ -7891,6 +8094,179 @@
         a.click();
         URL.revokeObjectURL(url);
         showToast('✅ تم تصدير سجل التدقيق');
+    };
+
+    // ====== 📚 شجرة الحسابات وميزان المراجعة ======
+    function coaMoney(v) {
+        const n = Number(v) || 0;
+        return (Math.abs(n) < 0.005 ? 0 : n).toFixed(2) + ' ج';
+    }
+
+    function coaLoad() {
+        try {
+            return BusinessLogic.buildTrialBalance();
+        } catch (err) {
+            return { error: err };
+        }
+    }
+
+    function coaTreeRowsHtml(tb) {
+        return tb.tree.map(n => {
+            const bal = n.debit - n.credit;
+            const isRoot = n.level === 1;
+            const isGroup = n.level <= 2;
+            const pad = (n.level - 1) * 16;
+            const weight = isRoot ? 800 : (n.level === 2 ? 700 : 500);
+            const icon = isRoot ? '📁 ' : (n.level === 2 ? '📂 ' : '• ');
+            const balColor = bal > 0.005 ? '#dc2626' : (bal < -0.005 ? '#059669' : 'var(--text-muted)');
+            return '<tr style="background:' + (isRoot ? 'var(--background)' : 'transparent') + ';border-bottom:1px solid var(--border);">' +
+                '<td style="padding:8px 6px;direction:ltr;text-align:right;font-size:0.76rem;color:var(--text-muted);font-weight:700;white-space:nowrap;">' + esc(n.code) + '</td>' +
+                '<td style="padding:8px 6px;padding-right:' + (6 + pad) + 'px;font-weight:' + weight + ';font-size:' + (isRoot ? '0.95rem' : '0.85rem') + ';">' + icon + esc(n.name) + '</td>' +
+                '<td style="padding:8px 6px;text-align:left;color:#dc2626;font-weight:600;white-space:nowrap;' + (isGroup ? 'opacity:0.85;' : '') + '">' + (n.debit > 0.005 ? coaMoney(n.debit) : '—') + '</td>' +
+                '<td style="padding:8px 6px;text-align:left;color:#059669;font-weight:600;white-space:nowrap;' + (isGroup ? 'opacity:0.85;' : '') + '">' + (n.credit > 0.005 ? coaMoney(n.credit) : '—') + '</td>' +
+                '<td style="padding:8px 6px;text-align:left;color:' + balColor + ';font-weight:700;white-space:nowrap;">' + coaMoney(bal) + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    function coaTrialRowsHtml(tb) {
+        return tb.leaves.map(l => {
+            return '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:7px 6px;direction:ltr;text-align:right;font-size:0.78rem;color:var(--text-muted);font-weight:700;white-space:nowrap;">' + esc(l.code) + '</td>' +
+                '<td style="padding:7px 6px;white-space:nowrap;">' + esc(l.name) + '</td>' +
+                '<td style="padding:7px 6px;text-align:left;color:#dc2626;font-weight:600;white-space:nowrap;">' + (l.debit > 0.005 ? coaMoney(l.debit) : '—') + '</td>' +
+                '<td style="padding:7px 6px;text-align:left;color:#059669;font-weight:600;white-space:nowrap;">' + (l.credit > 0.005 ? coaMoney(l.credit) : '—') + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    window.renderChartOfAccounts = function() {
+        const container = document.getElementById('coaContent');
+        if (!container) return;
+        const tb = coaLoad();
+        if (tb.error) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">تعذر بناء شجرة الحسابات</div><div class="empty-sub">' + esc(tb.error.message || tb.error) + '</div></div>';
+            return;
+        }
+        const balanced = tb.totals.balanced;
+        const diff = tb.totals.difference;
+        const card = (label, value, color) => '<div class="stat-card-modern" style="flex:1;min-width:130px;"><div class="stat-label">' + label + '</div><div class="stat-value" style="color:' + color + ';font-size:1.05rem;">' + coaMoney(value) + '</div></div>';
+
+        const summaryHtml = '<div class="flex gap-2 mb-4 flex-wrap">' +
+            card('🏆 إجمالي الأصول', tb.summary.assets, 'var(--primary)') +
+            card('📉 الالتزامات', tb.summary.liabilities, '#ef4444') +
+            card('💎 رأس المال', tb.summary.capital, '#4f46e5') +
+            card('🎯 نتيجة الأعمال', tb.summary.netProfit, tb.summary.netProfit >= 0 ? '#059669' : '#dc2626') +
+            '</div>';
+
+        const statusHtml = '<div style="background:' + (balanced ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (balanced ? '#a7f3d0' : '#fecaca') + ';border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<strong style="color:' + (balanced ? '#059669' : '#dc2626') + ';">' + (balanced ? '✅ الميزان متوازن' : '⚠️ الميزان غير متوازن') + '</strong>' +
+            '<span class="text-sm text-muted">إجمالي المدين ' + coaMoney(tb.totals.debit) + ' | إجمالي الدائن ' + coaMoney(tb.totals.credit) + '</span>' +
+            (balanced ? '' : '<span class="text-sm" style="color:#dc2626;font-weight:700;">الفرق ' + coaMoney(diff) + ' — راجع سطر «فروق غير مفسرة»</span>') +
+            '</div>';
+
+        const treeHtml = '<div class="card" style="padding:12px 10px;margin-bottom:16px;overflow-x:auto;">' +
+            '<h4 style="margin:0 0 8px 0;font-size:0.95rem;">🌳 الهيكل (5 مجموعات / 3 مستويات)</h4>' +
+            '<table style="width:100%;border-collapse:collapse;min-width:520px;">' +
+            '<thead><tr style="border-bottom:2px solid var(--border);">' +
+            '<th style="padding:6px;text-align:right;font-size:0.78rem;color:var(--text-muted);">الكود</th>' +
+            '<th style="padding:6px;text-align:right;font-size:0.78rem;color:var(--text-muted);">الحساب</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">مدين</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">دائن</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">الصافي</th>' +
+            '</tr></thead><tbody>' + coaTreeRowsHtml(tb) + '</tbody></table>' +
+            '</div>';
+
+        const totalRow = '<tr style="border-top:2px solid var(--border);background:var(--background);font-weight:800;">' +
+            '<td style="padding:10px 6px;" colspan="2">الإجمالي</td>' +
+            '<td style="padding:10px 6px;text-align:left;color:#dc2626;">' + coaMoney(tb.totals.debit) + '</td>' +
+            '<td style="padding:10px 6px;text-align:left;color:#059669;">' + coaMoney(tb.totals.credit) + '</td>' +
+            '</tr>';
+
+        const trialHtml = '<div class="card" style="padding:12px 10px;overflow-x:auto;">' +
+            '<h4 style="margin:0 0 4px 0;font-size:0.95rem;">⚖️ ميزان المراجعة (تراكمي)</h4>' +
+            '<p class="text-xs text-muted" style="margin:0 0 8px 0;">لا يشمل سطر «نتيجة الأعمال» المحسوب (321) لمنع ازدواج الأرباح — الأرباح موزّعة على بنود الإيرادات والمصروفات.</p>' +
+            '<table style="width:100%;border-collapse:collapse;min-width:480px;">' +
+            '<thead><tr style="border-bottom:2px solid var(--border);">' +
+            '<th style="padding:6px;text-align:right;font-size:0.78rem;color:var(--text-muted);">الكود</th>' +
+            '<th style="padding:6px;text-align:right;font-size:0.78rem;color:var(--text-muted);">اسم الحساب</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">مدين</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">دائن</th>' +
+            '</tr></thead><tbody>' + coaTrialRowsHtml(tb) + totalRow + '</tbody></table>' +
+            '</div>';
+
+        container.innerHTML = summaryHtml + statusHtml + treeHtml + trialHtml;
+        return tb;
+    };
+
+    window.exportChartOfAccountsCSV = function() {
+        const tb = coaLoad();
+        if (tb.error) { showToast('تعذر بناء ميزان المراجعة', 'error'); return; }
+        const rows = [['الكود', 'اسم الحساب', 'مدين', 'دائن', 'الصافي']];
+        tb.leaves.forEach(l => rows.push([l.code, l.name, l.debit.toFixed(2), l.credit.toFixed(2), l.balance.toFixed(2)]));
+        rows.push([]);
+        rows.push(['الإجمالي', '', tb.totals.debit.toFixed(2), tb.totals.credit.toFixed(2), tb.totals.difference.toFixed(2)]);
+        rows.push(['الحالة', tb.totals.balanced ? 'متوازن' : 'غير متوازن', '', '', '']);
+        downloadCSV('شجرة_الحسابات_وميزان_المراجعة_' + new Date().toISOString().split('T')[0] + '.csv',
+            ['الكود', 'اسم الحساب', 'مدين', 'دائن', 'الصافي'], rows.slice(1));
+        showToast('✅ تم تصدير ميزان المراجعة');
+    };
+
+    window.printChartOfAccounts = function() {
+        const tb = coaLoad();
+        if (tb.error) { showToast('تعذر بناء ميزان المراجعة', 'error'); return; }
+        const money = coaMoney;
+        const treeRows = tb.tree.map(n => {
+            const bal = n.debit - n.credit;
+            const pad = (n.level - 1) * 14;
+            return '<tr style="border-bottom:1px solid #e2e8f0;' + (n.level === 1 ? 'background:#eef2ff;' : '') + '">' +
+                '<td style="padding:6px;direction:ltr;text-align:right;font-size:0.78rem;color:#64748b;">' + esc(n.code) + '</td>' +
+                '<td style="padding:6px;padding-right:' + (6 + pad) + 'px;font-weight:' + (n.level === 1 ? 800 : (n.level === 2 ? 700 : 400)) + ';">' + esc(n.name) + '</td>' +
+                '<td style="padding:6px;text-align:left;color:#dc2626;">' + (n.debit > 0.005 ? money(n.debit) : '—') + '</td>' +
+                '<td style="padding:6px;text-align:left;color:#059669;">' + (n.credit > 0.005 ? money(n.credit) : '—') + '</td>' +
+                '<td style="padding:6px;text-align:left;font-weight:700;color:' + (bal > 0.005 ? '#dc2626' : (bal < -0.005 ? '#059669' : '#64748b')) + ';">' + money(bal) + '</td></tr>';
+        }).join('');
+        const trialRows = tb.leaves.map(l =>
+            '<tr style="border-bottom:1px solid #e2e8f0;">' +
+            '<td style="padding:6px;direction:ltr;text-align:right;font-size:0.78rem;color:#64748b;">' + esc(l.code) + '</td>' +
+            '<td style="padding:6px;">' + esc(l.name) + '</td>' +
+            '<td style="padding:6px;text-align:left;color:#dc2626;">' + (l.debit > 0.005 ? money(l.debit) : '—') + '</td>' +
+            '<td style="padding:6px;text-align:left;color:#059669;">' + (l.credit > 0.005 ? money(l.credit) : '—') + '</td></tr>'
+        ).join('');
+
+        const html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>شجرة الحسابات وميزان المراجعة</title>' +
+            '<style>body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:#f8fafc;color:#0f172a;padding:24px;max-width:900px;margin:auto;}' +
+            'h1{color:#4f46e5;font-size:1.5rem;margin:0 0 4px 0;text-align:center;}p.sub{text-align:center;color:#64748b;font-size:0.85rem;margin:0 0 18px 0;}' +
+            'h2{font-size:1rem;margin:18px 0 8px 0;color:#334155;}table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #cbd5e1;border-radius:8px;}' +
+            'th{background:#f1f5f9;padding:7px 6px;font-size:0.8rem;color:#475569;text-align:right;}td{font-size:0.85rem;}' +
+            '.summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}.summary div{flex:1;min-width:110px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:10px;text-align:center;}' +
+            '.summary span{display:block;font-size:0.75rem;color:#64748b;}.summary b{font-size:1.05rem;}' +
+            '.bar{position:fixed;top:12px;left:12px;}.bar button{padding:10px 20px;background:#4f46e5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:0.95rem;}' +
+            '@media print{.bar{display:none;}body{background:#fff;padding:0;}}</style></head><body>' +
+            '<div class="bar no-print"><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
+            '<h1>📚 شجرة الحسابات وميزان المراجعة</h1>' +
+            '<p class="sub">نظام إدارة المبيعات | ميزان تراكمي حتى ' + new Date().toLocaleDateString('ar-EG') + '</p>' +
+            '<div class="summary">' +
+            '<div><span>إجمالي الأصول</span><b style="color:#4f46e5;">' + money(tb.summary.assets) + '</b></div>' +
+            '<div><span>الالتزامات</span><b style="color:#dc2626;">' + money(tb.summary.liabilities) + '</b></div>' +
+            '<div><span>رأس المال</span><b style="color:#4f46e5;">' + money(tb.summary.capital) + '</b></div>' +
+            '<div><span>نتيجة الأعمال</span><b style="color:' + (tb.summary.netProfit >= 0 ? '#059669' : '#dc2626') + ';">' + money(tb.summary.netProfit) + '</b></div>' +
+            '</div>' +
+            '<h2>⚖️ ميزان المراجعة</h2>' +
+            '<table><thead><tr><th>الكود</th><th>اسم الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>' + trialRows +
+            '<tr style="background:#f1f5f9;font-weight:800;"><td colspan="2">الإجمالي</td><td style="color:#dc2626;">' + money(tb.totals.debit) + '</td><td style="color:#059669;">' + money(tb.totals.credit) + '</td></tr></tbody></table>' +
+            '<p style="font-size:0.82rem;color:' + (tb.totals.balanced ? '#059669' : '#dc2626') + ';font-weight:700;margin-top:10px;">' +
+            (tb.totals.balanced ? '✅ الميزان متوازن' : '⚠️ الميزان غير متوازن — الفرق ' + money(tb.totals.difference)) + '</p>' +
+            '<h2>🌳 الهيكل (5 مجموعات / 3 مستويات)</h2>' +
+            '<table><thead><tr><th>الكود</th><th>الحساب</th><th>مدين</th><th>دائن</th><th>الصافي</th></tr></thead><tbody>' + treeRows + '</tbody></table>' +
+            '</body></html>';
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) { showToast('اسمح بالنوافذ المنبثقة للطباعة', 'error'); return; }
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        showToast('تم فتح نافذة الطباعة');
     };
 
     // مطابقة بالاسم مسموحة فقط عندما يكون الاسم فريداً (منع اختيار منتج آخر بنفس الاسم)

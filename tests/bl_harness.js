@@ -1022,6 +1022,122 @@ test('حسابات: إعادة استخدام اسم حساب مؤرشف مسم�
   return 'الأرشيف لا يحجز الأسماء';
 });
 
+// ═══════════ 9) المرحلة الثالثة: شجرة الحسابات وميزان المراجعة ═══════════
+test('شجرة: 5 مجموعات رئيسية و3 مستويات وبنية متوازنة عند البيانات الفارغة', () => {
+  factory.seed({ products: [], merchants: [], accounts: [], openingCapital: 0 });
+  const tb = BL.buildTrialBalance();
+  const roots = tb.tree.filter(n => n.level === 1);
+  eq(roots.length, 5, 'عدد المجموعات الرئيسية');
+  eq(roots.map(n => n.code).join(','), '1,2,3,4,5', 'ترتيب المجموعات');
+  eq(tb.totals.debit, 0, 'لا مدين بلا بيانات');
+  eq(tb.totals.credit, 0, 'لا دائن بلا بيانات');
+  eq(tb.totals.balanced, true, 'الميزان متوازن');
+  eq(tb.leaves.length, 0, 'لا أوراق بلا بيانات');
+  return '5 جذور + ميزان صفري متوازن';
+});
+
+test('شجرة: رأس مال الإعدادات يظهر كأصل نقدي مقابل حقوق ملكية (بلا ازدواج)', () => {
+  factory.seed({ products: [], merchants: [], accounts: [], openingCapital: 10000 });
+  const tb = BL.buildTrialBalance();
+  eq(tb.totals.debit, 10000, 'إجمالي المدين');
+  eq(tb.totals.credit, 10000, 'إجمالي الدائن');
+  eq(tb.totals.balanced, true, 'الميزان متوازن');
+  eq(tb.summary.assets, 10000, 'الأصول');
+  eq(tb.summary.capital, 10000, 'حقوق الملكية');
+  ok(tb.leaves.some(l => l.code === 'CAP-CASH' && Math.abs(l.debit - 10000) < 0.01), 'سطر رأس المال النقدي');
+  ok(tb.leaves.some(l => l.code === '311-CAP' && Math.abs(l.credit - 10000) < 0.01), 'سطر حقوق الملكية');
+  return 'مدين = دائن = 10000';
+});
+
+test('شجرة: أرصدة افتتاح الحسابات لا تُحتسب مرتين', () => {
+  factory.seed({
+    products: [], merchants: [],
+    accounts: [{ id: 1, name: 'الخزينة', type: 'cash', balance: 10000, code: 'ACC-001' }],
+    openingCapital: 0
+  });
+  const tb = BL.buildTrialBalance();
+  eq(tb.totals.debit, 10000, 'المدين يساوي رصيد الافتتاح مرة واحدة');
+  eq(tb.totals.credit, 10000, 'الدائن يساوي رصيد الافتتاح مرة واحدة');
+  eq(tb.totals.balanced, true, 'لا ازدواج في رأس المال');
+  eq(tb.summary.capital, 10000, 'حقوق الملكية = أرصدة الافتتاح');
+  const cashLeaf = tb.leaves.filter(l => l.parent === '111').reduce((s, l) => s + l.debit, 0);
+  eq(cashLeaf, 10000, 'النقدية مرة واحدة فقط');
+  return 'رصيد الافتتاح محسوب مرة واحدة';
+});
+
+test('شجرة: شراء وبيع نقدي متوازنان ويظهران في ميزان المراجعة', () => {
+  factory.seed({
+    products: [], merchants: [],
+    accounts: [{ id: 1, name: 'الخزينة', type: 'cash', balance: 0, code: 'ACC-001' }],
+    openingCapital: 1000
+  });
+  factory.set('transactions', [
+    { id: 'p1', type: 'purchase', amount: 400, accountId: 1, productId: 1, unitCost: 400, sourceType: 'purchase', sourceId: 'p1', date: '2026-01-01T09:00:00.000Z' },
+    { id: 's1', type: 'sell_cash', amount: 1000, accountId: 1, productId: 1, unitCost: 400, sourceType: 'sale', sourceId: 's1', date: '2026-01-02T09:00:00.000Z' }
+  ]);
+  const tb = BL.buildTrialBalance();
+  eq(tb.totals.balanced, true, 'الميزان متوازن');
+  eq(tb.income.revenue, 1000, 'الإيرادات');
+  eq(tb.income.cogs, 400, 'تكلفة البضاعة المباعة');
+  eq(tb.income.netProfit, 600, 'صافي الربح');
+  eq(tb.summary.assets, 1600, 'الأصول = رأس المال + الربح');
+  ok(tb.leaves.some(l => l.code === '511-COGS' && Math.abs(l.debit - 400) < 0.01), 'تكلفة المبيعات في الميزان');
+  ok(tb.leaves.some(l => l.code === '411-SAL' && Math.abs(l.credit - 1000) < 0.01), 'إيراد المبيعات في الميزان');
+  ok(!tb.leaves.some(l => l.code === '321'), 'سطر نتيجة الأعمال خارج الميزان لمنع الازدواج');
+  ok(tb.tree.some(n => n.code === '321'), 'سطر نتيجة الأعمال يظهر في الشجرة فقط');
+  return 'مدين = دائن مع ربح 600';
+});
+
+test('شجرة: الفرق غير المفسر يظهر صراحةً كسطر 322', () => {
+  factory.seed({ products: [], merchants: [], accounts: [], openingCapital: 0 });
+  factory.set('transactions', [
+    // بيع بلا شراء مقابله ولا مخزون افتتاحي ⇒ تكلفة بلا أصل مقابل
+    { id: 's1', type: 'sell_cash', amount: 1000, accountId: null, productId: 1, unitCost: 400, sourceType: 'sale', sourceId: 's1', date: '2026-01-02T09:00:00.000Z' }
+  ]);
+  const tb = BL.buildTrialBalance();
+  eq(tb.totals.balanced, false, 'الميزان غير متوازن');
+  eq(tb.totals.difference, 400, 'الفرق = تكلفة بلا مقابل');
+  ok(tb.tree.some(n => n.code === '322' && Math.abs(n.credit - 400) < 0.01), 'سطر 322 يظهر الفرق');
+  ok(Math.abs(tb.summary.difference - 400) < 0.01, 'ملخص الفرق');
+  return 'الفرق ظاهر 400 ولم يُخفَ';
+});
+
+test('شجرة: فرق غير مفسر عند سيولة بلا حساب + توازن مع حساب غير مسند', () => {
+  factory.seed({ products: [], merchants: [], accounts: [], openingCapital: 0 });
+  factory.set('transactions', [
+    { id: 'i1', type: 'income', amount: 500, accountId: null, date: '2026-01-03T09:00:00.000Z' }
+  ]);
+  const tb = BL.buildTrialBalance();
+  ok(tb.leaves.some(l => l.code === '111-UNALLOC' && Math.abs(l.debit - 500) < 0.01), 'سيولة غير مسندة تظهر كسطر');
+  eq(tb.totals.balanced, true, 'الإيراد اليدوي يقابل السيولة غير المسندة');
+  eq(tb.income.otherIncome, 500, 'إيرادات أخرى');
+  eq(tb.income.revenue, 500, 'الإيراد الكلي');
+  ok(tb.leaves.some(l => l.code === '412-OTH' && Math.abs(l.credit - 500) < 0.01), 'سطر الإيرادات الأخرى');
+  return '111-UNALLOC = 500 ويقابل 412-OTH';
+});
+
+test('شجرة: الأكواد فريدة والترتيب تصاعدي وحساب مؤرشف برصيد يظهر', () => {
+  factory.seed({
+    products: [], merchants: [],
+    accounts: [
+      { id: 1, name: 'خزينة', type: 'cash', balance: 0, code: 'ACC-001', archived: true, archivedAt: '2026-01-01T00:00:00.000Z' },
+      { id: 2, name: 'بنك', type: 'bank', balance: 0, code: 'ACC-002', archived: false }
+    ],
+    openingCapital: 0
+  });
+  factory.set('transactions', [
+    { id: 't1', type: 'sell_cash', amount: 250, accountId: 1, date: '2026-01-01T10:00:00.000Z' }
+  ]);
+  const tb = BL.buildTrialBalance();
+  const codes = tb.leaves.map(l => l.code);
+  eq(new Set(codes).size, codes.length, 'لا تكرار في أكواد الميزان');
+  const sorted = codes.slice().sort((a, b) => a.localeCompare(b));
+  eq(codes.join('|'), sorted.join('|'), 'ترتيب تصاعدي بالأكواد');
+  ok(codes.includes('ACC-001'), 'الحساب المؤرشف برصيد يظهر في الميزان');
+  ok(tb.tree.some(n => n.code === '111'), 'مجموعة النقدية موجودة');
+  return 'أكواد فريدة مرتبة + الأرشيف برصيد يظهر';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;
