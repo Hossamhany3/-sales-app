@@ -8805,6 +8805,17 @@
         return Math.max((inst.totalAfterInterest || 0) - paid, 0);
     }
 
+    // الأقساط التي عليها أي مبلغ محصّل (كامل أو جزئي) — أساس صفوف كشوف الحساب
+    // أي دفعة جزئية أو دفعة شهر مقدّم غير مكتملة يجب أن تظهر بمبلغها الفعلي
+    function paidScheduleSlots(schedule) {
+        return (schedule || []).filter(s => (Number(s.paidAmount) || 0) > 0.009);
+    }
+    // وسم صف الدفعة في الكشوف (يميّز الجزئي حتى لا يُقرأ كقسط كامل)
+    function slotPayDesc(slot, deviceName) {
+        const partial = !slot.isPaid;
+        return 'قسط رقم ' + slot.index + (partial ? ' (جزئي)' : '') + (deviceName ? ' - ' + deviceName : '');
+    }
+
     // إجمالي المستحقات غير المحصلة (تقديري من الذمم نفسها — لا يُشتق من السيولة)
     // = متبقّي العقود + متبقّي العربون + صافي ذمة التجار
     function statementPendingAmount() {
@@ -8880,9 +8891,9 @@
                 if (outstanding > 0) rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev + ' - ' + cust, debit: outstanding, credit: 0 });
                 if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev + ' - ' + cust, debit: 0, credit: inst.paidUpfront });
             }
-            let schedule = inst.schedule || getInstSchedule(inst);
-            schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + dev + ' - ' + cust, debit: 0, credit: s.paidAmount });
+            let schedule = getInstSchedule(inst);
+            paidScheduleSlots(schedule).forEach(s => {
+                rows.push({ date: slotPaidDate(inst, s), desc: slotPayDesc(s, dev + ' - ' + cust), debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -11134,12 +11145,12 @@
             html += '<div class="inst-details-item"><span class="inst-details-label">✅ الأقساط المسددة</span><span class="inst-details-value">' + paidCount + '/' + (inst.numInstallments || schedule.length || '؟') + '</span></div>';
             html += '</div>';
 
-            let paidSlots = schedule.filter(s => s.isPaid);
+            let paidSlots = paidScheduleSlots(schedule);
             if (paidSlots.length > 0) {
                 html += '<div class="inst-details-list"><div class="inst-details-list-title">💳 سجل السداد</div>';
                 paidSlots.forEach(s => {
                     let payDate = slotPaidDate(inst, s) ? new Date(slotPaidDate(inst, s) + 'T00:00:00').toLocaleDateString('ar-EG') : '—';
-                    html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString() + ' ج</b></div>';
+                    html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + (s.isPaid ? '' : ' (جزئي)') + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString() + ' ج</b></div>';
                 });
                 html += '</div>';
             }
@@ -12332,9 +12343,9 @@
                 rows.push({ date: cDate, desc: 'عقد تقسيط - ' + dev, debit: total, credit: 0 });
                 if ((inst.paidUpfront || 0) > 0) rows.push({ date: cDate, desc: 'مقدم عقد تقسيط - ' + dev, debit: 0, credit: inst.paidUpfront });
             }
-            let schedule = inst.schedule || getInstSchedule(inst);
-            schedule.filter(s => s.isPaid && (s.paidAmount || 0) > 0).forEach(s => {
-                rows.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + dev, debit: 0, credit: s.paidAmount });
+            let schedule = getInstSchedule(inst);
+            paidScheduleSlots(schedule).forEach(s => {
+                rows.push({ date: slotPaidDate(inst, s), desc: slotPayDesc(s, dev), debit: 0, credit: s.paidAmount });
             });
         });
 
@@ -14419,18 +14430,19 @@
 
         contracts.forEach(inst => {
             let schedule = getInstSchedule(inst);
-            let paid = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let paidSlots = paidScheduleSlots(schedule);
+            let paid = paidSlots.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
             totalFinanced += inst.totalAfterInterest || 0;
             totalPaid += paid;
             totalRemaining += inst.remainingBalance || 0;
 
-            schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
+            paidSlots.forEach(s => {
                 let dueDate = new Date(s.dueDate).toLocaleDateString('ar-EG');
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
                 allPayments.push({
                     date: slotPaidDate(inst, s),
-                    desc: 'قسط رقم ' + s.index + ' - ' + deviceName,
+                    desc: slotPayDesc(s, deviceName),
                     amount: s.paidAmount,
                     instId: inst.id
                 });
@@ -14459,7 +14471,7 @@
             let deviceName = p?.name || inst.deviceName || 'غير محدد';
             let schedule = getInstSchedule(inst);
             let paidCount = schedule.filter(s => s.isPaid).length;
-            let paidAmount = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let paidAmount = paidScheduleSlots(schedule).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
             let progress = inst.numInstallments > 0 ? (paidCount / inst.numInstallments * 100) : 0;
             let statusBadge = inst.isPaid
                 ? '<span class="badge badge-success">' + I.check + ' مسدد</span>'
@@ -14556,14 +14568,15 @@
 
         contracts.forEach(inst => {
             let schedule = getInstSchedule(inst);
-            let paid = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let paidSlots = paidScheduleSlots(schedule);
+            let paid = paidSlots.reduce((sum, s) => sum + (s.paidAmount || 0), 0);
             totalFinanced += inst.totalAfterInterest || 0;
             totalPaid += paid;
             totalRemaining += inst.remainingBalance || 0;
-            schedule.filter(s => s.isPaid && s.paidAmount > 0).forEach(s => {
+            paidSlots.forEach(s => {
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
-                allPayments.push({ date: slotPaidDate(inst, s), desc: 'قسط رقم ' + s.index + ' - ' + deviceName, amount: s.paidAmount });
+                allPayments.push({ date: slotPaidDate(inst, s), desc: slotPayDesc(s, deviceName), amount: s.paidAmount });
             });
         });
 
@@ -14583,7 +14596,7 @@
             let deviceName = p?.name || inst.deviceName || 'غير محدد';
             let schedule = getInstSchedule(inst);
             let paidCount = schedule.filter(s => s.isPaid).length;
-            let paidAmt = schedule.filter(s => s.isPaid).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
+            let paidAmt = paidScheduleSlots(schedule).reduce((sum, s) => sum + (s.paidAmount || 0), 0);
             let status = inst.isPaid ? 'مسدد' : (new Date(schedule.find(s => !s.isPaid)?.dueDate) < new Date() ? 'متأخر' : 'نشط');
             return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + deviceName + '</td><td style="padding:8px 6px;">' + (inst.totalAfterInterest || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.paidUpfront || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + (inst.numInstallments || schedule.length || '؟') + '</td><td style="padding:8px 6px;">' + (inst.monthlyAmount || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + paidAmt.toFixed(2) + '</td><td style="padding:8px 6px;color:' + (inst.isPaid ? '#059669' : '#ef4444') + ';font-weight:700;">' + (inst.remainingBalance || 0).toFixed(2) + '</td><td style="padding:8px 6px;">' + status + '</td></tr>';
         }).join('');

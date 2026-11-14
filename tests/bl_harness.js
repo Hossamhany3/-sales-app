@@ -51,7 +51,7 @@ if (blStart < 0) throw new Error('BusinessLogic not found');
 const blObj = sliceBalanced(js, js.indexOf('{', blStart));
 const blSrc = 'const BusinessLogic = ' + blObj + ';';
 
-const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'uniqueProductByName'].map(n => extractFunction(js, n)).join('\n');
+const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'uniqueProductByName', 'getInstSchedule', 'slotPaidDate', 'paidScheduleSlots', 'slotPayDesc', 'installmentRemaining', 'buildGeneralStatementRows', 'buildComprehensiveRows'].map(n => extractFunction(js, n)).join('\n');
 
 const factory = new Function(`
 let products = [], merchants = [], transactions = [], installments = [], msgTemplates = {};
@@ -90,6 +90,7 @@ ${FN}
 return {
   BL: BusinessLogic,
   calcTransactionProfit, computeIncomeStatement, uniqueProductByName,
+  buildComprehensiveRows, buildGeneralStatementRows,
   seed(d) {
     products = d.products || []; merchants = d.merchants || []; accounts = d.accounts || [];
     employees = d.employees || []; partners = [];
@@ -111,7 +112,7 @@ return {
 };
 `)();
 
-const { BL, calcTransactionProfit, computeIncomeStatement, uniqueProductByName } = factory;
+const { BL, calcTransactionProfit, computeIncomeStatement, uniqueProductByName, buildComprehensiveRows, buildGeneralStatementRows } = factory;
 
 // ─────────── إطار الاختبار ───────────
 const results = [];
@@ -1147,6 +1148,74 @@ test('شجرة: الأكواد فريدة والترتيب تصاعدي وحسا
   ok(codes.includes('ACC-001'), 'الحساب المؤرشف برصيد يظهر في الميزان');
   ok(tb.tree.some(n => n.code === '111'), 'مجموعة النقدية موجودة');
   return 'أكواد فريدة مرتبة + الأرشيف برصيد يظهر';
+});
+
+// ═══════════ كشوف الحساب: الدفعات الجزئية والمقدمة ═══════════
+function contractForStatement(over) {
+  const r = BL.createInstallment(Object.assign({
+    merchantId: 1, productId: 1, deviceName: 'iPhone 13', purchasePrice: 2000, paidUpfront: 0,
+    interestRate: 0, numInstallments: 4, firstDueDate: '2026-11-01', accountId: 1,
+    date: '2026-11-01T09:00:00.000Z'
+  }, over || {}));
+  ok(r.success, 'فشل إنشاء العقد: ' + r.reason);
+  return r.installmentId;
+}
+const slotRows = () => buildComprehensiveRows(1).filter(r => String(r.desc || '').startsWith('قسط'));
+const cashIn = () => D().transactions.filter(t => t.type === 'payment_in').reduce((s, t) => s + t.amount, 0);
+
+test('كشف: دفعة الشهر + دفعة الشهر المقدم تظهران معاً', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 1, amount: 500, accountId: 1, date: '2026-11-11T09:00:00.000Z' });
+  const rows = slotRows();
+  eq(rows.length, 2, 'عدد صفوف الدفعات في الكشف');
+  ok(/قسط رقم 1/.test(rows[0].desc), 'صف الشهر الحالي: ' + rows[0].desc);
+  ok(/قسط رقم 2/.test(rows[1].desc), 'صف الشهر المقدم: ' + rows[1].desc);
+  eq(rows.reduce((s, r) => s + r.credit, 0), 1000, 'مجموع المثبت في الكشف');
+  eq(cashIn(), 1000, 'النقد المحصّل');
+  return 'الشهر والمقدم كلاهما 500';
+});
+
+test('كشف: دفعة الشهر المقدم الجزئية تُثبت بمبلغها الفعلي', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 1, amount: 300, accountId: 1, date: '2026-11-11T09:00:00.000Z' });
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.schedule[1].paidAmount, 300, 'المبلغ المحصل على القسط المقدم');
+  ok(!inst.schedule[1].isPaid, 'القسط المقدم لم يكتمل');
+  const rows = slotRows();
+  eq(rows.length, 2, 'صفّا الدفعتين يظهران');
+  ok(/\(جزئي\)/.test(rows[1].desc), 'وسم الدفعة الجزئية: ' + rows[1].desc);
+  eq(rows[1].credit, 300, 'مبلغ الدفعة المقدمة');
+  eq(rows.reduce((s, r) => s + r.credit, 0), cashIn(), 'الكشف يطابق النقد المحصّل');
+  return 'المقدم الجزئي 300 ظاهر وموقّع (جزئي)';
+});
+
+test('كشف: دفعة جزئية على الشهر الأول لا تختفي', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 200, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 300, accountId: 1, date: '2026-11-12T09:00:00.000Z' });
+  const rows = slotRows();
+  eq(rows.length, 1, 'صف واحد للقسط المكتمل');
+  ok(/\(جزئي\)/.test(rows[0].desc) === false, 'اكتمل القسط فلا وسم جزئي');
+  eq(rows[0].credit, 500, 'مجموع دفعتَي القسط');
+  eq(rows[0].credit, cashIn(), 'لا فرق بين الكشف والتحصيل');
+  return '200 + 300 = 500 مثبتة';
+});
+
+test('كشف عام: الدفعة المقدمة الجزئية تظهر في الكشف العام أيضاً', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 1, amount: 300, accountId: 1, date: '2026-11-11T09:00:00.000Z' });
+  const rows = buildGeneralStatementRows().filter(r => /^قسط رقم/.test(String(r.desc || '')));
+  eq(rows.length, 2, 'عدد صفوف الأقساط في الكشف العام');
+  eq(rows.reduce((s, r) => s + r.credit, 0), 800, 'مجموع الأقساط في الكشف العام');
+  ok(rows.some(r => /\(جزئي\)/.test(r.desc)), 'الدفعة الجزئية موسومة');
+  return 'الكشف العام يطابق النقد 800';
 });
 
 // ─────────── التقرير ───────────
