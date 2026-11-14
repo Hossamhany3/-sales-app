@@ -1150,6 +1150,89 @@ test('شجرة: الأكواد فريدة والترتيب تصاعدي وحسا
   return 'أكواد فريدة مرتبة + الأرشيف برصيد يظهر';
 });
 
+// ═══════════ فرق تقييم شراء التاجر (الخيار ب) ═══════════
+function seedMerchantBaseline() {
+  factory.seed({
+    products: [{ id: 1, name: 'iPhone 13', costPrice: 1000, expenses: 0, sellPrice: 1500, stock: 0, archived: false }],
+    merchants: [{ id: 1, name: 'تاجر ب' }],
+    accounts: [{ id: 1, name: 'الخزينة', type: 'cash', balance: 0 }],
+    openingCapital: 0
+  });
+  const buy = BL.purchaseStock({ productId: 1, qty: 3, accountId: 1, date: '2026-01-02T09:00:00.000Z' });
+  ok(buy.success, 'شراء أساسي: ' + buy.reason);
+}
+
+test('شجرة: فرق شراء التاجر يظهر كسطر 323 بدل «غير مفسر»', () => {
+  seedMerchantBaseline();
+  const mp = BL.purchaseFromMerchant({ merchantId: 1, productId: 1, qty: 2, costPrice: 900, date: '2026-01-03T09:00:00.000Z' });
+  ok(mp.success, 'شراء التاجر: ' + mp.reason);
+  const tb = BL.buildTrialBalance();
+  eq(BL.merchantPurchaseValuationDiff(), 200, 'فرق التقييم');
+  eq(tb.totals.difference, 200, 'الفرق الخام');
+  eq(tb.totals.explained, 200, 'الفرق المفسَّر');
+  eq(tb.totals.unexplained, 0, 'غير المفسر');
+  ok(tb.totals.explainedFully, 'الفرق مفسَّر بالكامل');
+  ok(tb.tree.some(n => n.code === '323' && Math.abs(n.debit - 200) < 0.01), 'سطر 323 مدين 200');
+  ok(!tb.tree.some(n => n.code === '322'), 'لا سطر 322');
+  eq(D().products[0].costPrice, 1000, 'تكلفة الصنف لم تتغير');
+  return '323 = 200 وتكلفة الصنف 1000 كما هي';
+});
+
+test('شجرة: شراء التاجر بلا فرق سعر لا يُنشئ سطر 323 والميزان متوازن', () => {
+  seedMerchantBaseline();
+  const mp = BL.purchaseFromMerchant({ merchantId: 1, productId: 1, qty: 2, costPrice: 1000, date: '2026-01-03T09:00:00.000Z' });
+  ok(mp.success, 'شراء التاجر: ' + mp.reason);
+  const tb = BL.buildTrialBalance();
+  eq(BL.merchantPurchaseValuationDiff(), 0, 'لا فرق تقييم');
+  eq(tb.totals.difference, 0, 'الميزان متوازن');
+  ok(tb.totals.balanced, 'متوازن');
+  ok(!tb.tree.some(n => n.code === '323'), 'لا سطر 323 بلا فرق');
+  return 'متوازن بلا سطر مسمّى';
+});
+
+test('شجرة: بيع وحدة لا يزيل فرق شراء التاجر (يبقى مفسَّرًا)', () => {
+  seedMerchantBaseline();
+  BL.purchaseFromMerchant({ merchantId: 1, productId: 1, qty: 2, costPrice: 900, date: '2026-01-03T09:00:00.000Z' });
+  const sell = BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-04T09:00:00.000Z' });
+  ok(sell.success, 'بيع نقدي: ' + sell.reason);
+  const tb = BL.buildTrialBalance();
+  eq(BL.merchantPurchaseValuationDiff(), 200, 'الفرق بعد البيع');
+  eq(tb.totals.explained, 200, 'المفسَّر بعد البيع');
+  eq(tb.totals.unexplained, 0, 'لا غير مفسر بعد البيع');
+  return '200 باقٍ ومفسَّر';
+});
+
+test('شجرة: الفرق المفسَّر لا يخفي فرقًا حقيقيًا معه', () => {
+  seedMerchantBaseline();
+  BL.purchaseFromMerchant({ merchantId: 1, productId: 1, qty: 2, costPrice: 900, date: '2026-01-03T09:00:00.000Z' });
+  factory.set('transactions', D().transactions.concat([{
+    id: 's1', type: 'sell_cash', amount: 1000, accountId: null, productId: 1, unitCost: 400,
+    sourceType: 'sale', sourceId: 's1', date: '2026-01-04T09:00:00.000Z'
+  }]));
+  const tb = BL.buildTrialBalance();
+  eq(tb.totals.explained, 200, 'المفسَّر');
+  eq(tb.totals.unexplained, 400, 'غير المفسر الحقيقي');
+  ok(tb.tree.some(n => n.code === '323' && Math.abs(n.debit - 200) < 0.01), 'سطر 323');
+  ok(tb.tree.some(n => n.code === '322' && Math.abs(n.credit - 400) < 0.01), 'سطر 322 للفرق الحقيقي');
+  return '323 = 200 و322 = 400';
+});
+
+test('شجرة: صنف له مصروفات — الفرق يشمل المصروفات', () => {
+  factory.seed({
+    products: [{ id: 1, name: 'iPhone 13', costPrice: 1000, expenses: 500, sellPrice: 1800, stock: 0, archived: false }],
+    merchants: [{ id: 1, name: 'تاجر ب' }],
+    accounts: [{ id: 1, name: 'الخزينة', type: 'cash', balance: 0 }],
+    openingCapital: 0
+  });
+  ok(BL.purchaseStock({ productId: 1, qty: 1, accountId: 1, date: '2026-01-02T09:00:00.000Z' }).success, 'شراء أساسي');
+  ok(BL.purchaseFromMerchant({ merchantId: 1, productId: 1, qty: 2, costPrice: 900, date: '2026-01-03T09:00:00.000Z' }).success, 'شراء التاجر');
+  const tb = BL.buildTrialBalance();
+  eq(BL.merchantPurchaseValuationDiff(), 1200, 'الفرق (2 × 600)');
+  eq(tb.totals.unexplained, 0, 'لا غير مفسر');
+  ok(tb.tree.some(n => n.code === '323' && Math.abs(n.debit - 1200) < 0.01), 'سطر 323 = 1200');
+  return 'المصروفات محسوبة في الفرق';
+});
+
 // ═══════════ كشوف الحساب: الدفعات الجزئية والمقدمة ═══════════
 function contractForStatement(over) {
   const r = BL.createInstallment(Object.assign({

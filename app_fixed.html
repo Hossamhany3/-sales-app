@@ -3229,6 +3229,22 @@
             return products.reduce((sum, p) => sum + this.stockUnitCost(p) * this.toNum(p.stock), 0);
         },
 
+        // ─── فرق تقييم شراء التاجر: (التكلفة الدفترية للوحدة − سعر الشراء) × الكمية ───
+        // تكلفة الصنف تبقى كما هي (قرار محاسبي)، والفرق يظهر كسطر مسمّى بدل «غير مفسر».
+        // لا يتغير بتغيّر المخزون أو البيع: يبقى مرتبطًا بكمية الشراء ما دامت تكلفة الصنف ثابتة.
+        merchantPurchaseValuationDiff() {
+            let diff = 0;
+            (merchantPurchases || []).forEach(pur => {
+                if (!pur) return;
+                const qty = this.toNum(pur.quantity) || 1;
+                const paid = this.toNum(pur.unitCost != null ? pur.unitCost : pur.costPrice);
+                const prod = this.findProductForRecord(pur);
+                const book = prod ? this.stockUnitCost(prod) : paid;
+                diff += (book - paid) * qty;
+            });
+            return parseFloat(diff.toFixed(2));
+        },
+
         // ─── إجمالي مديونية العملاء (أقساط + عربون غير محوّل) ───
         receivablesTotal() {
             const inst = installments.filter(i => !i.isPaid)
@@ -3737,14 +3753,20 @@
             let totalCredit = sum(leaves, 'credit');
             let difference = totalDebit - totalCredit;
 
+            // 323: فرق تقييم شراء التاجر (مفسَّر) — يُطرح من الفرق ليظهر في 322 ما يحتاج مراجعة فقط
+            const explained = this.merchantPurchaseValuationDiff();
+            const unexplained = parseFloat((difference - explained).toFixed(2));
+
             const trialRows = leaves.filter(l => Math.abs(l.balance) >= 0.01)
                 .slice().sort((a, b) => String(a.code).localeCompare(String(b.code)));
 
-            // 321/322: نتيجة الأعمال + فروق غير مفسرة (للعرض في الشجرة فقط، 321 خارج الميزان)
+            // 321/322/323: نتيجة الأعمال + فرق مفسَّر (شراء تاجر) + فروق غير مفسرة (للعرض في الشجرة فقط)
             const profitNode = this.coaLeaf('32', '321', 'نتيجة الأعمال (صافي الربح/الخسارة)', inc.netProfit < 0 ? -inc.netProfit : 0, inc.netProfit > 0 ? inc.netProfit : 0);
-            const diffNode = this.coaLeaf('32', '322', 'فروق غير مفسرة (تحتاج مراجعة)', difference < 0 ? -difference : 0, difference > 0 ? difference : 0);
+            const mpNode = this.coaLeaf('32', '323', 'فروق تقييم مخزون (شراء تاجر)', explained > 0 ? explained : 0, explained < 0 ? -explained : 0);
+            const diffNode = this.coaLeaf('32', '322', 'فروق غير مفسرة (تحتاج مراجعة)', unexplained < 0 ? -unexplained : 0, unexplained > 0 ? unexplained : 0);
             const treeLeaves = leaves.concat([profitNode]);
-            if (Math.abs(difference) >= 0.01) treeLeaves.push(diffNode);
+            if (Math.abs(explained) >= 0.01) treeLeaves.push(mpNode);
+            if (Math.abs(unexplained) >= 0.01) treeLeaves.push(diffNode);
 
             // بناء الشجرة: تعريف ثابت 3 مستويات ثم تجميع تصاعدي
             const defs = [
@@ -3766,6 +3788,7 @@
                 ['32', 'نتائج الأعمال', '3'],
                 ['321', 'صافي الربح / الخسارة', '32'],
                 ['322', 'فروق غير مفسرة', '32'],
+                ['323', 'فروق تقييم شراء تاجر', '32'],
                 ['4', 'الإيرادات', null],
                 ['41', 'إيرادات النشاط', '4'],
                 ['411', 'إيرادات المبيعات', '41'],
@@ -3810,10 +3833,15 @@
                 asOf: new Date().toISOString(),
                 leaves: trialRows,
                 tree,
+                explained,
+                unexplained,
                 totals: {
                     debit: totalDebitAll,
                     credit: totalCreditAll,
                     difference,
+                    explained,
+                    unexplained,
+                    explainedFully: Math.abs(unexplained) < 0.01 && Math.abs(explained) >= 0.01,
                     balanced: Math.abs(difference) < 0.01
                 },
                 summary: {
@@ -3822,6 +3850,8 @@
                     capital: capitalNet,
                     netProfit: inc.netProfit,
                     difference,
+                    explained,
+                    unexplained,
                     balanced: Math.abs(difference) < 0.01
                 },
                 income: {
@@ -7288,10 +7318,19 @@
             try { tb = BusinessLogic.buildTrialBalance(); } catch (e) { return; }
             if (!tb || !tb.totals) return;
             const diff = tb.totals.difference;
-            if (Math.abs(diff) > 0.01) {
+            const explained = tb.totals.explained || 0;
+            const unexplained = tb.totals.unexplained != null ? tb.totals.unexplained : diff;
+            if (Math.abs(unexplained) > 0.01) {
                 this.addIssue('accounts','medium','ميزان المراجعة غير متوازن',
-                    'إجمالي المدين '+tb.totals.debit.toFixed(2)+' | إجمالي الدائن '+tb.totals.credit.toFixed(2),
-                    'COA','difference','0.00',diff.toFixed(2),'COA_TRIAL_DIFF');
+                    'إجمالي المدين '+tb.totals.debit.toFixed(2)+' | إجمالي الدائن '+tb.totals.credit.toFixed(2)
+                    + (Math.abs(explained) > 0.01 ? ' | مفسَّر (شراء تاجر): '+explained.toFixed(2) : '')
+                    + ' | غير مفسر: '+unexplained.toFixed(2),
+                    'COA','difference','0.00',unexplained.toFixed(2),'COA_TRIAL_DIFF');
+            } else if (Math.abs(explained) > 0.01) {
+                // فرق معروف سببه (سعر شراء التاجر يخالف تكلفة الصنف) — يظهر كسطر مسمّى 323 دون تحذير مقلق
+                this.addIssue('accounts','low','فرق ميزان مفسَّر: فروق تقييم مخزون (شراء تاجر)',
+                    'الفرق '+explained.toFixed(2)+' ناتج عن شراء من تاجر بسعر يخالف تكلفة الصنف (بدون تغيير تكلفة الصنف)',
+                    'COA','difference','0.00',explained.toFixed(2),'COA_TRIAL_DIFF_EXPLAINED');
             }
         },
 
@@ -8162,6 +8201,13 @@
         }
         const balanced = tb.totals.balanced;
         const diff = tb.totals.difference;
+        const explained = tb.totals.explained || 0;
+        const unexplained = tb.totals.unexplained != null ? tb.totals.unexplained : diff;
+        const explainedOnly = !balanced && Math.abs(unexplained) < 0.01 && Math.abs(explained) >= 0.01;
+        const statusColor = balanced ? '#059669' : (explainedOnly ? '#b45309' : '#dc2626');
+        const statusBg = balanced ? '#ecfdf5' : (explainedOnly ? '#fffbeb' : '#fef2f2');
+        const statusBorder = balanced ? '#a7f3d0' : (explainedOnly ? '#fde68a' : '#fecaca');
+        const statusTitle = balanced ? '✅ الميزان متوازن' : (explainedOnly ? '⚠️ فرق مفسَّر — فروق تقييم مخزون (شراء تاجر)' : '⚠️ الميزان غير متوازن');
         const card = (label, value, color) => '<div class="stat-card-modern" style="flex:1;min-width:130px;"><div class="stat-label">' + label + '</div><div class="stat-value" style="color:' + color + ';font-size:1.05rem;">' + coaMoney(value) + '</div></div>';
 
         const summaryHtml = '<div class="flex gap-2 mb-4 flex-wrap">' +
@@ -8171,10 +8217,11 @@
             card('🎯 نتيجة الأعمال', tb.summary.netProfit, tb.summary.netProfit >= 0 ? '#059669' : '#dc2626') +
             '</div>';
 
-        const statusHtml = '<div style="background:' + (balanced ? '#ecfdf5' : '#fef2f2') + ';border:1px solid ' + (balanced ? '#a7f3d0' : '#fecaca') + ';border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<strong style="color:' + (balanced ? '#059669' : '#dc2626') + ';">' + (balanced ? '✅ الميزان متوازن' : '⚠️ الميزان غير متوازن') + '</strong>' +
+        const statusHtml = '<div style="background:' + statusBg + ';border:1px solid ' + statusBorder + ';border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<strong style="color:' + statusColor + ';">' + statusTitle + '</strong>' +
             '<span class="text-sm text-muted">إجمالي المدين ' + coaMoney(tb.totals.debit) + ' | إجمالي الدائن ' + coaMoney(tb.totals.credit) + '</span>' +
-            (balanced ? '' : '<span class="text-sm" style="color:#dc2626;font-weight:700;">الفرق ' + coaMoney(diff) + ' — راجع سطر «فروق غير مفسرة»</span>') +
+            (Math.abs(explained) >= 0.01 ? '<span class="text-sm" style="color:#b45309;font-weight:700;">فرق مفسَّر (شراء تاجر): ' + coaMoney(explained) + '</span>' : '') +
+            (Math.abs(unexplained) >= 0.01 ? '<span class="text-sm" style="color:#dc2626;font-weight:700;">غير المفسر: ' + coaMoney(unexplained) + ' — راجع سطر «فروق غير مفسرة»</span>' : '') +
             '</div>';
 
         const treeHtml = '<div class="card" style="padding:12px 10px;margin-bottom:16px;overflow-x:auto;">' +
@@ -8218,7 +8265,9 @@
         tb.leaves.forEach(l => rows.push([l.code, l.name, l.debit.toFixed(2), l.credit.toFixed(2), l.balance.toFixed(2)]));
         rows.push([]);
         rows.push(['الإجمالي', '', tb.totals.debit.toFixed(2), tb.totals.credit.toFixed(2), tb.totals.difference.toFixed(2)]);
-        rows.push(['الحالة', tb.totals.balanced ? 'متوازن' : 'غير متوازن', '', '', '']);
+        if (Math.abs(tb.totals.explained || 0) >= 0.01) rows.push(['فروق تقييم مخزون (شراء تاجر) — مفسَّرة', '', '', '', (tb.totals.explained).toFixed(2)]);
+        if (Math.abs(tb.totals.unexplained || 0) >= 0.01) rows.push(['فروق غير مفسرة', '', '', '', (tb.totals.unexplained).toFixed(2)]);
+        rows.push(['الحالة', tb.totals.balanced ? 'متوازن' : (tb.totals.explainedFully ? 'فرق مفسَّر (شراء تاجر)' : 'غير متوازن'), '', '', '']);
         downloadCSV('شجرة_الحسابات_وميزان_المراجعة_' + new Date().toISOString().split('T')[0] + '.csv',
             ['الكود', 'اسم الحساب', 'مدين', 'دائن', 'الصافي'], rows.slice(1));
         showToast('✅ تم تصدير ميزان المراجعة');
@@ -8267,8 +8316,9 @@
             '<h2>⚖️ ميزان المراجعة</h2>' +
             '<table><thead><tr><th>الكود</th><th>اسم الحساب</th><th>مدين</th><th>دائن</th></tr></thead><tbody>' + trialRows +
             '<tr style="background:#f1f5f9;font-weight:800;"><td colspan="2">الإجمالي</td><td style="color:#dc2626;">' + money(tb.totals.debit) + '</td><td style="color:#059669;">' + money(tb.totals.credit) + '</td></tr></tbody></table>' +
-            '<p style="font-size:0.82rem;color:' + (tb.totals.balanced ? '#059669' : '#dc2626') + ';font-weight:700;margin-top:10px;">' +
-            (tb.totals.balanced ? '✅ الميزان متوازن' : '⚠️ الميزان غير متوازن — الفرق ' + money(tb.totals.difference)) + '</p>' +
+            '<p style="font-size:0.82rem;color:' + (tb.totals.balanced ? '#059669' : (tb.totals.explainedFully ? '#b45309' : '#dc2626')) + ';font-weight:700;margin-top:10px;">' +
+            (tb.totals.balanced ? '✅ الميزان متوازن' : (tb.totals.explainedFully ? '⚠️ فرق مفسَّر: فروق تقييم مخزون (شراء تاجر) ' + money(tb.totals.explained) : '⚠️ الميزان غير متوازن — الفرق ' + money(tb.totals.difference))) + '</p>' +
+            (Math.abs(tb.totals.unexplained || 0) >= 0.01 ? '<p style="font-size:0.82rem;color:#dc2626;font-weight:700;margin-top:4px;">غير المفسر: ' + money(tb.totals.unexplained) + '</p>' : '') +
             '<h2>🌳 الهيكل (5 مجموعات / 3 مستويات)</h2>' +
             '<table><thead><tr><th>الكود</th><th>الحساب</th><th>مدين</th><th>دائن</th><th>الصافي</th></tr></thead><tbody>' + treeRows + '</tbody></table>' +
             '</body></html>';
