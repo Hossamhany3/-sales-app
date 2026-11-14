@@ -433,6 +433,17 @@ test('مخزون: شراء مخزون', () => {
   return '+3';
 });
 
+test('مخزون: شراء يحتسب المصروفات الإضافية في المبلغ المدفوع', () => {
+  factory.seed(BASE());
+  const before = BL.stockValue();
+  const r = BL.purchaseStock({ productId: 1, qty: 3, accountId: 1, date: '2026-01-01T10:00:00.000Z' });
+  ok(r.success, 'فشل الشراء: ' + r.reason);
+  const tx = D().transactions.find(t => t.type === 'purchase');
+  eq(tx.amount, 31500, 'المبلغ المدفوع = (10000 + 500) × 3');
+  eq(BL.stockValue() - before, 31500, 'زيادة تقييم المخزون تساوي المبلغ المدفوع');
+  return '10500 × 3';
+});
+
 test('مخزون: بيع نقدي', () => {
   factory.seed(BASE());
   const r = BL.sellCash({ productId: 1, qty: 2, accountId: 1, date: '2026-01-02T10:00:00.000Z' });

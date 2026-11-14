@@ -4011,7 +4011,8 @@
 
             let q = Math.floor(Number(qty));
             if (!(q > 0)) return { success: false, reason: 'invalid_qty' };
-            let unitCost = this.toNum(p.costPrice);
+            // التكلفة الدفترية تشمل المصروفات الإضافية، فتُدفع بنفس الأساس حتى يتوازن المخزون مع النقدية
+            let unitCost = this.stockUnitCost(p);
             let totalAmount = unitCost * q;
             if (!isFinite(totalAmount) || totalAmount <= 0) return { success: false, reason: 'invalid_total' };
 
@@ -7624,16 +7625,27 @@
             checkPaySums(merchantPaymentsOut, true);
             // (3) كل حركة مخزون مرتبطة بأصل حي (بيع/شراء/تحويل/أمر)
             const liveSources = new Set();
-            transactions.forEach(t => { if (t.sourceType) liveSources.add(t.sourceType + '|' + String(t.sourceId)); });
+            const addLive = (st, id) => { if (st && id !== undefined && id !== null && id !== '') liveSources.add(st + '|' + String(id)); };
+            transactions.forEach(t => addLive(t.sourceType, t.sourceId));
+            // سجلات حيّة بلا قيد مالي مقصود (بيع/شراء التاجر الآجل، الأقساط، العربون، مخزون افتتاحي)
+            merchantSales.forEach(s => addLive('merchant_sale', s.transactionId || s.id));
+            merchantPurchases.forEach(p => addLive('merchant_purchase', p.transactionId || p.id));
+            installments.forEach(i => addLive('installment', i.id));
+            arabonSales.forEach(a => addLive('arabon', a.id));
+            products.forEach(p => addLive('opening_stock', p.id));
+            const hasLiveParent = (st, id) => {
+                const raw = String(id);
+                if (liveSources.has(st + '|' + raw)) return true;
+                // لاحقات الشق المالي/النوع: _c، _b، _upfront، _deposit ...
+                const base = raw.replace(/_[cb]$/, '');
+                if (base !== raw && liveSources.has(st + '|' + base)) return true;
+                const first = raw.split('_')[0];
+                if (first !== raw && liveSources.has(st + '|' + first)) return true;
+                return false;
+            };
             stockMovements.forEach(sm => {
                 if (!sm.sourceType || !sm.sourceId) return;
-                if (liveSources.has(sm.sourceType + '|' + String(sm.sourceId))) return;
-                if (sm.sourceType === 'installment') {
-                    // حركة عقد قسـط مرتبطة بعقد حي
-                    const parts = String(sm.sourceId).split('_');
-                    const instId = parts[0];
-                    if (installments.find(i => i.id == instId)) return;
-                }
+                if (hasLiveParent(sm.sourceType, sm.sourceId)) return;
                 this.addIssue('inventory','medium','Orphan stock movement #'+(sm.id||'?')+' refs missing parent '+sm.sourceType+'#'+sm.sourceId,'',String(sm.id||''),'sourceId','Live parent','Missing','STOCK_ORPHAN_PARENT');
             });
             // (4) أوامر صرف العمولات: كل الحركات بنفس orderNo تحمل sourceId مطابق (orderNo-employeeId)
@@ -10041,7 +10053,7 @@
             });
             if (!result.success) { showToast('فشل الشراء: ' + result.reason, 'error'); return; }
             renderProducts(); renderTransactions(); renderDashboard(); refreshSelectors();
-            showToast('💰 تم شراء ' + p.name + ' — ' + p.costPrice + ' ج');
+            showToast('💰 تم شراء ' + p.name + ' — ' + BusinessLogic.stockUnitCost(p) + ' ج');
         } catch (err) { showError('خطأ', err.message); }
     };
 
