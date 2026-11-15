@@ -2638,6 +2638,13 @@ body.employee-mode #undoBtn { display: none !important; }
 
     function _closeModal(value) {
         document.getElementById('modalOverlay').classList.remove('show');
+        // إعادة أزرار المودال إلى حالتها الافتراضية (بعض المودالات المخصصة تُخفيها)
+        try {
+            const cb = document.getElementById('modalConfirmBtn');
+            const cn = document.getElementById('modalCancelBtn');
+            if (cb) cb.style.display = '';
+            if (cn) cn.style.display = '';
+        } catch (e) { /* تجاهل */ }
         // إعادة المعالج الأساسي للمودال إن كان قد استُبدل بمعالج مخصص (مثل دخول الموظف)
         if (_defaultConfirmModal && window._confirmModal !== _defaultConfirmModal) window._confirmModal = _defaultConfirmModal;
         if (_modalResolve) { _modalResolve(value); _modalResolve = null; }
@@ -2721,6 +2728,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
         });
@@ -2739,6 +2747,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalInput').value = String(defaultValue);
             document.getElementById('modalInput').type = 'text';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
             setTimeout(() => { document.getElementById('modalInput').focus(); document.getElementById('modalInput').select(); }, 100);
@@ -2757,6 +2766,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalNumberInput').value = defaultValue;
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
             setTimeout(() => { document.getElementById('modalNumberInput').focus(); document.getElementById('modalNumberInput').select(); }, 100);
@@ -2830,6 +2840,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSplitFields').classList.remove('show');
             document.getElementById('modalSplitCheck').textContent = '';
             document.getElementById('modalConfirmBtn').textContent = 'موافق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
             setTimeout(() => { document.getElementById('modalNumberInput').focus(); document.getElementById('modalNumberInput').select(); }, 100);
@@ -2865,6 +2876,7 @@ body.employee-mode #undoBtn { display: none !important; }
             sel.style.display = '';
             sel.innerHTML = '<option value="">-- اختر --</option>' + options.map(o => '<option value="' + o.value + '">' + o.label + '</option>').join('');
             document.getElementById('modalConfirmBtn').textContent = 'تأكيد';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
             setTimeout(() => sel.focus(), 100);
@@ -6934,6 +6946,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'تنفيذ';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = '';
             document.getElementById('modalOverlay').classList.add('show');
         });
@@ -6994,6 +7007,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
         } catch (e) { showError('تعذر عرض السجل', e.message); }
@@ -9010,6 +9024,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
         } catch (e) { showError('تعذر التفصيل', e.message); }
@@ -9170,6 +9185,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
         } catch (err) { showToast('تعذر فتح سلة المحذوفات: ' + err.message, 'error'); }
@@ -9278,6 +9294,7 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalSelectInput').style.display = 'none';
             document.getElementById('modalAccountRow').style.display = 'none';
             document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalConfirmBtn').style.display = '';
             document.getElementById('modalCancelBtn').style.display = 'none';
             document.getElementById('modalOverlay').classList.add('show');
             setTimeout(() => { const i = document.getElementById('gsInput'); if (i) i.focus(); }, 50);
