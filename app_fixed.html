@@ -1913,6 +1913,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     <button class="tab-btn" data-tab="tabCoA" onclick="switchReportTab('tabCoA')">📚 شجرة الحسابات</button>
                     <button class="tab-btn" data-tab="tabRepair" onclick="switchReportTab('tabRepair')">🛠️ مركز الإصلاح</button>
                     <button class="tab-btn" data-tab="tabCashFlow" onclick="switchReportTab('tabCashFlow')">💸 التدفق النقدي</button>
+                    <button class="tab-btn" data-tab="tabAgeing" onclick="switchReportTab('tabAgeing')">⏳ تقادم الديون</button>
                 </div>
 
                 <!-- P&L -->
@@ -2153,6 +2154,15 @@ body.employee-mode #undoBtn { display: none !important; }
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="exportCashFlowExcel()">📊 Excel</button>
                     </div>
                     <div id="cashFlowContent"></div>
+                </div>
+
+                <div id="tabAgeing" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:4px;">⏳ تقادم الديون (Ageing)</h3>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">تصنيف مديونيات العملاء (أقساط + عربون) حسب عمرها: 0–30، 31–60، 61–90، 90+ يوم.</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="renderAgeingReport()">🔄 تحديث</button>
+                    </div>
+                    <div id="ageingReportContent"></div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -7255,7 +7265,7 @@ body.employee-mode #undoBtn { display: none !important; }
             'renderInstallments', 'renderAccounts', 'renderPartners', 'renderEmployees', 'renderAdminPage',
             'renderMerchantSales', 'renderMerchantPurchases', 'renderMerchantPage', 'renderArabonSales',
             'renderAuditLog', 'renderCommandCenter', 'renderNotifications', 'renderRepairCenter',
-            'updateStorageInfo', 'renderChartOfAccounts', 'renderCashFlow'];
+            'updateStorageInfo', 'renderChartOfAccounts', 'renderCashFlow', 'renderAgeingReport'];
         fns.forEach(n => {
             try { if (typeof window[n] === 'function') window[n](); } catch (e) { /* شاشة غير نشطة */ }
         });
@@ -8590,6 +8600,7 @@ body.employee-mode #undoBtn { display: none !important; }
         if (tabId === 'tabCoA') { setTimeout(() => renderChartOfAccounts(), 50); }
         if (tabId === 'tabRepair') { setTimeout(() => renderRepairCenter(), 50); }
         if (tabId === 'tabCashFlow') { setTimeout(() => renderCashFlow(), 50); }
+        if (tabId === 'tabAgeing') { setTimeout(() => renderAgeingReport(), 50); }
     }
 
     // ====== سجل التدقيق (عرض + تصدير) ======
@@ -9486,6 +9497,91 @@ body.employee-mode #undoBtn { display: none !important; }
             saveData(); renderProducts(); renderDashboard();
             showToast('📦 تم إعادة حساب ' + changed + ' صنف من حركات المخزون', 'success');
         } catch (e) { showError('تعذر إعادة الحساب', e.message); }
+    };
+
+    window.renderAgeingReport = function () {
+        const container = document.getElementById('ageingReportContent');
+        if (!container) return;
+        const money = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        const today = new Date();
+        const bucketOf = (dueDate) => {
+            const d = new Date(dueDate);
+            const days = Math.floor((today - d) / 86400000);
+            if (days <= 30) return '0-30';
+            if (days <= 60) return '31-60';
+            if (days <= 90) return '61-90';
+            return '90+';
+        };
+        const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+        const byMerchant = {};
+        (installments || []).forEach(inst => {
+            if (inst.isPaid) return;
+            const rem = Number(inst.remainingBalance) || 0;
+            if (rem <= 0.01) return;
+            const m = merchants.find(x => x.id == inst.merchantId);
+            const name = m ? m.name : ('عميل #' + inst.merchantId);
+            if (!byMerchant[name]) byMerchant[name] = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, total: 0 };
+            // distribute remaining across unpaid slots by due date
+            const sched = (inst.schedule || []).filter(s => !s.isPaid);
+            if (!sched.length) {
+                const b = bucketOf(inst.firstDueDate || inst.date);
+                byMerchant[name][b] += rem;
+                byMerchant[name].total += rem;
+                buckets[b] += rem;
+                return;
+            }
+            const slotAmt = rem / sched.length;
+            sched.forEach(s => {
+                const b = bucketOf(s.dueDate);
+                byMerchant[name][b] += slotAmt;
+                byMerchant[name].total += slotAmt;
+                buckets[b] += slotAmt;
+            });
+        });
+        // Arabon
+        (arabonSales || []).forEach(a => {
+            if (a.isPaid) return;
+            const rem = Number(a.remainingAmount || a.remainingBalance) || 0;
+            if (rem <= 0.01) return;
+            const m = merchants.find(x => x.id == a.merchantId);
+            const name = m ? m.name : ('عميل #' + a.merchantId);
+            if (!byMerchant[name]) byMerchant[name] = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, total: 0 };
+            const b = bucketOf(a.dueDate || a.date);
+            byMerchant[name][b] += rem;
+            byMerchant[name].total += rem;
+            buckets[b] += rem;
+        });
+
+        const total = buckets['0-30'] + buckets['31-60'] + buckets['61-90'] + buckets['90+'];
+        let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">';
+        ['0-30', '31-60', '61-90', '90+'].forEach(b => {
+            html += '<div class="stat-card-modern" style="flex:1;min-width:100px;"><div class="stat-label">' + b + ' يوم</div><div class="stat-value" style="font-size:0.9rem;">' + money(buckets[b]) + '</div></div>';
+        });
+        html += '<div class="stat-card-modern" style="flex:1;min-width:100px;"><div class="stat-label">الإجمالي</div><div class="stat-value" style="font-size:0.9rem;">' + money(total) + '</div></div>';
+        html += '</div>';
+
+        const rows = Object.keys(byMerchant).map(name => {
+            const d = byMerchant[name];
+            return '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:6px;font-size:0.82rem;">' + esc(name) + '</td>' +
+                '<td style="padding:6px;text-align:left;font-size:0.82rem;">' + money(d['0-30']) + '</td>' +
+                '<td style="padding:6px;text-align:left;font-size:0.82rem;">' + money(d['31-60']) + '</td>' +
+                '<td style="padding:6px;text-align:left;font-size:0.82rem;">' + money(d['61-90']) + '</td>' +
+                '<td style="padding:6px;text-align:left;font-size:0.82rem;color:#dc2626;font-weight:700;">' + money(d['90+']) + '</td>' +
+                '<td style="padding:6px;text-align:left;font-size:0.82rem;font-weight:800;">' + money(d.total) + '</td>' +
+                '</tr>';
+        }).join('');
+
+        html += '<div class="card" style="padding:10px;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:520px;">' +
+            '<thead><tr style="border-bottom:2px solid var(--border);">' +
+            '<th style="padding:6px;text-align:right;font-size:0.78rem;color:var(--text-muted);">العميل</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">0-30</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">31-60</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">61-90</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">90+</th>' +
+            '<th style="padding:6px;text-align:left;font-size:0.78rem;color:var(--text-muted);">الإجمالي</th>' +
+            '</tr></thead><tbody>' + (rows || '<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text-muted);">لا توجد مديونيات</td></tr>') + '</tbody></table></div>';
+        container.innerHTML = html;
     };
 
     window.renderChartOfAccounts = function() {
