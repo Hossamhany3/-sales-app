@@ -1749,6 +1749,100 @@ test('ملخص: من له نشاط تجاري يبقى تاجراً حتى لو 
   return 'النشاط التجاري له الأولوية';
 });
 
+// ─────────── توزيع أرباح/خسائر الشركاء ───────────
+test('أرباح: توزيع ربح على شريك حسب النسبة', () => {
+  factory.seed(BASE());
+  const sale = BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  ok(sale.success, 'فشل البيع');
+  factory.get('partners').push({ id: 1, name: 'شريك', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 1000, profitPercent: 20 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(res.success, 'فشل التوزيع: ' + res.reason);
+  eq(res.netProfit, 2500, 'صافي الربح');
+  eq(res.lines[0].share, 500, 'حصة الشريك');
+  eq(factory.get('partners')[0].balance, 1500, 'رصيد بعد الأرباح');
+  const tx = D().transactions.find(t => t.type === 'partner_profit');
+  ok(!!tx, 'قيد الأرباح');
+  ok(tx.periodFrom === '2026-01-01' && tx.periodTo === '2026-01-31', 'فترة التوزيع');
+  ok(html.includes('openProfitDistribution'), 'زر توزيع الأرباح في الواجهة');
+  return '2500 × 20% = 500';
+});
+
+test('أرباح: توزيع خسارة يخصم من رصيد الشريك', () => {
+  const base = BASE(); base.products[0].sellPrice = 5000; factory.seed(base);
+  const sale = BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  ok(sale.success, 'فشل البيع');
+  factory.get('partners').push({ id: 1, name: 'شريك', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 1000, profitPercent: 30 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(res.success, 'فشل التوزيع: ' + res.reason);
+  ok(res.netProfit < 0, 'صافي خسارة');
+  const p = factory.get('partners')[0];
+  ok(p.balance < 1000, 'الخسارة خصمت من الرصيد');
+  const tx = D().transactions.find(t => t.type === 'partner_loss');
+  ok(!!tx, 'قيد الخسارة');
+  return 'خسارة × 30%';
+});
+
+test('أرباح: إلغاء توزيع يعيد الأرصدة', () => {
+  factory.seed(BASE());
+  BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  factory.get('partners').push({ id: 1, name: 'شريك', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 1000, profitPercent: 20 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(res.success);
+  const before = factory.get('partners')[0].balance;
+  const rev = BL.reversePartnerDistribution(res.distributionId);
+  ok(rev.success, 'فشل الإلغاء');
+  eq(factory.get('partners')[0].balance, 1000, 'رصيد مسترجع');
+  ok(!D().transactions.some(t => t.distributionId === res.distributionId), 'حذفت القيود');
+  return 'إلغاء توزيع';
+});
+
+test('أرباح: مجموع النسب > 100% مرفوض', () => {
+  factory.seed(BASE());
+  BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  factory.get('partners').push({ id: 1, name: 'ش1', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 0, profitPercent: 60 });
+  factory.get('partners').push({ id: 2, name: 'ش2', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 0, profitPercent: 50 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(!res.success && res.reason === 'percent_over_100', 'يجب رفض مجموع > 100%');
+  return 'رفض مجموع نسب > 100%';
+});
+
+test('أرباح: توزيع نفس الفترة مرتين مرفوض (تداخل)', () => {
+  factory.seed(BASE());
+  BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  factory.get('partners').push({ id: 1, name: 'ش1', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 0, profitPercent: 20 });
+  const r1 = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(r1.success);
+  const r2 = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-21T00:00:00.000Z' });
+  ok(!r2.success && r2.reason === 'period_overlap', 'يجب رفض توزيع متداخل');
+  return 'رفض توزيع متداخل';
+});
+
+test('أرباح: فترة بدون ربح/خسارة مرفوضة', () => {
+  factory.seed(BASE());
+  factory.get('partners').push({ id: 1, name: 'ش1', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 0, profitPercent: 20 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(!res.success && res.reason === 'zero_amount', 'يجب رفض فترة بدون صافي');
+  return 'رفض فترة بصافي صفر';
+});
+
+test('أرباح: توزيع يبقى consistent مع فحص أرصدة الشركاء', () => {
+  factory.seed(BASE());
+  BL.sellCash({ productId: 1, qty: 1, accountId: 1, date: '2026-01-15T10:00:00.000Z' });
+  factory.get('partners').push({ id: 1, name: 'ش1', phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance: 0, profitPercent: 20 });
+  const res = BL.distributePartnerProfits({ from: '2026-01-01', to: '2026-01-31', date: '2026-01-20T00:00:00.000Z' });
+  ok(res.success);
+  const p = factory.get('partners')[0];
+  let calc = 0;
+  D().transactions.forEach(t => {
+    if (t.partnerId != p.id) return;
+    if (t.type === 'partner_deposit' || t.type === 'partner_profit') calc += t.amount;
+    else if (t.type === 'partner_withdrawal' || t.type === 'partner_loss') calc -= t.amount;
+  });
+  ok(Math.abs(calc - p.balance) < 0.01, 'رصيد الشريك يجب أن يطابق حركاته');
+  return 'فحص أرصدة شركاء نظيف';
+  return 'فحص أرصدة شركاء نظيف';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;
