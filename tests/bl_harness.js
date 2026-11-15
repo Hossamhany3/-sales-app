@@ -1630,6 +1630,63 @@ test('不 invariant: stockMatchesMovements (مخزون = أولي + in − out)'
   return 'initial + in − out = stock';
 });
 
+// ─────────── الأرشفة الفورية عند وصول الرصيد لصفر ───────────
+test('مخزون: بيع آخر قطعة نقدًا يؤرشف الصنف فورًا', () => {
+  const base = BASE(); base.products[2].stock = 1; factory.seed(base);
+  const r = BL.sellCash({ productId: 3, qty: 1, accountId: 1, date: '2026-01-02T10:00:00.000Z' });
+  ok(r.success, 'فشل البيع: ' + r.reason);
+  const p = D().products.find(x => x.id == 3);
+  eq(p.stock, 0, 'المخزون صفر');
+  ok(p.archived === true, 'الصنف لم يُؤرشف فورًا');
+  return 'أرشفة فورية عند الصفر';
+});
+
+test('مخزون: بيع آخر قطعة بالتقسيط يؤرشف الصنف فورًا', () => {
+  const base = BASE(); base.products[2].stock = 1; factory.seed(base);
+  const r = BL.createInstallment({
+    merchantId: 1, productId: 3, deviceName: 'Samsung A54', purchasePrice: 8000, paidUpfront: 1000,
+    interestRate: 0, numInstallments: 5, firstDueDate: '2026-01-05', accountId: 1,
+    date: '2026-01-01T10:00:00.000Z'
+  });
+  ok(r.success, 'فشل العقد: ' + r.reason);
+  const p = D().products.find(x => x.id == 3);
+  eq(p.stock, 0, 'المخزون صفر');
+  ok(p.archived === true, 'الصنف لم يُؤرشف فورًا');
+  return 'أرشفة فورية عند الصفر (تقسيط)';
+});
+
+test('مخزون: بيع آخر قطعة بعربون يؤرشف الصنف فورًا', () => {
+  const base = BASE(); base.products[2].stock = 1; factory.seed(base);
+  const r = newArabon({ productId: 3, sellPrice: 8000, depositAmount: 1000, deviceName: 'Samsung A54' });
+  ok(r.success, 'فشل العربون');
+  const p = D().products.find(x => x.id == 3);
+  eq(p.stock, 0, 'المخزون صفر');
+  ok(p.archived === true, 'الصنف لم يُؤرشف فورًا');
+  return 'أرشفة فورية عند الصفر (عربون)';
+});
+
+test('مخزون: بيع آخر قطعة لتاجر يؤرشف الصنف فورًا', () => {
+  const base = BASE(); base.products[2].stock = 1; factory.seed(base);
+  const r = BL.sellToMerchant({ merchantId: 2, productId: 3, qty: 1, actualTotal: 8000, date: '2026-01-03T10:00:00.000Z' });
+  ok(r.success, 'فشل البيع للتاجر: ' + r.reason);
+  const p = D().products.find(x => x.id == 3);
+  eq(p.stock, 0, 'المخزون صفر');
+  ok(p.archived === true, 'الصنف لم يُؤرشف فورًا');
+  return 'أرشفة فورية عند الصفر (تاجر)';
+});
+
+test('مخزون: شراء صنف مؤرشف يعيد إظهاره', () => {
+  const base = BASE(); base.products[2].stock = 1; factory.seed(base);
+  BL.sellCash({ productId: 3, qty: 1, accountId: 1, date: '2026-01-02T10:00:00.000Z' });
+  ok(D().products.find(x => x.id == 3).archived === true, 'لم يُؤرشف');
+  const r = BL.purchaseStock({ productId: 3, qty: 2, accountId: 1, date: '2026-01-03T10:00:00.000Z' });
+  ok(r.success, 'فشل الشراء: ' + r.reason);
+  const p = D().products.find(x => x.id == 3);
+  eq(p.stock, 2, 'المخزون بعد الشراء');
+  ok(p.archived === false, 'الصنف لم يُعد إظهاره بعد الشراء');
+  return 'شراء يرجع الصنف للنشط';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;

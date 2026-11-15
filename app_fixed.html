@@ -4336,7 +4336,10 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!mv) return { success: false, reason: 'stock_movement_failed' };
 
             installments.push(newInst);
+            const stockWasArchived = !!p.archived;
             p.stock -= 1;
+            // رصيد صفر بعد البيع = أرشفة فورية للصنف
+            if (p.stock <= 0) p.archived = true;
 
             // الدفعة المقدمة
             let upfrontTxn = null;
@@ -4357,6 +4360,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     installments = installments.filter(i => i.id != instId);
                     this.deleteStockMovementsBySource('installment', sourceId);
                     p.stock += 1;
+                    p.archived = stockWasArchived;
                     return { success: false, reason: 'transaction_failed' };
                 }
             }
@@ -4918,6 +4922,7 @@ body.employee-mode #undoBtn { display: none !important; }
                         if (oldP.archived) oldP.archived = false;
                     }
                     newP.stock = this.toNum(newP.stock) - 1;
+                    if (newP.stock <= 0) newP.archived = true;
                 }
 
                 // ═══ (3) المقدم صفر: إزالة القيد بعد نجاح بقية الأطراف ═══
@@ -5045,7 +5050,10 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!mv) return { success: false, reason: 'stock_movement_failed' };
 
             arabonSales.push(newArabon);
+            const stockWasArchived = !!p.archived;
             p.stock = this.toNum(p.stock) - 1;
+            // رصيد صفر بعد البيع = أرشفة فورية للصنف
+            if (p.stock <= 0) p.archived = true;
 
             // الدفعة المقدمة
             let depositTxn = null;
@@ -5066,6 +5074,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     arabonSales = arabonSales.filter(x => x.id != arabonId);
                     this.deleteStockMovementsBySource('arabon', sourceId);
                     p.stock = this.toNum(p.stock) + 1;
+                    p.archived = stockWasArchived;
                     return { success: false, reason: 'transaction_failed' };
                 }
             }
@@ -5173,6 +5182,7 @@ body.employee-mode #undoBtn { display: none !important; }
                         if (oldP.archived) oldP.archived = false;
                     }
                     p.stock = this.toNum(p.stock) - 1;
+                    if (p.stock <= 0) p.archived = true;
                 }
 
                 // ═══ (3) مقدم صفر: إزالة القيد بعد نجاح بقية الأطراف ═══
@@ -5639,6 +5649,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
             // خصم stock بعد نجاح كل الأطراف
             p.stock = this.toNum(p.stock) - qty;
+            if (p.stock <= 0) p.archived = true;
             merchantSales.push(sale);
 
             logAudit('create', 'بيع تاجر', m.name + ' | ' + p.name + ' ×' + qty, 'قيمة ' + actualTotal + ' ج');
@@ -11324,7 +11335,6 @@ body.employee-mode #undoBtn { display: none !important; }
         const stockIcon = p.stock > 5 ? '🟢' : p.stock > 0 ? '🟡' : '🔴';
         const isLowStock = (p.minStock || 0) > 0 && p.stock <= (p.minStock || 0);
         const lowStockBadge = isLowStock ? ' <span class="badge" style="background:var(--danger);color:#fff;font-size:0.7rem;">⚠️ تحت الحد الأدنى</span>' : '';
-        const disabledAttr = p.stock <= 0 ? 'disabled' : '';
         const profitColor = profit >= 0 ? 'text-success' : 'text-danger';
         const archiveBadge = p.archived ? ' <span class="badge" style="background:var(--text-muted);color:#fff;font-size:0.7rem;">📦 مؤرشف</span>' : '';
         html += '' +
@@ -11344,7 +11354,9 @@ body.employee-mode #undoBtn { display: none !important; }
                 (p.archived
                     ? '<button class="btn-sm btn-outline flex-1" onclick="purchaseProduct(' + p.id + ')" style="border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
                       '<button class="btn-sm btn-outline flex-1" onclick="unarchiveProduct(' + p.id + ')">📦 إظهار</button>'
-                    : '<button class="btn-sm btn-success flex-1" ' + disabledAttr + ' onclick="sellProduct(' + p.id + ')">💵 بيع</button>' +
+                    : (p.stock <= 0
+                        ? '<button class="btn-sm btn-outline flex-1" onclick="archiveProduct(' + p.id + ')" title="أرشفة الصنف لأن رصيده صفر">📦 أرشفة</button>'
+                        : '<button class="btn-sm btn-success flex-1" onclick="sellProduct(' + p.id + ')">💵 بيع</button>') +
                       '<button class="btn-sm btn-outline flex-1" onclick="purchaseProduct(' + p.id + ')" style="border-color:var(--accent); color:var(--accent);">💰 شراء</button>' +
                       '<button class="btn-sm btn-outline flex-shrink-0" onclick="editProduct(' + p.id + ')">✏️</button>' +
                       '<button class="btn-sm btn-danger flex-shrink-0" onclick="deleteProduct(' + p.id + ')">🗑️</button>'
@@ -11364,6 +11376,17 @@ body.employee-mode #undoBtn { display: none !important; }
     html += '</div>';
     container.innerHTML = html;
     }
+
+    window.archiveProduct = (id) => {
+        if (!requireAdmin()) return;
+        let p = products.find(x => x.id == id);
+        if (!p) { showToast('الصنف غير موجود', 'error'); return; }
+        if ((Number(p.stock) || 0) > 0) { showToast('لا يمكن أرشفة صنف له رصيد', 'error'); return; }
+        p.archived = true;
+        logAudit('update', 'أرشفة صنف', p.name, 'الرصيد صفر');
+        saveData(); renderProducts(); refreshSelectors(); renderDashboard();
+        showToast('📦 تم أرشفة ' + p.name);
+    };
 
     window.unarchiveProduct = (id) => {
         let p = products.find(x => x.id == id);
