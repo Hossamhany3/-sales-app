@@ -11402,13 +11402,20 @@ body.employee-mode #undoBtn { display: none !important; }
             let linkedSale = merchantSales.some(s => s.productId == id);
             let linkedPurchase = merchantPurchases.some(s => s.productId == id);
             let linkedMovement = stockMovements.some(s => s.productId == id);
-            if (linkedTxn || linkedInst || linkedArabon || linkedSale || linkedPurchase || linkedMovement) {
-                showToast('لا يمكن حذف الصنف لارتباطه بحركات مالية أو مخزون سابقة', 'error'); return;
+            if (linkedTxn || linkedInst || linkedArabon || linkedSale || linkedPurchase) {
+                showToast('لا يمكن حذف الصنف لارتباطه بحركات مالية (بيع/شراء/قسط/عربون/تاجر). احذف العملية الأصلية أو استخدم المرتجع', 'error'); return;
             }
-            if (BusinessLogic.toNum(p.stock) !== 0) {
-                showToast('لا يمكن حذف صنف له رصيد مخزون. سوِّ الرصيد أولاً', 'error'); return;
+            let reason = null;
+            if (linkedMovement || BusinessLogic.toNum(p.stock) !== 0) {
+                let r2 = await confirmDelete('الصنف "' + (p.name || '') + '" له رصيد مخزون (' + p.stock + ') و/أو حركات مخزون.\\nحذفه سيلغي الرصيد وجميع حركات المخزون.\\nهل تريد المتابعة؟', '⚠️ حذف صنف له رصيد/حركات');
+                if (!r2) return;
+                reason = r2;
+                stockMovements = stockMovements.filter(s => s.productId != id);
             }
-            let reason = await confirmDelete('تأكيد حذف الصنف "' + (p.name || '') + '"؟', '⚠️ حذف صنف');
+            if (!reason) {
+                reason = await confirmDelete('تأكيد حذف الصنف "' + (p.name || '') + '"؟', '⚠️ حذف صنف');
+                if (!reason) return;
+            }
             if (!reason) return;
             try { window.moveToRecycleBin('product', 'صنف: ' + (p.name || id), reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف صنف: ' + (p.name || id));
