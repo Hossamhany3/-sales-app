@@ -1908,6 +1908,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     <button class="tab-btn" data-tab="tabAuditLog" onclick="switchReportTab('tabAuditLog')">📋 سجل التدقيق</button>
                     <button class="tab-btn" data-tab="tabCoA" onclick="switchReportTab('tabCoA')">📚 شجرة الحسابات</button>
                     <button class="tab-btn" data-tab="tabRepair" onclick="switchReportTab('tabRepair')">🛠️ مركز الإصلاح</button>
+                    <button class="tab-btn" data-tab="tabCashFlow" onclick="switchReportTab('tabCashFlow')">💸 التدفق النقدي</button>
                 </div>
 
                 <!-- P&L -->
@@ -2137,6 +2138,16 @@ body.employee-mode #undoBtn { display: none !important; }
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="repairAllSafe()">🔧 إصلاح كل ما يمكن إصلاحه</button>
                     </div>
                     <div id="repairContent"></div>
+                </div>
+
+                <div id="tabCashFlow" class="report-tab" style="display:none;">
+                    <h3 style="font-size:1rem;margin-bottom:4px;">💸 التدفق النقدي (Cash Flow)</h3>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">ملخص التدفقات (دفوعات/قبض) مصنّفة: تشغيلية، استثمارية، تمويلية. يعتمد على حركات الخزينة (payment_in/out، تحويل، شركاء، تجار).</p>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="renderCashFlow()">🔄 تحديث</button>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="exportCashFlowCSV()">📎 CSV</button>
+                    </div>
+                    <div id="cashFlowContent"></div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -7222,7 +7233,7 @@ body.employee-mode #undoBtn { display: none !important; }
             'renderInstallments', 'renderAccounts', 'renderPartners', 'renderEmployees', 'renderAdminPage',
             'renderMerchantSales', 'renderMerchantPurchases', 'renderMerchantPage', 'renderArabonSales',
             'renderAuditLog', 'renderCommandCenter', 'renderNotifications', 'renderRepairCenter',
-            'updateStorageInfo', 'renderChartOfAccounts'];
+            'updateStorageInfo', 'renderChartOfAccounts', 'renderCashFlow'];
         fns.forEach(n => {
             try { if (typeof window[n] === 'function') window[n](); } catch (e) { /* شاشة غير نشطة */ }
         });
@@ -8556,6 +8567,7 @@ body.employee-mode #undoBtn { display: none !important; }
         if (tabId === 'tabAuditLog') { setTimeout(() => renderAuditLog(), 50); }
         if (tabId === 'tabCoA') { setTimeout(() => renderChartOfAccounts(), 50); }
         if (tabId === 'tabRepair') { setTimeout(() => renderRepairCenter(), 50); }
+        if (tabId === 'tabCashFlow') { setTimeout(() => renderCashFlow(), 50); }
     }
 
     // ====== سجل التدقيق (عرض + تصدير) ======
@@ -9160,6 +9172,86 @@ body.employee-mode #undoBtn { display: none !important; }
             if (st) st.textContent = periodLockDate ? ('🔒 مغلق حتى ' + periodLockDate) : '🔓 غير مغلق';
         } catch (e) { /* تجاهل */ }
     })();
+
+    window.renderCashFlow = function () {
+        const container = document.getElementById('cashFlowContent');
+        if (!container) return;
+        const money = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        const type = t => t.type || '';
+        const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(type(t));
+        const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(type(t));
+
+        const operatingIn = transactions.filter(t => isIn(t) && !['partner_deposit', 'transfer_in'].includes(type(t)));
+        const operatingOut = transactions.filter(t => isOut(t) && !['partner_withdrawal', 'transfer_out'].includes(type(t)));
+        const financingIn = transactions.filter(t => type(t) === 'partner_deposit');
+        const financingOut = transactions.filter(t => type(t) === 'partner_withdrawal');
+        const investingIn = transactions.filter(t => type(t) === 'transfer_in');
+        const investingOut = transactions.filter(t => type(t) === 'transfer_out');
+
+        const sum = arr => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+        const opIn = sum(operatingIn), opOut = sum(operatingOut);
+        const finIn = sum(financingIn), finOut = sum(financingOut);
+        const invIn = sum(investingIn), invOut = sum(investingOut);
+        const net = (opIn - opOut) + (finIn - finOut) + (invIn - invOut);
+
+        const section = (title, color, items, total, sign) => {
+            const rows = items.map(t =>
+                '<tr style="border-bottom:1px solid var(--border);">' +
+                '<td style="padding:5px 6px;font-size:0.78rem;">' + esc(t.date ? String(t.date).slice(0, 10) : '—') + '</td>' +
+                '<td style="padding:5px 6px;font-size:0.78rem;word-break:break-word;">' + esc(t.notes || t.type || '') + '</td>' +
+                '<td style="padding:5px 6px;text-align:left;font-size:0.78rem;color:' + color + ';font-weight:600;">' + money(t.amount) + '</td></tr>'
+            ).join('');
+            return '<div class="card" style="padding:10px;margin-bottom:10px;">' +
+                '<h4 style="margin:0 0 6px 0;font-size:0.92rem;color:' + color + ';">' + title + ' — ' + money(total) + '</h4>' +
+                (items.length ? '<table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:1px solid var(--border);">' +
+                    '<th style="padding:4px 6px;text-align:right;font-size:0.72rem;color:var(--text-muted);">التاريخ</th>' +
+                    '<th style="padding:4px 6px;text-align:right;font-size:0.72rem;color:var(--text-muted);">البيان</th>' +
+                    '<th style="padding:4px 6px;text-align:left;font-size:0.72rem;color:var(--text-muted);">المبلغ</th>' +
+                    '</tr></thead><tbody>' + rows + '</tbody></table>'
+                    : '<div style="font-size:0.78rem;color:var(--text-muted);">لا توجد حركات</div>') + '</div>';
+        };
+
+        let html = '';
+        html += section('📥 التدفقات التشغيلية (قبض)', '#059669', operatingIn, opIn, 1);
+        html += section('📤 التدفقات التشغيلية (دفع)', '#dc2626', operatingOut, opOut, -1);
+        html += '<div class="card" style="padding:8px 10px;margin-bottom:10px;background:var(--background);"><strong>صافي التشغيل: ' + money(opIn - opOut) + '</strong></div>';
+        html += section('📥 تمويل (إيداعات شركاء)', '#059669', financingIn, finIn, 1);
+        html += section('📤 تمويل (سحوبات شركاء)', '#dc2626', financingOut, finOut, -1);
+        html += '<div class="card" style="padding:8px 10px;margin-bottom:10px;background:var(--background);"><strong>صافي التمويل: ' + money(finIn - finOut) + '</strong></div>';
+        html += section('📥 استثمار (تحويلات داخل)', '#059669', investingIn, invIn, 1);
+        html += section('📤 استثمار (تحويلات خارج)', '#dc2626', investingOut, invOut, -1);
+        html += '<div class="card" style="padding:8px 10px;margin-bottom:10px;background:var(--background);"><strong>صافي الاستثمار: ' + money(invIn - invOut) + '</strong></div>';
+        html += '<div class="card" style="padding:12px 10px;border:2px solid var(--primary);"><strong style="font-size:1rem;">صافي التغير في النقد: ' + money(net) + '</strong></div>';
+        container.innerHTML = html;
+    };
+
+    window.exportCashFlowCSV = function () {
+        try {
+            renderCashFlow();
+            const container = document.getElementById('cashFlowContent');
+            if (!container) return;
+            const rows = [['القسم', 'التاريخ', 'البيان', 'المبلغ']];
+            // إعادة جمع من transactions
+            const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
+            const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(t.type);
+            transactions.forEach(t => {
+                let section = 'أخرى';
+                if (t.type === 'partner_deposit') section = 'تمويل (إيداع)';
+                else if (t.type === 'partner_withdrawal') section = 'تمويل (سحب)';
+                else if (t.type === 'transfer_in') section = 'استثمار (داخل)';
+                else if (t.type === 'transfer_out') section = 'استثمار (خارج)';
+                else if (isIn(t)) section = 'تشغيلي (قبض)';
+                else if (isOut(t)) section = 'تشغيلي (دفع)';
+                rows.push([section, t.date ? String(t.date).slice(0, 10) : '', (t.notes || t.type || ''), t.amount]);
+            });
+            const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\\n');
+            const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'cashflow.csv'; a.click();
+            URL.revokeObjectURL(url);
+            showToast('✅ تم تصدير التدفق النقدي');
+        } catch (e) { showError('تعذر التصدير', e.message); }
+    };
 
     window.renderChartOfAccounts = function() {
         const container = document.getElementById('coaContent');
