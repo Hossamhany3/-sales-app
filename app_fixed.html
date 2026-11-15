@@ -2321,6 +2321,35 @@ body.employee-mode #undoBtn { display: none !important; }
                 </div>
             </div>
 
+            <!-- Phase 2: سلة محذوفات + نسخ متعددة + قفل فترة -->
+            <div class="card">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">♻️ سلة المحذوفات (30 يومًا)</h3>
+                <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">الحذوفات تُنقل هنا بدل حذفها finaliًا. يمكن استعادتها خلال 30 يومًا، أو حذفها finaliًا.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <button class="btn-sm btn-outline" style="width:auto;" onclick="openRecycleBin()">🗑️ فتح سلة المحذوفات (<span id="recycleCount">0</span>)</button>
+                    <button class="btn-sm btn-outline" style="width:auto;" onclick="purgeExpiredRecycleBin(); renderRecycleBinCount(); showToast('تم تنظيف المنتهية')">🧹 تنظيف المنتهية</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">💾 نسخ احتياطية متعددة (حتى 5)</h3>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <button class="btn-sm btn-success" style="width:auto;" onclick="createBackup(); renderBackupsList();">💾 نسخة احتياطية الآن</button>
+                </div>
+                <div id="backupsList" style="font-size:0.82rem;"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">🔒 قفل فترة</h3>
+                <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">عند التفعيل، لا يمكن تعديل/حذف سجلات بتاريخ أقدم من التاريخ المحدد.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <input type="date" id="periodLockInput" style="flex:1;min-width:160px;">
+                    <button class="btn-sm btn-outline" style="width:auto;" onclick="setPeriodLock(document.getElementById('periodLockInput').value); updatePeriodLockStatus();">🔒 تعيين</button>
+                    <button class="btn-sm btn-outline" style="width:auto;" onclick="setPeriodLock(null); document.getElementById('periodLockInput').value=''; updatePeriodLockStatus();">🔓 إلغاء</button>
+                </div>
+                <div id="periodLockStatus" style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;"></div>
+            </div>
+
             <div class="card" style="border:2px dashed var(--danger); background:#fef2f2;">
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                     <span style="font-size:1.5rem;">⚠️</span>
@@ -3062,6 +3091,9 @@ body.employee-mode #undoBtn { display: none !important; }
     let recurringExpenses = [];
     let auditLog = [];
     const AUDIT_LOG_MAX = 1000;
+    let recycleBin = safeParse(localStorage.getItem('recycleBin'), []);
+    let backups = safeParse(localStorage.getItem('backups'), []);
+    let periodLockDate = localStorage.getItem('periodLockDate') || null;
     const DEFAULT_EXPENSE_CATEGORIES = ['إيجار', 'رواتب', 'كهرباء', 'شحن/جمارك', 'صيانة', 'تسويق/إعلانات', 'أخرى'];
     const DEFAULT_INCOME_CATEGORIES = ['مبيعات', 'تحصيل', 'فوائد تقسيط', 'إيرادات إضافية', 'أخرى'];
     let expenseCategories = safeParse(localStorage.getItem('expenseCategories'), []);
@@ -4515,6 +4547,8 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!g) return { success: false, reason: 'payment_not_found' };
 
             const ids = new Set(g.txns.map(t => String(t.id)));
+            // سلة محذوفات: لقطة قبل الحذف
+            try { window.moveToRecycleBin('payment', 'دفعة قسط ' + g.amount.toFixed(2) + ' ج', reason); } catch (e) { /* تجاهل */ }
             transactions = transactions.filter(t => !ids.has(String(t.id)));
             this.rebuildInstallmentSchedule(inst);
             logAudit('delete', 'سداد قسط', installmentId,
@@ -4906,6 +4940,9 @@ body.employee-mode #undoBtn { display: none !important; }
                 return { success: false, reason: 'has_payments', count: payments.length };
             }
 
+            // سلة محذوفات: لقطة قبل الحذف
+            try { window.moveToRecycleBin('installment', 'عقد قسط #' + (inst.contractNo || installmentId), reason); } catch (e) { /* تجاهل */ }
+
             let sourceId = String(installmentId);
 
             // إعادة المخزون مرة واحدة فقط إذا كانت حركة الصرف موجودة
@@ -5155,6 +5192,9 @@ body.employee-mode #undoBtn { display: none !important; }
             if (payments.length > 0) {
                 return { success: false, reason: 'has_payments', count: payments.length };
             }
+
+            // سلة محذوفات: لقطة قبل الحذف (بعد التحقق)
+            try { window.moveToRecycleBin('arabon', 'عقد عربون #' + arabonId, reason); } catch (e) { /* تجاهل */ }
 
             let sourceId = String(arabonId);
 
@@ -5408,6 +5448,8 @@ body.employee-mode #undoBtn { display: none !important; }
             try {
                 const sale = merchantSales.find(s => s.id == saleId);
                 if (!sale) return { success: false, reason: 'not_found' };
+                // سلة محذوفات
+                try { window.moveToRecycleBin('merchant_sale', 'بيع تاجر: ' + (sale.deviceName || saleId), reason); } catch (e) { /* تجاهل */ }
                 const p = this.findProductForRecord(sale);
                 const mv = sale.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_sale'
                     && String(s.sourceId) === String(sale.transactionId) && s.type === 'out') : null;
@@ -5491,6 +5533,8 @@ body.employee-mode #undoBtn { display: none !important; }
             try {
                 const purchase = merchantPurchases.find(p => p.id == purchaseId);
                 if (!purchase) return { success: false, reason: 'not_found' };
+                // سلة محذوفات
+                try { window.moveToRecycleBin('merchant_purchase', 'شراء من تاجر: ' + (purchase.productName || purchaseId), reason); } catch (e) { /* تجاهل */ }
                 const p = this.findProductForRecord(purchase);
                 const mv = purchase.transactionId ? stockMovements.find(s => s.sourceType === 'merchant_purchase'
                     && String(s.sourceId) === String(purchase.transactionId) && s.type === 'in') : null;
@@ -5915,6 +5959,11 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!t) return { success: false, reason: 'not_found' };
             let check = this.canDeleteTransaction(id);
             if (!check.allowed) return { success: false, reason: check.reason };
+
+            if (isPeriodLocked(t.date)) return { success: false, reason: 'period_locked' };
+
+            // سلة محذوفات: لقطة قبل الحذف
+            try { window.moveToRecycleBin('transaction', 'حركة: ' + (t.notes || t.type || id), reason); } catch (e) { /* تجاهل */ }
 
             if (check.mode === 'transfer') {
                 let sourceId = t.sourceId;
@@ -6365,6 +6414,8 @@ body.employee-mode #undoBtn { display: none !important; }
         __undoLastSnap = snapshotAll();
         __undoReady = true;
         refreshUndoButton();
+        try { purgeExpiredRecycleBin(); } catch (e) { /* تجاهل */ }
+        try { renderRecycleBinCount(); } catch (e) { /* تجاهل */ }
     });
     setTimeout(() => { checkRecurringExpenses(); }, 800);
 
@@ -6436,6 +6487,24 @@ body.employee-mode #undoBtn { display: none !important; }
         }
         return true;
     }
+    function isPeriodLocked(dateStr) {
+        if (!periodLockDate) return false;
+        const d = String(dateStr || '').slice(0, 10);
+        if (!d) return false;
+        return d < String(periodLockDate).slice(0, 10);
+    }
+    function periodLockGuard(dateStr, label) {
+        if (!isPeriodLocked(dateStr)) return true;
+        showToast('الفترة مغلقة حتى ' + periodLockDate + ' — لا يمكن ' + (label || 'التعديل') + ' لسجل في فترة مغلقة', 'error');
+        return false;
+    }
+    window.setPeriodLock = function (dateStr) {
+        periodLockDate = dateStr ? String(dateStr).slice(0, 10) : null;
+        lsSet('periodLockDate', periodLockDate || '');
+        logAudit('security', 'قفل فترة', periodLockDate || 'إلغاء', 'تعيين قفل فترة');
+        showToast(periodLockDate ? '🔒 تم قفل الفترة حتى ' + periodLockDate : '🔓 تم إلغاء قفل الفترة');
+        try { saveData(); } catch (e) { /* تجاهل */ }
+    };
     function sessionEmployeeId() {
         return currentSession && currentSession.role !== 'admin' ? currentSession.employeeId : null;
     }
@@ -6936,9 +7005,16 @@ body.employee-mode #undoBtn { display: none !important; }
         if (autoBackupTimer) clearInterval(autoBackupTimer);
         if (localStorage.getItem('autoBackup') === 'true') {
             autoBackupTimer = setInterval(() => {
-                const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
-                merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog };
-                lsSet('autoBackup_last', JSON.stringify(backup));
+                try {
+                    const snap = snapshotAll();
+                    const entry = { id: 'auto_' + Date.now(), ts: new Date().toISOString(), label: 'نسخة تلقائية ' + new Date().toLocaleString('ar-EG'), snapshot: snap };
+                    backups.unshift(entry);
+                    if (backups.length > 5) backups.length = 5;
+                    lsSet('backups', JSON.stringify(backups));
+                    const backup = { date: new Date().toISOString(),                 products, merchants, transactions, installments, msgTemplates,
+                    merchantSales, merchantPayments, merchantPurchases, merchantPaymentsOut, partners, accounts, stockMovements, arabonSales, openingCapital, employees, recurringExpenses, expenseCategories, incomeCategories, auditLog };
+                    lsSet('autoBackup_last', JSON.stringify(backup));
+                } catch (e) { console.warn('autoBackup', e); }
             }, 300000);
         }
     }
@@ -7073,7 +7149,9 @@ body.employee-mode #undoBtn { display: none !important; }
                 stockMovements: __cloneDeep(stockMovements), arabonSales: __cloneDeep(arabonSales),
                 employees: __cloneDeep(employees), recurringExpenses: __cloneDeep(recurringExpenses),
                 expenseCategories: __cloneDeep(expenseCategories), incomeCategories: __cloneDeep(incomeCategories),
-                openingCapital: openingCapital
+                openingCapital: openingCapital,
+                recycleBin: __cloneDeep(recycleBin), backups: __cloneDeep(backups),
+                periodLockDate: periodLockDate
             };
         } catch (e) { console.warn('snapshotAll', e); return null; }
     }
@@ -7098,6 +7176,9 @@ body.employee-mode #undoBtn { display: none !important; }
         expenseCategories = s.expenseCategories || [];
         incomeCategories = s.incomeCategories || [];
         openingCapital = s.openingCapital || 0;
+        recycleBin = s.recycleBin || [];
+        backups = s.backups || [];
+        periodLockDate = s.periodLockDate || null;
         return true;
     }
 
@@ -7204,6 +7285,9 @@ body.employee-mode #undoBtn { display: none !important; }
         lsSet('expenseCategories', JSON.stringify(expenseCategories));
         lsSet('incomeCategories', JSON.stringify(incomeCategories));
         lsSet('openingCapital', String(openingCapital));
+        lsSet('recycleBin', JSON.stringify(recycleBin));
+        lsSet('backups', JSON.stringify(backups));
+        lsSet('periodLockDate', periodLockDate || '');
         try { await saveAllToIDB(); } catch (e) { console.warn('saveAllToIDB فشل', e); }
         updateStorageInfo();
         renderDashboard();
@@ -8906,6 +8990,176 @@ body.employee-mode #undoBtn { display: none !important; }
             document.getElementById('modalOverlay').classList.add('show');
         } catch (e) { showError('تعذر التفصيل', e.message); }
     };
+
+    // ══════════════════════════════════════════════════════════════
+    // Phase 2: سلة محذوفات + نسخ متعددة + قفل فترة (UI)
+    // ══════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════
+    // Phase 2: سلة محذوفات + نسخ متعددة + قفل فترة (helpers)
+    // ══════════════════════════════════════════════════════════════
+    window.moveToRecycleBin = function (type, label, reason, snapshot) {
+        try {
+            const entry = {
+                id: 'rb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                type: type || 'record', label: label || type,
+                reason: reason || '', deletedAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+                snapshot: snapshot || snapshotAll()
+            };
+            recycleBin.unshift(entry);
+            if (recycleBin.length > 200) recycleBin.length = 200;
+            try { lsSet('recycleBin', JSON.stringify(recycleBin)); } catch (e) { /* تجاهل */ }
+            return entry.id;
+        } catch (e) { console.warn('moveToRecycleBin', e); return null; }
+    };
+
+    window.restoreFromRecycleBin = async function (id) {
+        if (!requireAdmin()) return false;
+        const entry = (recycleBin || []).find(x => x.id === id);
+        if (!entry) { showToast('العنصر غير موجود في سلة المحذوفات', 'error'); return false; }
+        const ok = await showConfirmModal('استعادة «' + entry.label + '»؟ سيُستعاد كامل حالة البيانات كما كانت قبل الحذف.', '♻️ استعادة');
+        if (!ok) return false;
+        if (!restoreAllSnap(entry.snapshot)) { showToast('تعذر الاستعادة', 'error'); return false; }
+        recycleBin = recycleBin.filter(x => x.id !== id);
+        try { lsSet('recycleBin', JSON.stringify(recycleBin)); } catch (e) { /* تجاهل */ }
+        logAudit('restore', 'سلة محذوفات', entry.type, 'استعادة: ' + entry.label + (entry.reason ? ' | السبب الأصلي: ' + entry.reason : ''));
+        await saveData();
+        refreshAllViews();
+        renderRecycleBinCount();
+        showToast('♻️ تم الاستعادة: ' + entry.label, 'success');
+        return true;
+    };
+
+    window.purgeRecycleBinEntry = async function (id) {
+        if (!requireAdmin()) return false;
+        const ok = await showConfirmModal('حذف نهائياً من سلة المحذوفات؟ لا يمكن التراجع.', '⚠️ حذف finali');
+        if (!ok) return false;
+        recycleBin = recycleBin.filter(x => x.id !== id);
+        try { lsSet('recycleBin', JSON.stringify(recycleBin)); } catch (e) { /* تجاهل */ }
+        logAudit('purge', 'سلة محذوفات', id, 'حذف finali من سلة المحذوفات');
+        await saveData();
+        refreshAllViews();
+        renderRecycleBinCount();
+        showToast('تم الحذف finali');
+        return true;
+    };
+
+    window.purgeExpiredRecycleBin = function () {
+        const now = Date.now();
+        const before = (recycleBin || []).length;
+        recycleBin = (recycleBin || []).filter(x => new Date(x.expiresAt).getTime() > now);
+        if (recycleBin.length !== before) {
+            try { lsSet('recycleBin', JSON.stringify(recycleBin)); } catch (e) { /* تجاهل */ }
+            try { saveData(); } catch (e) { /* تجاهل */ }
+        }
+    };
+
+    window.createBackup = function (label) {
+        const entry = { id: 'bk_' + Date.now(), ts: new Date().toISOString(), label: label || ('نسخة ' + new Date().toLocaleString('ar-EG')), snapshot: snapshotAll() };
+        backups.unshift(entry);
+        if (backups.length > 5) backups.length = 5;
+        try { lsSet('backups', JSON.stringify(backups)); } catch (e) { console.warn(e); }
+        logAudit('backup', 'نسخة احتياطية', entry.id, 'إنشاء نسخة: ' + entry.label);
+        showToast('💾 تم إنشاء نسخة احتياطية');
+        try { renderBackupsList(); } catch (e) { /* تجاهل */ }
+        return entry.id;
+    };
+
+    window.restoreBackup = async function (id) {
+        if (!requireAdmin()) return false;
+        const entry = (backups || []).find(x => x.id === id);
+        if (!entry) { showToast('النسخة غير موجودة', 'error'); return false; }
+        const ok = await showConfirmModal('استعادة النسخة «' + entry.label + '»؟ سيُستبدل كامل حالة البيانات.', '♻️ استعادة نسخة');
+        if (!ok) return false;
+        if (!restoreAllSnap(entry.snapshot)) { showToast('تعذر الاستعادة', 'error'); return false; }
+        logAudit('restore', 'نسخة احتياطية', entry.id, 'استعادة نسخة: ' + entry.label);
+        await saveData();
+        refreshAllViews();
+        showToast('♻️ تم استعادة النسخة: ' + entry.label, 'success');
+        return true;
+    };
+
+    window.deleteBackup = async function (id) {
+        if (!requireAdmin()) return false;
+        backups = (backups || []).filter(x => x.id !== id);
+        try { lsSet('backups', JSON.stringify(backups)); } catch (e) { /* تجاهل */ }
+        showToast('تم حذف النسخة');
+        try { renderBackupsList(); } catch (e) { /* تجاهل */ }
+    };
+
+    window.renderRecycleBinCount = function () {
+        try {
+            const el = document.getElementById('recycleCount');
+            if (el) el.textContent = String((recycleBin || []).length);
+        } catch (e) { /* تجاهل */ }
+    };
+
+    window.updatePeriodLockStatus = function () {
+        try {
+            const el = document.getElementById('periodLockStatus');
+            const input = document.getElementById('periodLockInput');
+            if (el) el.textContent = periodLockDate ? ('🔒 مغلق حتى ' + periodLockDate) : '🔓 غير مغلق';
+            if (input && periodLockDate) input.value = periodLockDate;
+        } catch (e) { /* تجاهل */ }
+    };
+
+    window.renderBackupsList = function () {
+        const el = document.getElementById('backupsList');
+        if (!el) return;
+        if (!backups || !backups.length) { el.innerHTML = '<div style="color:var(--text-muted);">لا توجد نسخ احتياطية بعد</div>'; return; }
+        el.innerHTML = backups.map(b => {
+            const d = b.ts ? new Date(b.ts).toLocaleString('ar-EG') : '';
+            return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">' +
+                '<span style="flex:1;word-break:break-word;">' + esc(b.label || '') + '<br><span style="font-size:0.72rem;color:var(--text-muted);">' + esc(d) + '</span></span>' +
+                '<span style="display:flex;gap:6px;">' +
+                '<button class="btn-sm btn-outline" style="width:auto;" onclick="restoreBackup(\'' + esc(b.id) + '\')">♻️ استعادة</button>' +
+                '<button class="btn-sm" style="width:auto;background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteBackup(\'' + esc(b.id) + '\'); renderBackupsList();">🗑️</button>' +
+                '</span></div>';
+        }).join('');
+    };
+
+    window.openRecycleBin = function () {
+        try {
+            const rows = (recycleBin || []).map(e => {
+                const d = e.deletedAt ? new Date(e.deletedAt).toLocaleString('ar-EG') : '';
+                const exp = e.expiresAt ? new Date(e.expiresAt).toLocaleDateString('ar-EG') : '';
+                return '<div class="card" style="padding:10px;margin:0 0 8px 0;">' +
+                    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">' +
+                    '<strong style="font-size:0.88rem;">' + esc(e.label || e.type) + '</strong>' +
+                    '<span style="font-size:0.72rem;color:var(--text-muted);">' + esc(e.type) + '</span></div>' +
+                    (e.reason ? '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">السبب: ' + esc(e.reason) + '</div>' : '') +
+                    '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">حُذف: ' + esc(d) + ' — ينتهي: ' + esc(exp) + '</div>' +
+                    '<div style="display:flex;gap:6px;margin-top:8px;">' +
+                    '<button class="btn-sm btn-success" style="width:auto;" onclick="restoreFromRecycleBin(\'' + esc(e.id) + '\')">♻️ استعادة</button>' +
+                    '<button class="btn-sm" style="width:auto;background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="purgeRecycleBinEntry(\'' + esc(e.id) + '\')">🗑️ حذف finali</button>' +
+                    '</div></div>';
+            }).join('');
+            const body = (recycleBin || []).length
+                ? '<div style="max-height:60vh;overflow:auto;">' + rows + '</div>'
+                : '<div style="padding:16px;text-align:center;color:var(--text-muted);">سلة المحذوفات فارغة</div>';
+            _modalResolve = function () {};
+            document.getElementById('modalIcon').textContent = '🗑️';
+            document.getElementById('modalTitle').textContent = '🗑️ سلة المحذوفات';
+            document.getElementById('modalMessage').innerHTML = body;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
+            document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalCancelBtn').style.display = 'none';
+            document.getElementById('modalOverlay').classList.add('show');
+        } catch (err) { showToast('تعذر فتح سلة المحذوفات: ' + err.message, 'error'); }
+    };
+
+    // تهيئة period lock input عند تحميل الإعدادات
+    (function initPeriodLock() {
+        try {
+            const input = document.getElementById('periodLockInput');
+            if (input && periodLockDate) input.value = periodLockDate;
+            const st = document.getElementById('periodLockStatus');
+            if (st) st.textContent = periodLockDate ? ('🔒 مغلق حتى ' + periodLockDate) : '🔓 غير مغلق';
+        } catch (e) { /* تجاهل */ }
+    })();
 
     window.renderChartOfAccounts = function() {
         const container = document.getElementById('coaContent');
@@ -10733,6 +10987,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             let reason = await confirmDelete('تأكيد حذف الصنف "' + (p.name || '') + '"؟', '⚠️ حذف صنف');
             if (!reason) return;
+            try { window.moveToRecycleBin('product', 'صنف: ' + (p.name || id), reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف صنف: ' + (p.name || id));
             products = products.filter(x => x.id != id);
             saveData(); renderProducts(); refreshSelectors(); renderDashboard();
@@ -13918,6 +14173,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let m = merchants.find(x => x.id == pay.merchantId);
             let reason = await confirmDelete('حذف دفعة من ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!reason) return;
+            try { window.moveToRecycleBin('merchant_payment', 'دفعة من تاجر: ' + (m ? m.name : '') + ' ' + pay.amount.toFixed(2) + ' ج', reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف دفعة من التاجر ' + (m ? m.name : ''));
             let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
             if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
@@ -13971,6 +14227,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let m = merchants.find(x => x.id == pay.merchantId);
             let reason = await confirmDelete('حذف دفعة إلى ' + (m ? m.name : 'تاجر') + ' بقيمة ' + pay.amount.toFixed(2) + ' ج؟', '⚠️ تأكيد الحذف');
             if (!reason) return;
+            try { window.moveToRecycleBin('merchant_payment_out', 'دفعة إلى تاجر: ' + (m ? m.name : '') + ' ' + pay.amount.toFixed(2) + ' ج', reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف دفعة إلى التاجر ' + (m ? m.name : ''));
             let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
             if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
@@ -14194,6 +14451,7 @@ body.employee-mode #undoBtn { display: none !important; }
         }
         let reason = await confirmDelete('🗑️ حذف التاجر "' + m.name + '"؟', 'تأكيد الحذف');
         if (!reason) return;
+        try { window.moveToRecycleBin('merchant', 'تاجر: ' + m.name, reason); } catch (e) { /* تجاهل */ }
         setUndoLabel('حذف تاجر: ' + m.name);
         merchants = merchants.filter(x => x.id != merchantId);
         refreshSelectors();
@@ -14452,6 +14710,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             let reason = await confirmDelete('حذف الشريك "' + p.name + '"؟', '🗑️ تأكيد الحذف');
             if (!reason) return;
+            try { window.moveToRecycleBin('partner', 'شريك: ' + p.name, reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف شريك: ' + p.name);
             partners = partners.filter(x => x.id != id);
             transactions = transactions.filter(t => t.partnerId != id);
@@ -15002,6 +15261,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             let reason = await confirmDelete('حذف الحساب "' + a.name + '" نهائيًا؟ لا يمكن التراجع.', '⚠️ حذف نهائي');
             if (!reason) return;
+            try { window.moveToRecycleBin('account', 'حساب: ' + a.name, reason); } catch (e) { /* تجاهل */ }
             setUndoLabel('حذف حساب نهائي: ' + a.name);
             accounts = accounts.filter(x => x.id != id);
             saveData(); renderAccounts(); refreshSelectors();
@@ -16672,6 +16932,7 @@ const backup = {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
         document.getElementById(pageId).classList.add('active-page');
         if (pageId === 'admin') renderAdminPage();
+        if (pageId === 'settings') { renderBackupsList(); renderRecycleBinCount(); updatePeriodLockStatus(); }
     }
 
     const menuBtn = document.getElementById('menuToggleBtn');

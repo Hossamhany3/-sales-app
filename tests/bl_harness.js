@@ -60,6 +60,7 @@ let products = [], merchants = [], transactions = [], installments = [], msgTemp
 let merchantSales = [], merchantPayments = [], merchantPurchases = [], merchantPaymentsOut = [];
 let partners = [], accounts = [], stockMovements = [], arabonSales = [], employees = [];
 let recurringExpenses = [], auditLog = [], expenseCategories = [], incomeCategories = [];
+let recycleBin = [], backups = [], periodLockDate = null;
 let openingCapital = 0, db = null, __seq = 0, __admin = true;
 let __undoStack = [], __undoSuppress = 0, __undoLastSnap = null, __undoPendingLabel = '', __undoReady = true;
 const AUDIT_LOG_MAX = 1000, UNDO_MAX = 10;
@@ -112,6 +113,7 @@ return {
     merchantSales = []; merchantPurchases = []; merchantPayments = []; merchantPaymentsOut = [];
     auditLog = []; openingCapital = d.openingCapital || 0; __seq = 0;
     __undoStack = []; __undoLastSnap = null; __undoPendingLabel = '';
+    recycleBin = []; backups = []; periodLockDate = null;
   },
   dump() {
     return JSON.parse(JSON.stringify({ products, merchants, transactions, installments, arabonSales, stockMovements, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, accounts, openingCapital }));
