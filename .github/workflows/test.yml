@@ -1,0 +1,22 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: |
+          node -e "const fs=require('fs');const html=fs.readFileSync('app_fixed.html','utf8');const m=/<script>\r?\n/.exec(html);const s=m.index+m[0].length;const e=html.indexOf('</script>',s);fs.writeFileSync('/tmp/app_js_check.js',html.slice(s,e));"
+          node --check /tmp/app_js_check.js
+      - name: Unit tests
+        run: node tests/bl_harness.js

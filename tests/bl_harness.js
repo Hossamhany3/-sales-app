@@ -1584,6 +1584,53 @@ test('ربط الواجهة: زر التراجع وتبويب الإصلاح و�
   return 'كل نقاط الواجهة موصولة';
 });
 
+// ───────────不 invariant: خصائص ثابتة للنظام ───────────
+test('不 invariant: سداد كامل يغلق العقد (remaining=0, isPaid=true)', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 1, amount: 500, accountId: 1, date: '2026-11-11T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 2, amount: 500, accountId: 1, date: '2026-11-12T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 3, amount: 500, accountId: 1, date: '2026-11-13T09:00:00.000Z' });
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.remainingBalance, 0, 'المتبقي صفر');
+  ok(inst.isPaid, 'العقد مغلق');
+  return 'سداد 4×500 = 2000 → مغلق';
+});
+
+test('不 invariant: buildTrialBalance يُرجع فرقًا رقميًا (totals.difference)', () => {
+  factory.seed(BASE());
+  const tb = BL.buildTrialBalance();
+  ok(tb && tb.totals, 'totals موجود');
+  ok(typeof tb.totals.difference === 'number', 'difference رقم');
+  ok(Array.isArray(tb.leaves) && tb.leaves.length > 0, 'leaves موجودة');
+  return 'difference = ' + tb.totals.difference.toFixed(2);
+});
+
+test('不 invariant: رصيد account = صافي حركاته (payment_in − payment_out)', () => {
+  factory.seed(BASE());
+  BL.recordSlotPayment({ installmentId: contractForStatement(), slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const acc = D().accounts.find(a => a.id == 1);
+  const calc = D().transactions.filter(t => t.accountId == 1).reduce((s, t) => {
+    if (t.type === 'payment_in') return s + t.amount;
+    if (t.type === 'payment_out') return s - t.amount;
+    return s;
+  }, 0);
+  eq(BL.accountBalance(1), calc, 'رصيد الخزينة = صافي حركاتها');
+  return 'رصيد = ' + calc;
+});
+
+test('不 invariant: stockMatchesMovements (مخزون = أولي + in − out)', () => {
+  factory.seed(BASE());
+  const p = D().products.find(x => x.id == 3);
+  const initial = p.stock;
+  factory.get('stockMovements').push({ id: 1, productId: 3, type: 'in', qty: 7 });
+  factory.get('stockMovements').push({ id: 2, productId: 3, type: 'out', qty: 2 });
+  p.stock = initial + 7 - 2;
+  ok(stockMatchesMovements(3, initial), 'المخزون يطابق الحركات');
+  return 'initial + in − out = stock';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;

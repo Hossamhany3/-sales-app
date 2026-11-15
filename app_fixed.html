@@ -6500,6 +6500,16 @@ body.employee-mode #undoBtn { display: none !important; }
         }
         return true;
     }
+    const PERMISSIONS = {
+        admin: ['*'],
+        employee: ['collect_payment', 'view', 'export']
+    };
+    function currentRole() { return isAdminSession() ? 'admin' : 'employee'; }
+    function hasPermission(action) {
+        const perms = PERMISSIONS[currentRole()] || [];
+        return perms.includes('*') || perms.includes(action);
+    }
+    window.hasPermission = hasPermission;
     function isPeriodLocked(dateStr) {
         if (!periodLockDate) return false;
         const d = String(dateStr || '').slice(0, 10);
