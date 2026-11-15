@@ -9249,29 +9249,64 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.exportCashFlowCSV = function () {
         try {
-            renderCashFlow();
-            const container = document.getElementById('cashFlowContent');
-            if (!container) return;
-            const rows = [['القسم', 'التاريخ', 'البيان', 'المبلغ']];
-            // إعادة جمع من transactions
+            const money = v => (Number(v) || 0).toFixed(2);
             const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
             const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(t.type);
-            transactions.forEach(t => {
-                let section = 'أخرى';
-                if (t.type === 'partner_deposit') section = 'تمويل (إيداع)';
-                else if (t.type === 'partner_withdrawal') section = 'تمويل (سحب)';
-                else if (t.type === 'transfer_in') section = 'استثمار (داخل)';
-                else if (t.type === 'transfer_out') section = 'استثمار (خارج)';
-                else if (isIn(t)) section = 'تشغيلي (قبض)';
-                else if (isOut(t)) section = 'تشغيلي (دفع)';
-                rows.push([section, t.date ? String(t.date).slice(0, 10) : '', (t.notes || t.type || ''), t.amount]);
+            const sectionOf = t => {
+                if (t.type === 'partner_deposit') return 'تمويل (إيداع)';
+                if (t.type === 'partner_withdrawal') return 'تمويل (سحب)';
+                if (t.type === 'transfer_in') return 'استثمار (داخل)';
+                if (t.type === 'transfer_out') return 'استثمار (خارج)';
+                if (isIn(t)) return 'تشغيلي (قبض)';
+                if (isOut(t)) return 'تشغيلي (دفع)';
+                return 'أخرى';
+            };
+
+            const groups = {};
+            (transactions || []).forEach(t => {
+                const s = sectionOf(t);
+                (groups[s] = groups[s] || []).push(t);
             });
-            const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\\n');
+
+            const sum = arr => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
+            const opIn = sum(groups['تشغيلي (قبض)'] || []);
+            const opOut = sum(groups['تشغيلي (دفع)'] || []);
+            const finIn = sum(groups['تمويل (إيداع)'] || []);
+            const finOut = sum(groups['تمويل (سحب)'] || []);
+            const invIn = sum(groups['استثمار (داخل)'] || []);
+            const invOut = sum(groups['استثمار (خارج)'] || []);
+            const net = (opIn - opOut) + (finIn - finOut) + (invIn - invOut);
+
+            const rows = [];
+            rows.push(['التدفق النقدي']);
+            rows.push(['تاريخ التصدير', new Date().toLocaleString('ar-EG')]);
+            rows.push([]);
+            rows.push(['=== ملخص ===']);
+            rows.push(['القسم', 'قبض', 'دفع', 'صافي']);
+            rows.push(['تشغيلي', money(opIn), money(opOut), money(opIn - opOut)]);
+            rows.push(['تمويل', money(finIn), money(finOut), money(finIn - finOut)]);
+            rows.push(['استثمار', money(invIn), money(invOut), money(invIn - invOut)]);
+            rows.push(['الإجمالي', money(opIn + finIn + invIn), money(opOut + finOut + invOut), money(net)]);
+            rows.push([]);
+            rows.push(['=== التفاصيل ===']);
+            rows.push(['القسم', 'التاريخ', 'البيان', 'المبلغ', 'النوع']);
+            const order = ['تشغيلي (قبض)', 'تشغيلي (دفع)', 'تمويل (إيداع)', 'تمويل (سحب)', 'استثمار (داخل)', 'استثمار (خارج)', 'أخرى'];
+            order.forEach(sec => {
+                const items = groups[sec];
+                if (!items || !items.length) return;
+                rows.push(['--- ' + sec + ' (' + items.length + ') ---']);
+                items.forEach(t => {
+                    rows.push([sec, t.date ? String(t.date).slice(0, 10) : '', (t.notes || t.type || ''), money(t.amount), t.type || '']);
+                });
+                rows.push(['小計 ' + sec, '', '', money(sum(items)), '']);
+            });
+
+            const csv = rows.map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\\n');
             const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'cashflow.csv'; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = 'cashflow_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
             URL.revokeObjectURL(url);
-            showToast('✅ تم تصدير التدفق النقدي');
+            showToast('✅ تم تصدير التدفق النقدي (Excel/CSV)');
         } catch (e) { showError('تعذر التصدير', e.message); }
     };
 
