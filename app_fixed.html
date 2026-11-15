@@ -2009,7 +2009,7 @@ body.employee-mode #undoBtn { display: none !important; }
                         <div id="debtAging"></div>
                     </div>
                     <div style="margin-top:16px;">
-                        <h4 style="font-size:0.9rem;margin-bottom:8px;">🏪 مديونيات التجار</h4>
+                        <h4 style="font-size:0.9rem;margin-bottom:8px;">👥 مديونيات العملاء (تقسيط + عربون)</h4>
                         <div id="merchantBalances"></div>
                     </div>
                 </div>
@@ -4106,6 +4106,26 @@ body.employee-mode #undoBtn { display: none !important; }
             let totalDebt = this.receivablesTotal();
             let stockValue = this.stockValue();
             return { totalCash, totalBank, totalVodafone, totalDebt, stockValue };
+        },
+
+        // ─── فصل الأدوار: التاجر الحقيقي مقابل عميل التقسيط/العربون ───
+        // كل الأشخاص في قائمة merchants واحدة، لكن عميل التقسيط أو العربون ليس تاجراً.
+        contactRoleCounts() {
+            const tradeIds = new Set();
+            [merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut].forEach(list => {
+                (list || []).forEach(r => { if (r && r.merchantId != null) tradeIds.add(String(r.merchantId)); });
+            });
+            const instIds = new Set(installments.map(i => String(i.merchantId)));
+            const arbIds = new Set(arabonSales.map(a => String(a.merchantId)));
+            let traders = 0, installmentCustomers = 0, arabonCustomers = 0;
+            merchants.forEach(m => {
+                const id = String(m.id);
+                const isTrader = tradeIds.has(id);
+                if (isTrader || (!instIds.has(id) && !arbIds.has(id))) traders++;
+                if (!isTrader && instIds.has(id)) installmentCustomers++;
+                if (!isTrader && arbIds.has(id)) arabonCustomers++;
+            });
+            return { traders, installmentCustomers, arabonCustomers };
         },
 
         // ─── مسح كل بيانات التشغيل (إعادة تعيين كاملة) ───
@@ -8438,7 +8458,10 @@ body.employee-mode #undoBtn { display: none !important; }
         }
 
         let balances = merchants.map(m => {
-            let debt = installments.filter(i => i.merchantId == m.id && !i.isPaid).reduce((s, i) => s + i.remainingBalance, 0);
+            let debtInst = installments.filter(i => i.merchantId == m.id && !i.isPaid).reduce((s, i) => s + (i.remainingBalance || 0), 0);
+            let debtArb = arabonSales.filter(a => a.merchantId == m.id && !a.isPaid && !a.instId)
+                .reduce((s, a) => s + Math.max(BusinessLogic.getArabonTotals(a).remaining || 0, 0), 0);
+            let debt = debtInst + debtArb;
             if (debt <= 0) return '';
             return '<div class="flex-between" style="padding:8px 0; border-bottom:1px solid #eee;">' +
                 '<span>' + m.name + '</span>' +
@@ -8558,7 +8581,7 @@ body.employee-mode #undoBtn { display: none !important; }
         // ── ملخص البيانات ──
         const totalProducts = products.length;
         const activeProducts = products.filter(p => p.status !== 'inactive').length;
-        const totalMerchants = merchants.length;
+        const contactRoles = BusinessLogic.contactRoleCounts();
         const totalTransactions = transactions.length;
         const totalAccounts = accounts.length;
         const totalEmployees = employees.filter(e => e.isActive).length;
@@ -8568,7 +8591,9 @@ body.employee-mode #undoBtn { display: none !important; }
         setHtml('ccDataSummary',
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">' +
             ccSummaryItem('📦', 'الأصناف', activeProducts + ' / ' + totalProducts) +
-            ccSummaryItem('🏪', 'التجار', totalMerchants) +
+            ccSummaryItem('🏪', 'التجار', contactRoles.traders) +
+            ccSummaryItem('👥', 'عملاء التقسيط', contactRoles.installmentCustomers) +
+            ccSummaryItem('🤝', 'عملاء العربون', contactRoles.arabonCustomers) +
             ccSummaryItem('💰', 'المعاملات', totalTransactions) +
             ccSummaryItem('🏦', 'الحسابات', totalAccounts) +
             ccSummaryItem('🧑‍💼', 'الموظفون', totalEmployees) +

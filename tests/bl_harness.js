@@ -1725,6 +1725,30 @@ test('إعادة تعيين: مسح كل المخازن بما فيها العر
   return 'كل المخازن صفر';
 });
 
+// ─────────── فصل الأدوار في ملخص البيانات ───────────
+test('ملخص: فصل التجار عن عملاء التقسيط والعربون', () => {
+  factory.seed(BASE());
+  newInst();                              // العميل 1: عقد تقسيط
+  newArabon();                            // العميل 1: عقد عربون
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  const roles = BL.contactRoleCounts();
+  eq(roles.traders, 1, 'التجار (التاجر 2 فقط)');
+  eq(roles.installmentCustomers, 1, 'عملاء التقسيط');
+  eq(roles.arabonCustomers, 1, 'عملاء العربون');
+  ok(html.includes('BusinessLogic.contactRoleCounts()'), 'لوحة التحكم تستخدم التصنيف الجديد');
+  return 'تاجر واحد + عميل لكل نوع';
+});
+
+test('ملخص: من له نشاط تجاري يبقى تاجراً حتى لو عليه عقد تقسيط', () => {
+  factory.seed(BASE());
+  newInst({ merchantId: 2 });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  const roles = BL.contactRoleCounts();
+  eq(roles.traders, 2, 'التاجران (1 بلا نشاط + 2 بنشاط)');
+  eq(roles.installmentCustomers, 0, 'لا يُحسب عميل تقسيط');
+  return 'النشاط التجاري له الأولوية';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;
