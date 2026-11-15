@@ -6809,7 +6809,7 @@ body.employee-mode #undoBtn { display: none !important; }
         const months = [];
         for (let i = 5; i >= 0; i--) {
             const d = new Date(); d.setMonth(d.getMonth() - i);
-            months.push({ label: d.toLocaleDateString('ar-EG', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
+            months.push({ label: d.toLocaleDateString('ar-EG-u-nu-latn', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
         }
 
         const income = []; const expense = []; const netProfit = [];
@@ -6972,7 +6972,7 @@ body.employee-mode #undoBtn { display: none !important; }
         );
         if (r === null || r === undefined) return null;
         const t = String(r).trim();
-        if (t.length < 3) { showToast('اكتب سببًا واضحًا (٣ أحرف على الأقل)', 'error'); return null; }
+        if (t.length < 3) { showToast('اكتب سببًا واضحًا (3 أحرف على الأقل)', 'error'); return null; }
         return t;
     };
 
@@ -7000,7 +7000,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 const actionLabel = { create: '➕ إنشاء', update: '✏️ تعديل', delete: '🗑️ حذف', payment: '💵 دفعة', undo: '↩️ تراجع', security: '🔐 أمن' };
                 html += '<div style="max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:6px;">';
                 rows.forEach(a => {
-                    const d = a.ts ? new Date(a.ts).toLocaleString('ar-EG') : '';
+                    const d = a.ts ? new Date(a.ts).toLocaleString('ar-EG-u-nu-latn') : '';
                     html += '<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--card-bg);">' +
                         '<div style="display:flex;justify-content:space-between;gap:8px;font-weight:700;font-size:0.82rem;">' +
                         '<span>' + esc(actionLabel[a.action] || a.action || '') + '</span>' +
@@ -7056,7 +7056,7 @@ body.employee-mode #undoBtn { display: none !important; }
             autoBackupTimer = setInterval(() => {
                 try {
                     const snap = snapshotAll();
-                    const entry = { id: 'auto_' + Date.now(), ts: new Date().toISOString(), label: 'نسخة تلقائية ' + new Date().toLocaleString('ar-EG'), snapshot: snap };
+                    const entry = { id: 'auto_' + Date.now(), ts: new Date().toISOString(), label: 'نسخة تلقائية ' + new Date().toLocaleString('ar-EG-u-nu-latn'), snapshot: snap };
                     backups.unshift(entry);
                     if (backups.length > 5) backups.length = 5;
                     lsSet('backups', JSON.stringify(backups));
@@ -7082,7 +7082,7 @@ body.employee-mode #undoBtn { display: none !important; }
             const raw = localStorage.getItem('autoBackup_last');
             if (raw) {
                 const d = JSON.parse(raw);
-                el.textContent = '📅 آخر نسخة تلقائية: ' + (d.date ? new Date(d.date).toLocaleString('ar-EG') : 'موجودة');
+                el.textContent = '📅 آخر نسخة تلقائية: ' + (d.date ? new Date(d.date).toLocaleString('ar-EG-u-nu-latn') : 'موجودة');
             } else {
                 el.textContent = 'لا توجد نسخة تلقائية محفوظة بعد';
             }
@@ -7936,8 +7936,8 @@ body.employee-mode #undoBtn { display: none !important; }
             if (isNaN(lastDate.getTime())) { this.addIssue('backup','medium','Invalid backup timestamp','Cannot parse stored auto-backup date','','','','Valid date','BACKUP_INVALID_DATE'); return; }
             let age = Date.now() - lastDate.getTime();
             let days = Math.floor(age / 86400000);
-            if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
-            else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG'),'','','< 7 days',days+' days','BACKUP_OLD');
+            if (days > 30) this.addIssue('backup','high','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG-u-nu-latn'),'','','< 30 days',days+' days','BACKUP_VERY_OLD');
+            else if (days > 7) this.addIssue('backup','medium','Backup is '+days+' days old','Last: '+lastDate.toLocaleDateString('ar-EG-u-nu-latn'),'','','< 7 days',days+' days','BACKUP_OLD');
             try {
                 let hasData = (products.length + transactions.length + installments.length + merchants.length + accounts.length) > 0;
                 if (!hasData) this.addIssue('backup','info','No application data found in localStorage','','','','','All stores empty','BACKUP_EMPTY');
@@ -8232,7 +8232,7 @@ body.employee-mode #undoBtn { display: none !important; }
         html += '<div style="text-align:center;margin-bottom:16px;">';
         html += '<div class="shc-score-ring" style="--shc-color:'+status.color+';--shc-pct:'+score+'%;"><span style="color:'+status.color+'">'+score+'</span></div>';
         html += '<div style="font-size:1rem;font-weight:700;color:'+status.color+'">'+status.icon+' '+status.label+'</div>';
-        html += '<div style="font-size:.75rem;color:var(--text-muted);margin-top:2px">آخر فحص: '+(SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG') : '—')+'</div>';
+        html += '<div style="font-size:.75rem;color:var(--text-muted);margin-top:2px">آخر فحص: '+(SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG-u-nu-latn') : '—')+'</div>';
         html += '</div>';
         html += '<div class="shc-summary-row">';
         if (counts.critical>0) html += '<div class="shc-summary-item" style="color:#ef4444;border-color:rgba(239,68,68,.3)">🔴 '+counts.critical+' حرج</div>';
@@ -8424,8 +8424,8 @@ body.employee-mode #undoBtn { display: none !important; }
         const fin = getFinancials();
         const BOM = '\uFEFF';
         const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG') : 'البداية';
-        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG') : 'الآن';
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : 'الآن';
         const rows = [
             ['قائمة الدخل — الفترة', fromLbl + ' → ' + toLbl],
             [],
@@ -8561,7 +8561,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     '<span style="font-size:1.2rem;">' + icon + '</span>' +
                     '<div style="flex:1;min-width:0;">' +
                     '<div style="font-size:0.85rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (t.notes || 'حركة مالية') + '</div>' +
-                    '<div style="font-size:0.72rem;color:var(--text-muted);">' + new Date(t.date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' }) + '</div>' +
+                    '<div style="font-size:0.72rem;color:var(--text-muted);">' + new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn', { month: 'short', day: 'numeric' }) + '</div>' +
                     '</div>' +
                     '<strong style="color:' + color + ';font-size:0.95rem;white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong></div>';
             }).join(''));
@@ -8613,7 +8613,7 @@ body.employee-mode #undoBtn { display: none !important; }
     function formatAuditTime(iso) {
         try {
             const d = new Date(iso);
-            return d.toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' });
+            return d.toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'short', timeStyle: 'short' });
         } catch (e) { return iso || ''; }
     }
     window.renderAuditLog = function() {
@@ -8714,7 +8714,7 @@ body.employee-mode #undoBtn { display: none !important; }
     let __repairPlans = [];
 
     function repairMoney(v) {
-        return (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        return (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
     }
 
     function repairTable(rows) {
@@ -8935,7 +8935,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
         if (!issues.length) {
             html += '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">لا توجد فروق — كل الأرقام متسقة</div>' +
-                '<div class="empty-sub">تم الفحص في ' + (SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG') : 'الآن') + '</div></div>';
+                '<div class="empty-sub">تم الفحص في ' + (SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG-u-nu-latn') : 'الآن') + '</div></div>';
             container.innerHTML = html;
             return;
         }
@@ -8961,7 +8961,7 @@ body.employee-mode #undoBtn { display: none !important; }
         });
         html += '</div>';
         html += '<div style="margin-top:10px;font-size:0.75rem;color:var(--text-muted);">آخر فحص: ' +
-            (SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG') : '—') + '</div>';
+            (SHC.scanTime ? new Date(SHC.scanTime).toLocaleString('ar-EG-u-nu-latn') : '—') + '</div>';
         container.innerHTML = html;
     };
 
@@ -9099,7 +9099,7 @@ body.employee-mode #undoBtn { display: none !important; }
     };
 
     window.createBackup = function (label) {
-        const entry = { id: 'bk_' + Date.now(), ts: new Date().toISOString(), label: label || ('نسخة ' + new Date().toLocaleString('ar-EG')), snapshot: snapshotAll() };
+        const entry = { id: 'bk_' + Date.now(), ts: new Date().toISOString(), label: label || ('نسخة ' + new Date().toLocaleString('ar-EG-u-nu-latn')), snapshot: snapshotAll() };
         backups.unshift(entry);
         if (backups.length > 5) backups.length = 5;
         try { lsSet('backups', JSON.stringify(backups)); } catch (e) { console.warn(e); }
@@ -9152,7 +9152,7 @@ body.employee-mode #undoBtn { display: none !important; }
         if (!el) return;
         if (!backups || !backups.length) { el.innerHTML = '<div style="color:var(--text-muted);">لا توجد نسخ احتياطية بعد</div>'; return; }
         el.innerHTML = backups.map(b => {
-            const d = b.ts ? new Date(b.ts).toLocaleString('ar-EG') : '';
+            const d = b.ts ? new Date(b.ts).toLocaleString('ar-EG-u-nu-latn') : '';
             return '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">' +
                 '<span style="flex:1;word-break:break-word;">' + esc(b.label || '') + '<br><span style="font-size:0.72rem;color:var(--text-muted);">' + esc(d) + '</span></span>' +
                 '<span style="display:flex;gap:6px;">' +
@@ -9165,8 +9165,8 @@ body.employee-mode #undoBtn { display: none !important; }
     window.openRecycleBin = function () {
         try {
             const rows = (recycleBin || []).map(e => {
-                const d = e.deletedAt ? new Date(e.deletedAt).toLocaleString('ar-EG') : '';
-                const exp = e.expiresAt ? new Date(e.expiresAt).toLocaleDateString('ar-EG') : '';
+                const d = e.deletedAt ? new Date(e.deletedAt).toLocaleString('ar-EG-u-nu-latn') : '';
+                const exp = e.expiresAt ? new Date(e.expiresAt).toLocaleDateString('ar-EG-u-nu-latn') : '';
                 return '<div class="card" style="padding:10px;margin:0 0 8px 0;">' +
                     '<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">' +
                     '<strong style="font-size:0.88rem;">' + esc(e.label || e.type) + '</strong>' +
@@ -9209,7 +9209,7 @@ body.employee-mode #undoBtn { display: none !important; }
     window.renderCashFlow = function () {
         const container = document.getElementById('cashFlowContent');
         if (!container) return;
-        const money = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        const money = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
         const type = t => t.type || '';
         const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(type(t));
         const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(type(t));
@@ -9260,7 +9260,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.exportCashFlowExcel = function () {
         try {
-            const fmt = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const fmt = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
             const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(t.type);
             const sectionOf = t => {
@@ -9288,7 +9288,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let html = '<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>Cash Flow</title>';
             html += '<style>body{font-family:Tahoma,Arial,sans-serif;font-size:12px;} table{border-collapse:collapse;width:100%;margin-bottom:16px;} th,td{border:1px solid #999;padding:6px 8px;} th{background:#1e3a5f;color:#fff;font-weight:700;} .title{font-size:16px;font-weight:800;margin:8px 0;} .sec{background:#e8eef5;font-weight:700;} .total{background:#dbeafe;font-weight:800;} .net{background:#dcfce7;font-weight:800;font-size:14px;} .num{text-align:left;direction:ltr;}</style></head><body>';
             html += '<div class="title">\ud83d\udcb8 \u0627\u0644\u062a\u062f\u0641\u0642 \u0627\u0644\u0646\u0642\u062f\u064a (Cash Flow)</div>';
-            html += '<div style="color:#555;font-size:11px;margin-bottom:12px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0635\u062f\u064a\u0631: ' + escHtml(new Date().toLocaleString('ar-EG')) + '</div>';
+            html += '<div style="color:#555;font-size:11px;margin-bottom:12px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0635\u062f\u064a\u0631: ' + escHtml(new Date().toLocaleString('ar-EG-u-nu-latn')) + '</div>';
 
             html += '<table><thead><tr><th>\u0627\u0644\u0642\u0633\u0645</th><th>\u0642\u0628\u0636</th><th>\u062f\u0641\u0639</th><th>\u0635\u0627\u0641\u064a</th></tr></thead><tbody>';
             html += '<tr><td>\u062a\u0634\u063a\u064a\u0644\u064a</td><td class="num">' + fmt(opIn) + '</td><td class="num">' + fmt(opOut) + '</td><td class="num">' + fmt(opIn - opOut) + '</td></tr>';
@@ -9500,7 +9500,8 @@ body.employee-mode #undoBtn { display: none !important; }
     window.renderAgeingReport = function () {
         const container = document.getElementById('ageingReportContent');
         if (!container) return;
-        const money = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        // أرقام لاتينية (123) في كل التطبيق بدل الأرقام الهندية
+        const money = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
         const today = new Date();
         const bucketOf = (dueDate) => {
             const d = new Date(dueDate);
@@ -9697,7 +9698,7 @@ body.employee-mode #undoBtn { display: none !important; }
             '@media print{.bar{display:none;}body{background:#fff;padding:0;}}</style></head><body>' +
             '<div class="bar no-print"><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
             '<h1>📚 شجرة الحسابات وميزان المراجعة</h1>' +
-            '<p class="sub">نظام إدارة المبيعات | ميزان تراكمي حتى ' + new Date().toLocaleDateString('ar-EG') + '</p>' +
+            '<p class="sub">نظام إدارة المبيعات | ميزان تراكمي حتى ' + new Date().toLocaleDateString('ar-EG-u-nu-latn') + '</p>' +
             '<div class="summary">' +
             '<div><span>إجمالي الأصول</span><b style="color:#4f46e5;">' + money(tb.summary.assets) + '</b></div>' +
             '<div><span>الالتزامات</span><b style="color:#dc2626;">' + money(tb.summary.liabilities) + '</b></div>' +
@@ -9951,7 +9952,7 @@ body.employee-mode #undoBtn { display: none !important; }
         csv.push(['رقم الأمر', 'التاريخ', 'الموظف', 'المبلغ']);
         payouts.forEach(p => {
             const emp = employees.find(e => e.id == p.employeeId);
-            csv.push([p.orderNo || p.sourceId || p.id, new Date(p.date).toLocaleDateString('ar-EG'), emp ? emp.name : '', (p.amount || 0).toFixed(2)]);
+            csv.push([p.orderNo || p.sourceId || p.id, new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn'), emp ? emp.name : '', (p.amount || 0).toFixed(2)]);
         });
         const blob = new Blob([BOM + csv.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -9979,7 +9980,7 @@ body.employee-mode #undoBtn { display: none !important; }
             return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px dashed var(--border);">' +
                 '<div style="flex:1;min-width:0;">' +
                     '<div style="font-weight:700;font-size:0.82rem;">🧾 ' + esc(key) + '</div>' +
-                    '<div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + new Date(g.date).toLocaleDateString('ar-EG') + ' · ' + empNames + '</div>' +
+                    '<div style="font-size:0.72rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + new Date(g.date).toLocaleDateString('ar-EG-u-nu-latn') + ' · ' + empNames + '</div>' +
                 '</div>' +
                 '<div style="font-weight:800;color:var(--danger);white-space:nowrap;">' + g.amount.toFixed(2) + ' ج</div>' +
                 '<button class="btn-sm btn-outline" style="margin:0;" onclick="printPayoutOrder(' + JSON.stringify(key) + ')">🖨️ أمر الصرف</button>' +
@@ -10068,8 +10069,8 @@ body.employee-mode #undoBtn { display: none !important; }
         if (!rows.length) { showToast('لم يتم العثور على أمر الصرف', 'error'); return; }
         const total = rows.reduce((s, t) => s + (t.amount || 0), 0);
         const orderDate = rows[0].date ? new Date(rows[0].date) : new Date();
-        const dateLabel = orderDate.toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-        const nowLabel = new Date().toLocaleString('ar-EG');
+        const dateLabel = orderDate.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
+        const nowLabel = new Date().toLocaleString('ar-EG-u-nu-latn');
         const rowsHtml = rows.map(t => {
             const emp = employees.find(e => e.id == t.employeeId);
             return '<tr style="border-bottom:1px solid #e2e8f0;">' +
@@ -10135,7 +10136,7 @@ body.employee-mode #undoBtn { display: none !important; }
         container.innerHTML = '' +
             '<div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">' +
                 '<div style="text-align:center;margin-bottom:12px;">' +
-                    '<strong style="font-size:1.1rem;">📅 ' + today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + '</strong>' +
+                    '<strong style="font-size:1.1rem;">📅 ' + today.toLocaleDateString('ar-EG-u-nu-latn', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + '</strong>' +
                 '</div>' +
                 '<div class="flex-between" style="padding:6px 0;"><span>💵 مبيعات نقدية</span><strong style="color:var(--success)">' + cashSales.toFixed(2) + ' ج</strong></div>' +
                 '<div class="flex-between" style="padding:6px 0;"><span>💰 تحصيل أقساط</span><strong style="color:var(--primary)">' + collections.toFixed(2) + ' ج</strong></div>' +
@@ -10170,7 +10171,7 @@ body.employee-mode #undoBtn { display: none !important; }
             if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
             if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
         });
-        const dateLabel = today.toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+        const dateLabel = today.toLocaleDateString('ar-EG-u-nu-latn', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
         const w = window.open('', '', 'width=400,height=600');
         w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقرير يومي</title>' +
             '<style>body{font-family:sans-serif;padding:30px;}h1{font-size:1.3rem;text-align:center;color:#4f46e5;}' +
@@ -10215,7 +10216,7 @@ body.employee-mode #undoBtn { display: none !important; }
         });
         const BOM = '\uFEFF';
         const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const dateLabel = today.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const dateLabel = today.toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const rows = [
             ['التقرير اليومي — ' + dateLabel],
             [],
@@ -10408,7 +10409,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let running = opening;
         let rowsHtml = rows.map(r => {
             running += (r.credit || 0) - (r.debit || 0);
-            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? 'var(--success)' : 'var(--danger)';
             return '<tr style="border-bottom:1px solid var(--border);">' +
                 '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
@@ -10471,7 +10472,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let running = opening;
         let rowsHtml = rows.map(r => {
             running += (r.credit || 0) - (r.debit || 0);
-            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? '#059669' : '#ef4444';
             return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
         }).join('');
@@ -10481,7 +10482,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let bridgeDiff = finalBal + pending - liquidity;
         let bridgeOk = Math.abs(bridgeDiff) < 0.01;
 
-        let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG') : 'النهاية')) : 'كل الفترات';
+        let rangeLabel = (fromDate || toDate) ? ('من ' + (fromDate ? fromDate.toLocaleDateString('ar-EG-u-nu-latn') : 'البداية') + ' إلى ' + (toDate ? toDate.toLocaleDateString('ar-EG-u-nu-latn') : 'النهاية')) : 'كل الفترات';
         let htmlContent = '' +
         '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:900px;margin:auto;box-sizing:border-box;">' +
             '<div style="text-align:center;margin-bottom:24px;border-bottom:2px solid #4f46e5;padding-bottom:16px;">' +
@@ -10545,7 +10546,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let running = fromDate ? allRows.filter(r => new Date(r.date) < fromDate).reduce((s, r) => s + (r.credit || 0) - (r.debit || 0), 0) : 0;
         let csvRows = rows.map(r => {
             running += (r.credit || 0) - (r.debit || 0);
-            return [new Date(r.date).toLocaleDateString('ar-EG'), r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : '', running.toFixed(2)];
+            return [new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn'), r.desc, r.debit ? r.debit.toFixed(2) : '', r.credit ? r.credit.toFixed(2) : '', running.toFixed(2)];
         });
         let finalBal = running;
         csvRows.push([]);
@@ -10671,8 +10672,8 @@ body.employee-mode #undoBtn { display: none !important; }
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
         const BOM = '\uFEFF';
         const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG') : 'البداية';
-        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG') : 'الآن';
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : 'الآن';
         const rows = [
             ['أرباح الأصناف — الفترة ' + fromLbl + ' → ' + toLbl],
             [],
@@ -10707,7 +10708,7 @@ body.employee-mode #undoBtn { display: none !important; }
         const now = new Date();
         for (let i = 0; i < 24; i++) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const label = d.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+            const label = d.toLocaleDateString('ar-EG-u-nu-latn', { month: 'long', year: 'numeric' });
             const val = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
             s1.innerHTML += '<option value="' + val + '"' + (i === 0 ? ' selected' : '') + '>' + label + '</option>';
             s2.innerHTML += '<option value="' + val + '"' + (i === 1 ? ' selected' : '') + '>' + label + '</option>';
@@ -10840,7 +10841,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<span style="font-size:1.2rem;">' + icon + '</span>' +
                 '<div style="flex:1;">' +
                     '<div><strong>' + m.productName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span></div>' +
-                    '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + m.qty + ' | ' + new Date(m.date).toLocaleString('ar-EG') + '</div>' +
+                    '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + m.qty + ' | ' + new Date(m.date).toLocaleString('ar-EG-u-nu-latn') + '</div>' +
                     (m.notes ? '<div style="font-size:0.8rem;color:var(--text-muted);direction:ltr;text-align:right;font-family:monospace;">' + m.notes + '</div>' : '') +
                 '</div>' +
             '</div>';
@@ -10860,7 +10861,7 @@ body.employee-mode #undoBtn { display: none !important; }
         ];
         sorted.forEach(m => {
             rows.push([
-                new Date(m.date).toLocaleString('ar-EG'),
+                new Date(m.date).toLocaleString('ar-EG-u-nu-latn'),
                 m.productName || '',
                 (m.type === 'in' ? 'شراء' : 'بيع'),
                 m.qty,
@@ -10896,7 +10897,7 @@ body.employee-mode #undoBtn { display: none !important; }
         const months = [];
         for (let i = 5; i >= 0; i--) {
             const d = new Date(); d.setMonth(d.getMonth() - i);
-            months.push({ label: d.toLocaleDateString('ar-EG', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
+            months.push({ label: d.toLocaleDateString('ar-EG-u-nu-latn', { month: 'short' }), y: d.getFullYear(), m: d.getMonth() });
         }
 
         const data = [];
@@ -11114,7 +11115,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let sum = cash + bank;
         let el = document.getElementById('prodSplitTotal');
         let bar = document.getElementById('prodSplitTotalBar');
-        if (el) el.textContent = sum.toLocaleString() + ' ج / ' + total.toLocaleString() + ' ج';
+        if (el) el.textContent = sum.toLocaleString('ar-EG-u-nu-latn') + ' ج / ' + total.toLocaleString('ar-EG-u-nu-latn') + ' ج';
         if (bar) {
             if (total <= 0) {
                 bar.style.borderColor = 'var(--border)';
@@ -11269,14 +11270,14 @@ body.employee-mode #undoBtn { display: none !important; }
             const totalCost = (p.costPrice || 0) + (p.expenses || 0);
             rows.push([
                 p.name,
-                (p.costPrice || 0).toLocaleString(),
-                (p.expenses || 0).toLocaleString(),
-                (p.sellPrice || 0).toLocaleString(),
-                ((p.sellPrice || 0) - totalCost).toLocaleString(),
+                (p.costPrice || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (p.expenses || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (p.sellPrice || 0).toLocaleString('ar-EG-u-nu-latn'),
+                ((p.sellPrice || 0) - totalCost).toLocaleString('ar-EG-u-nu-latn'),
                 p.stock || 0,
                 p.minStock || 0,
-                (totalCost * (p.stock || 0)).toLocaleString(),
-                ((p.sellPrice || 0) * (p.stock || 0)).toLocaleString(),
+                (totalCost * (p.stock || 0)).toLocaleString('ar-EG-u-nu-latn'),
+                ((p.sellPrice || 0) * (p.stock || 0)).toLocaleString('ar-EG-u-nu-latn'),
                 p.imei || '',
                 p.archived ? 'مؤرشف' : ((p.minStock || 0) > 0 && p.stock <= (p.minStock || 0) ? '⚠️ تحت الحد الأدنى' : 'نشط')
             ]);
@@ -11333,10 +11334,10 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<span class="badge ' + badgeClass + '">' + stockIcon + ' ' + p.stock + '</span>' +
             '</div>' +
             '<div class="grid-2 gap-2 border-t pt-3 text-sm">' +
-                '<div><span class="text-muted">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString() + ' ج</strong></div>' +
-                '<div><span class="text-muted">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString() + ' ج</strong></div>' +
-                '<div><span class="text-muted">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString() + ' ج</strong></div>' +
-                '<div><span class="text-muted">' + (profit >= 0 ? '📈 ربح' : '📉 خسارة') + '</span><br><strong class="' + profitColor + '">' + profit.toLocaleString() + ' ج (' + profitPct + '%)</strong></div>' +
+                '<div><span class="text-muted">💰 شراء</span><br><strong>' + p.costPrice.toLocaleString('ar-EG-u-nu-latn') + ' ج</strong></div>' +
+                '<div><span class="text-muted">📦 مصروفات</span><br><strong>' + (p.expenses || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</strong></div>' +
+                '<div><span class="text-muted">💵 بيع</span><br><strong>' + p.sellPrice.toLocaleString('ar-EG-u-nu-latn') + ' ج</strong></div>' +
+                '<div><span class="text-muted">' + (profit >= 0 ? '📈 ربح' : '📉 خسارة') + '</span><br><strong class="' + profitColor + '">' + profit.toLocaleString('ar-EG-u-nu-latn') + ' ج (' + profitPct + '%)</strong></div>' +
                 (p.imei ? '<div class="col-span-2" style="grid-column:1/-1;"><span class="text-muted">📱 IMEI</span><br><strong style="direction:ltr;display:inline-block;font-family:monospace;">' + esc(p.imei) + '</strong></div>' : '') +
             '</div>' +
             '<div class="flex flex-wrap gap-1 mt-3 pt-3 border-t">' +
@@ -11646,7 +11647,7 @@ body.employee-mode #undoBtn { display: none !important; }
         updateStorageInfo();
         updateAutoBackupInfo();
         document.getElementById('capitalInput').value = openingCapital;
-        document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
+        document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString('ar-EG-u-nu-latn') + ' ج</strong>';
         const cidInput = document.getElementById('driveClientIdInput');
         if (cidInput) cidInput.value = getDriveClientId();
         applyTheme(); // تحديث أزرار المظهر
@@ -11693,7 +11694,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let oldCapital = parseFloat(openingCapital) || 0;
             openingCapital = check.amount;
             localStorage.setItem('openingCapital', String(openingCapital));
-            document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString() + ' ج</strong>';
+            document.getElementById('capitalStatus').innerHTML = '💰 رأس المال المسجل حالياً: <strong>' + openingCapital.toLocaleString('ar-EG-u-nu-latn') + ' ج</strong>';
             if (oldCapital !== openingCapital) {
                 logAudit('update', 'رأس المال', 'openingCapital', 'من ' + oldCapital.toFixed(2) + ' ج إلى ' + openingCapital.toFixed(2) + ' ج');
             }
@@ -11703,7 +11704,7 @@ body.employee-mode #undoBtn { display: none !important; }
             if (check.warning) {
                 showToast('تم الحفظ مع تنبيه: يوجد أرصدة افتتاحية في الحسابات (ازدواج محتمل لرأس المال)', 'error');
             } else {
-                showToast('✅ تم حفظ رأس المال: ' + openingCapital.toLocaleString() + ' ج');
+                showToast('✅ تم حفظ رأس المال: ' + openingCapital.toLocaleString('ar-EG-u-nu-latn') + ' ج');
             }
         } catch (err) {
             showError('حدث خطأ أثناء الحفظ', err.message);
@@ -12340,14 +12341,14 @@ body.employee-mode #undoBtn { display: none !important; }
 
         let rows = [];
         rows.push(['📋 نوع الحركة', transTypeMap[t.type] || t.type]);
-        rows.push(['📅 التاريخ', new Date(t.date).toLocaleString('ar-EG', { dateStyle: 'full', timeStyle: 'short' })]);
-        rows.push(['💰 المبلغ', (isIncomeTransType(t.type) ? '+' : '-') + t.amount.toLocaleString() + ' ج']);
+        rows.push(['📅 التاريخ', new Date(t.date).toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'full', timeStyle: 'short' })]);
+        rows.push(['💰 المبلغ', (isIncomeTransType(t.type) ? '+' : '-') + t.amount.toLocaleString('ar-EG-u-nu-latn') + ' ج']);
 
         if (sale) {
             rows.push(['📦 الصنف', sale.deviceName || '—']);
             rows.push(['🔢 الكمية', sale.quantity || 1]);
-            rows.push(['🏷️ سعر الوحدة', (sale.sellPrice || 0).toLocaleString() + ' ج']);
-            rows.push(['🧮 إجمالي البند', ((sale.sellPrice || 0) * (sale.quantity || 1)).toLocaleString() + ' ج']);
+            rows.push(['🏷️ سعر الوحدة', (sale.sellPrice || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج']);
+            rows.push(['🧮 إجمالي البند', ((sale.sellPrice || 0) * (sale.quantity || 1)).toLocaleString('ar-EG-u-nu-latn') + ' ج']);
         } else if (p) {
             let qty = 1;
             let mQ = t.notes && t.notes.match(/×\s*(\d+)/);
@@ -12355,8 +12356,8 @@ body.employee-mode #undoBtn { display: none !important; }
             let unit = qty > 0 ? t.amount / qty : t.amount;
             rows.push(['📦 الصنف', p.name]);
             rows.push(['🔢 الكمية', qty]);
-            rows.push(['🏷️ سعر الوحدة', unit.toLocaleString() + ' ج']);
-            rows.push(['🧮 إجمالي البند', t.amount.toLocaleString() + ' ج']);
+            rows.push(['🏷️ سعر الوحدة', unit.toLocaleString('ar-EG-u-nu-latn') + ' ج']);
+            rows.push(['🧮 إجمالي البند', t.amount.toLocaleString('ar-EG-u-nu-latn') + ' ج']);
         }
 
         if (m) rows.push(['👤 التاجر/العميل', m.name + (m.phone ? ' (📞 ' + m.phone + ')' : '')]);
@@ -12364,7 +12365,7 @@ body.employee-mode #undoBtn { display: none !important; }
         if (a) rows.push(['💳 الحساب', accLabel(a)]);
         if (toAcc) rows.push(['🏦 إلى الحساب', accLabel(toAcc)]);
         if (fromAcc) rows.push(['🏦 من الحساب', accLabel(fromAcc)]);
-        if (inst) rows.push(['📝 عقد تقسيط', 'رقم ' + (inst.contractNo || inst.id) + ' — ' + (inst.deviceName || '') + (inst.remainingBalance != null ? ' (متبقي ' + inst.remainingBalance.toLocaleString() + ' ج)' : '')]);
+        if (inst) rows.push(['📝 عقد تقسيط', 'رقم ' + (inst.contractNo || inst.id) + ' — ' + (inst.deviceName || '') + (inst.remainingBalance != null ? ' (متبقي ' + inst.remainingBalance.toLocaleString('ar-EG-u-nu-latn') + ' ج)' : '')]);
         if (arabon) rows.push(['🔖 عربون', arabon.deviceName || 'عربون رقم ' + arabon.id]);
         if (t.category) rows.push(['🏷️ التصنيف', t.category]);
         let emp = t.employeeId ? employees.find(x => x.id == t.employeeId) : null;
@@ -12395,9 +12396,9 @@ body.employee-mode #undoBtn { display: none !important; }
             let p = products.find(x => x.id == t.productId);
             let emp = t.employeeId ? employees.find(x => x.id == t.employeeId) : null;
             rows.push([
-                new Date(t.date).toLocaleString('ar-EG'),
+                new Date(t.date).toLocaleString('ar-EG-u-nu-latn'),
                 transTypeMap[t.type] || t.type,
-                t.amount.toLocaleString(),
+                t.amount.toLocaleString('ar-EG-u-nu-latn'),
                 isInc ? '+' : '-',
                 a ? a.name : '',
                 pr?.name || m?.name || '',
@@ -12430,9 +12431,9 @@ body.employee-mode #undoBtn { display: none !important; }
             if (isIncomeType(t.type)) netBalance += t.amount;
             else netBalance -= t.amount;
         });
-        document.getElementById('transCapital').innerText = BusinessLogic.openingLiquid().toLocaleString() + ' ج';
-        document.getElementById('transNet').innerText = (netBalance >= 0 ? '+' : '') + netBalance.toLocaleString() + ' ج';
-        document.getElementById('transTotal').innerText = (BusinessLogic.openingLiquid() + netBalance).toLocaleString() + ' ج';
+        document.getElementById('transCapital').innerText = BusinessLogic.openingLiquid().toLocaleString('ar-EG-u-nu-latn') + ' ج';
+        document.getElementById('transNet').innerText = (netBalance >= 0 ? '+' : '') + netBalance.toLocaleString('ar-EG-u-nu-latn') + ' ج';
+        document.getElementById('transTotal').innerText = (BusinessLogic.openingLiquid() + netBalance).toLocaleString('ar-EG-u-nu-latn') + ' ج';
 
         let filtered = [...transactions];
 
@@ -12457,7 +12458,7 @@ body.employee-mode #undoBtn { display: none !important; }
         // تجميع حسب اليوم
         const groups = {};
         filtered.forEach(t => {
-            const day = new Date(t.date).toLocaleDateString('ar-EG', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+            const day = new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
             if (!groups[day]) groups[day] = [];
             groups[day].push(t);
         });
@@ -12496,7 +12497,7 @@ body.employee-mode #undoBtn { display: none !important; }
                         '<div class="flex-1" style="min-width:0;">' +
                             '<div class="text-sm font-bold flex items-center gap-1">' + esc(typeMap[t.type] || t.type) + (entityName ? ' <span class="text-xs font-normal text-muted">· ' + esc(entityName) + '</span>' : '') + '</div>' +
                             '<div class="text-xs text-muted truncate">' +
-                                new Date(t.date).toLocaleTimeString('ar-EG', {hour:'2-digit', minute:'2-digit'}) +
+                                new Date(t.date).toLocaleTimeString('ar-EG-u-nu-latn', {hour:'2-digit', minute:'2-digit'}) +
                                 (p?.name ? ' · 📦 ' + esc(p.name) : '') +
                                 (a ? ' · ' + (a.type === 'bank' ? '🏦' : a.type === 'vodafone' ? '📱' : '💵') + ' ' + esc(a.name) : '') +
                             '</div>' +
@@ -12643,14 +12644,14 @@ body.employee-mode #undoBtn { display: none !important; }
             html += '<div class="inst-details-customer"><span>👤 <b>' + esc(m?.name || 'عميل') + '</b></span><span>📞 ' + esc(m?.phone || '—') + '</span></div>';
             html += '<div class="inst-details-grid">';
             html += '<div class="inst-details-item"><span class="inst-details-label">📱 الجهاز</span><span class="inst-details-value">' + esc(deviceName) + '</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + (Number(inst.purchasePrice) || 0).toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + (Number(inst.paidUpfront) || 0).toLocaleString() + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💰 سعر البيع الكاش</span><span class="inst-details-value">' + (Number(inst.purchasePrice) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💵 المقدم</span><span class="inst-details-value">' + (Number(inst.paidUpfront) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">📊 نسبة الفائدة</span><span class="inst-details-value">' + (Number(inst.interestRate) || 0) + '%</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">📅 عدد الشهور</span><span class="inst-details-value">' + (inst.numInstallments || schedule.length || '؟') + ' شهر</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">💳 القسط الشهري</span><span class="inst-details-value">' + (Number(inst.monthlyAmount) || 0).toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">🧮 الإجمالي بعد الفائدة</span><span class="inst-details-value">' + (Number(inst.totalAfterInterest) || 0).toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">⚠️ المتبقي</span><span class="inst-details-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString() + ' ج</span></div>';
-            html += '<div class="inst-details-item"><span class="inst-details-label">📆 تاريخ أول قسط</span><span class="inst-details-value">' + (inst.firstDueDate ? new Date(inst.firstDueDate).toLocaleDateString('ar-EG') : '—') + '</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">💳 القسط الشهري</span><span class="inst-details-value">' + (Number(inst.monthlyAmount) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">🧮 الإجمالي بعد الفائدة</span><span class="inst-details-value">' + (Number(inst.totalAfterInterest) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">⚠️ المتبقي</span><span class="inst-details-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>';
+            html += '<div class="inst-details-item"><span class="inst-details-label">📆 تاريخ أول قسط</span><span class="inst-details-value">' + (inst.firstDueDate ? new Date(inst.firstDueDate).toLocaleDateString('ar-EG-u-nu-latn') : '—') + '</span></div>';
             html += '<div class="inst-details-item"><span class="inst-details-label">✅ الأقساط المسددة</span><span class="inst-details-value">' + paidCount + '/' + (inst.numInstallments || schedule.length || '؟') + '</span></div>';
             html += '</div>';
 
@@ -12658,8 +12659,8 @@ body.employee-mode #undoBtn { display: none !important; }
             if (paidSlots.length > 0) {
                 html += '<div class="inst-details-list"><div class="inst-details-list-title">💳 سجل السداد</div>';
                 paidSlots.forEach(s => {
-                    let payDate = slotPaidDate(inst, s) ? new Date(slotPaidDate(inst, s) + 'T00:00:00').toLocaleDateString('ar-EG') : '—';
-                    html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + (s.isPaid ? '' : ' (جزئي)') + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString() + ' ج</b></div>';
+                    let payDate = slotPaidDate(inst, s) ? new Date(slotPaidDate(inst, s) + 'T00:00:00').toLocaleDateString('ar-EG-u-nu-latn') : '—';
+                    html += '<div class="inst-details-pay-row"><span>القسط رقم ' + s.index + (s.isPaid ? '' : ' (جزئي)') + '</span><span>في ' + payDate + '</span><b>' + (s.paidAmount || inst.monthlyAmount).toLocaleString('ar-EG-u-nu-latn') + ' ج</b></div>';
                 });
                 html += '</div>';
             }
@@ -12670,11 +12671,11 @@ body.employee-mode #undoBtn { display: none !important; }
                 let canManage = isAdminSession();
                 html += '<div class="inst-details-list"><div class="inst-details-list-title">🧾 الدفعات المسجلة' + (canManage ? ' — إدارة' : '') + '</div>';
                 payGroups.forEach((g, gi) => {
-                    let d = g.date ? new Date(g.date).toLocaleDateString('ar-EG') : '—';
+                    let d = g.date ? new Date(g.date).toLocaleDateString('ar-EG-u-nu-latn') : '—';
                     let sid = esc(String(g.sourceId));
                     html += '<div class="inst-details-pay-row">' +
                         '<span>دفعة #' + (gi + 1) + ' — ' + d + '</span>' +
-                        '<b>' + Number(g.amount).toLocaleString() + ' ج</b>' +
+                        '<b>' + Number(g.amount).toLocaleString('ar-EG-u-nu-latn') + ' ج</b>' +
                         '<span style="display:flex;gap:6px;">' +
                             '<button class="btn-sm btn-outline" onclick="showRecordHistory(\'سداد قسط\',' + inst.id + ', \'سجل دفعات العقد #' + (inst.contractNo || inst.id) + '\', {prefix:true})" title="سجل دفعات هذا العقد">🕘</button>' +
                             (canManage
@@ -12851,7 +12852,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     : '<span class="badge badge-success">✅ منتظم</span>');
 
             let scheduleHtml = schedule.map((slot, idx) => {
-                let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
+                let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG-u-nu-latn');
                 let remaining = monthlyAmt - slot.paidAmount;
                 let isOverdue = !slot.isPaid && new Date(slot.dueDate) < today;
                 let paidInfo = '';
@@ -12860,7 +12861,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     let dueD = new Date(slot.dueDate + 'T00:00:00');
                     let paidD = new Date(sPaidDate + 'T00:00:00');
                     let delayDays = Math.round((paidD - dueD) / 86400000);
-                    let paidLabel = 'تم السداد: ' + paidD.toLocaleDateString('ar-EG');
+                    let paidLabel = 'تم السداد: ' + paidD.toLocaleDateString('ar-EG-u-nu-latn');
                     let delayLabel = delayDays > 0
                         ? '<span style="color:#ef4444;font-weight:700;"> — متأخر ' + delayDays + ' يوم</span>'
                         : (delayDays < 0 ? '<span style="color:#059669;font-weight:700;"> — قبل الموعد</span>' : '<span style="color:#059669;font-weight:700;"> — في الموعد</span>');
@@ -12874,11 +12875,11 @@ body.employee-mode #undoBtn { display: none !important; }
                     '</div>' +
                     '<div class="schedule-row">' +
                         '<span class="schedule-label">المستحق:</span>' +
-                        '<span class="schedule-amount">' + monthlyAmt.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' ج.م</span>' +
+                        '<span class="schedule-amount">' + monthlyAmt.toLocaleString('ar-EG-u-nu-latn', {minimumFractionDigits:2}) + ' ج.م</span>' +
                     '</div>' +
                     '<div class="schedule-row">' +
                         '<span class="schedule-label">المحصّل:</span>' +
-                        '<span class="schedule-collected">' + (slot.paidAmount > 0 ? slot.paidAmount.toLocaleString('ar-EG', {minimumFractionDigits:2}) + ' ج.م' : ': ج.م') + '</span>' +
+                        '<span class="schedule-collected">' + (slot.paidAmount > 0 ? slot.paidAmount.toLocaleString('ar-EG-u-nu-latn', {minimumFractionDigits:2}) + ' ج.م' : ': ج.م') + '</span>' +
                     '</div>' +
                     paidInfo +
                     (isOverdue ? '<div style="color:#ef4444;font-size:0.8rem;margin-bottom:6px;">⚠️ قسط متأخر</div>' : '') +
@@ -12896,7 +12897,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let nextUnpaidIdx = nextDue ? schedule.indexOf(nextDue) : -1;
             let nextDueHtml = inst.isPaid
                 ? '<div class="inst-nextdue"><span>✅ العقد مسدد بالكامل</span></div>'
-                : '<div class="inst-nextdue' + (isLate ? ' late' : '') + '"><span>📆 القسط القادم رقم ' + (nextDue ? nextDue.index : '—') + (nextDue ? ' بتاريخ ' + new Date(nextDue.dueDate).toLocaleDateString('ar-EG') : '') + '</span>' + (isLate ? '<b>⚠️ متأخر</b>' : '') + '</div>';
+                : '<div class="inst-nextdue' + (isLate ? ' late' : '') + '"><span>📆 القسط القادم رقم ' + (nextDue ? nextDue.index : '—') + (nextDue ? ' بتاريخ ' + new Date(nextDue.dueDate).toLocaleDateString('ar-EG-u-nu-latn') : '') + '</span>' + (isLate ? '<b>⚠️ متأخر</b>' : '') + '</div>';
             let initials = ((m?.name || 'ع')).replace(/[^a-zA-Z\u0600-\u06FF0-9]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('') || 'ع';
 
             return '' +
@@ -12912,9 +12913,9 @@ body.employee-mode #undoBtn { display: none !important; }
                 '</div>' +
                 /* رقائق الملخص */
                 '<div class="inst-chips">' +
-                    '<div class="inst-chip"><span class="inst-chip-label">القسط الشهري</span><span class="inst-chip-value">' + monthlyAmt.toLocaleString() + ' ج</span></div>' +
-                    '<div class="inst-chip"><span class="inst-chip-label">المقدم</span><span class="inst-chip-value">' + (Number(inst.paidUpfront) || 0).toLocaleString() + ' ج</span></div>' +
-                    '<div class="inst-chip"><span class="inst-chip-label">المتبقي</span><span class="inst-chip-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">القسط الشهري</span><span class="inst-chip-value">' + monthlyAmt.toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">المقدم</span><span class="inst-chip-value">' + (Number(inst.paidUpfront) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
+                    '<div class="inst-chip"><span class="inst-chip-label">المتبقي</span><span class="inst-chip-value danger">' + (Number(inst.remainingBalance) || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
                     '<div class="inst-chip"><span class="inst-chip-label">الأقساط المسددة</span><span class="inst-chip-value success">' + paidCount + '/' + (inst.numInstallments || schedule.length || '—') + '</span></div>' +
                 '</div>' +
                 nextDueHtml +
@@ -12963,7 +12964,7 @@ body.employee-mode #undoBtn { display: none !important; }
         receiptData = data;
         const overlay = document.getElementById('receiptOverlay');
         const content = document.getElementById('receiptContent');
-        const payDate = data.date ? new Date(data.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
+        const payDate = data.date ? new Date(data.date).toLocaleDateString('ar-EG-u-nu-latn') : new Date().toLocaleDateString('ar-EG-u-nu-latn');
         content.innerHTML = '' +
             '<div class="receipt-row"><span>التاريخ:</span><span>' + payDate + '</span></div>' +
             '<div class="receipt-row"><span>العميل:</span><span>' + (data.merchant || '—') + '</span></div>' +
@@ -12980,7 +12981,7 @@ body.employee-mode #undoBtn { display: none !important; }
         if (!receiptData) return;
         const w = window.open('', '', 'width=350,height=500');
         if (!w) { showToast('السماح بالنوافذ المنبثقة للطباعة', 'error'); return; }
-        const payDate = receiptData.date ? new Date(receiptData.date).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG');
+        const payDate = receiptData.date ? new Date(receiptData.date).toLocaleDateString('ar-EG-u-nu-latn') : new Date().toLocaleDateString('ar-EG-u-nu-latn');
         w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>إيصال سداد</title>' +
             '<style>body{font-family:sans-serif;padding:20px;text-align:center;}' +
             'h2{font-size:1.2rem;margin-bottom:4px;}' +
@@ -13033,7 +13034,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
             let html = '<div class="inst-panel-title">💵 تحصيل القسط رقم ' + slot.index + '</div>';
             html += '<div class="inst-pay-info"><span>العميل: <b>' + mName + '</b></span><span>الجهاز: <b>' + deviceName + '</b></span></div>';
-            html += '<div class="inst-pay-info"><span>المستحق: <b>' + inst.monthlyAmount.toLocaleString() + ' ج</b></span><span>المتبقي لهذا القسط: <b>' + remaining.toLocaleString() + ' ج</b></span></div>';
+            html += '<div class="inst-pay-info"><span>المستحق: <b>' + inst.monthlyAmount.toLocaleString('ar-EG-u-nu-latn') + ' ج</b></span><span>المتبقي لهذا القسط: <b>' + remaining.toLocaleString('ar-EG-u-nu-latn') + ' ج</b></span></div>';
             html += '<div class="grid-2">';
             html += '<div class="form-group"><label>💵 المبلغ</label><input type="number" step="any" id="payAmount-' + instId + '" value="' + remaining.toFixed(2) + '"></div>';
             html += '<div class="form-group"><label>📅 تاريخ الدفع</label><input type="date" id="payDate-' + instId + '" value="' + new Date().toISOString().split('T')[0] + '"></div>';
@@ -13271,7 +13272,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     // 🔍 معاينة أثر تعديل/حذف دفعة قبل تنفيذها (قبل/بعد لكل رقم متأثر)
     function instPaymentImpactHtml(inst, group, plan) {
-        const money = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
+        const money = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
         const total = BusinessLogic.toNum(inst.totalAfterInterest)
             || (BusinessLogic.toNum(inst.monthlyAmount) * ((inst.schedule || []).length || 0));
         const groups = BusinessLogic.paymentGroups(inst.id);
@@ -13512,13 +13513,13 @@ body.employee-mode #undoBtn { display: none !important; }
             let status = a.isPaid ? 'مسدد' : (a.remainingPaymentMethod === 'installments' ? 'أقساط' : 'متبقي');
             let method = a.remainingPaymentMethod === 'cash' ? 'كاش' : a.remainingPaymentMethod === 'bank' ? 'بنك' : a.remainingPaymentMethod === 'vodafone' ? 'فودافون' : a.remainingPaymentMethod === 'installments' ? 'أقساط' : '—';
             rows.push([
-                a.date ? new Date(a.date).toLocaleDateString('ar-EG') : '',
+                a.date ? new Date(a.date).toLocaleDateString('ar-EG-u-nu-latn') : '',
                 m?.name || '',
                 m?.phone || '',
                 a.deviceName || '',
-                (a.sellPrice || 0).toLocaleString(),
-                (a.depositAmount || 0).toLocaleString(),
-                (a.remainingAmount || 0).toLocaleString(),
+                (a.sellPrice || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (a.depositAmount || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (a.remainingAmount || 0).toLocaleString('ar-EG-u-nu-latn'),
                 status, method,
                 a.dueDate || '',
                 a.notes || ''
@@ -13558,14 +13559,14 @@ body.employee-mode #undoBtn { display: none !important; }
                 m?.name || '',
                 m?.phone || '',
                 i.deviceName || '',
-                (i.purchasePrice || 0).toLocaleString(),
-                (i.paidUpfront || 0).toLocaleString(),
-                (i.totalAfterInterest || 0).toLocaleString(),
-                (i.remainingBalance || 0).toLocaleString(),
+                (i.purchasePrice || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (i.paidUpfront || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (i.totalAfterInterest || 0).toLocaleString('ar-EG-u-nu-latn'),
+                (i.remainingBalance || 0).toLocaleString('ar-EG-u-nu-latn'),
                 i.numInstallments || '',
-                (i.monthlyAmount || 0).toLocaleString(),
+                (i.monthlyAmount || 0).toLocaleString('ar-EG-u-nu-latn'),
                 (i.interestRate || 0) + '%',
-                i.date ? new Date(i.date).toLocaleDateString('ar-EG') : '',
+                i.date ? new Date(i.date).toLocaleDateString('ar-EG-u-nu-latn') : '',
                 i.firstDueDate || '',
                 i.isPaid ? 'مسدد' : 'نشط'
             ]);
@@ -13625,7 +13626,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 : a.remainingPaymentMethod === 'installments' ? '<span class="badge" style="background:#f59e0b;color:#fff;">📅 أقساط</span>'
                 : '<span class="badge" style="background:#dc2626;color:#fff;">💳 متبقي</span>';
             let methodLabel = a.remainingPaymentMethod === 'cash' ? '💵 كاش' : a.remainingPaymentMethod === 'bank' ? '🏦 بنك' : a.remainingPaymentMethod === 'vodafone' ? '📱 فودافون' : a.remainingPaymentMethod === 'installments' ? '📅 أقساط' : '—';
-            let dateStr = a.date ? new Date(a.date).toLocaleDateString('ar-EG') : '—';
+            let dateStr = a.date ? new Date(a.date).toLocaleDateString('ar-EG-u-nu-latn') : '—';
 
             let dueDateHtml = '';
             let isOverdue = false;
@@ -13757,8 +13758,8 @@ body.employee-mode #undoBtn { display: none !important; }
             '<div class="customer-statement-body">' +
                 '<div class="customer-statement-summary">' +
                     '<div class="stat-card"><div class="stat-label">الجهاز</div><div class="stat-value primary">' + (a.deviceName || '—') + '</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">سعر البيع</div><div class="stat-value primary">' + (a.sellPrice || 0).toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">العربون</div><div class="stat-value success">' + (a.depositAmount || 0).toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">سعر البيع</div><div class="stat-value primary">' + (a.sellPrice || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">العربون</div><div class="stat-value success">' + (a.depositAmount || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
                     '<div class="stat-card"><div class="stat-label">المتبقي</div><div class="stat-value ' + (balance > 0 ? 'danger' : 'success') + '">' + balance.toFixed(2) + ' ج</div></div>' +
                     '<div class="stat-card"><div class="stat-label">طريقة السداد</div><div class="stat-value primary">' + methodLabel + '</div></div>' +
                     '<div class="stat-card"><div class="stat-label">الحالة</div><div class="stat-value ' + (a.isPaid ? 'success' : 'danger') + '">' + (a.isPaid ? '✅ مسدّد' : '💳 متبقي') + '</div></div>' +
@@ -13790,7 +13791,7 @@ body.employee-mode #undoBtn { display: none !important; }
         w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>كشف حساب عربون</title>' +
             '<style>body{font-family:sans-serif;padding:16px;text-align:center;font-size:12px;} h2{font-size:1rem;margin-bottom:2px;} .info{color:#666;font-size:0.8rem;margin-bottom:12px;} table{width:100%;border-collapse:collapse;margin-top:10px;} th,td{padding:5px 4px;border-bottom:1px solid #ddd;text-align:right;font-size:0.78rem;} th{background:#f5f5f5;font-weight:700;} .total-row{font-weight:700;border-top:2px solid #000;} .bal-row{background:#f0f0f0;font-weight:700;} .pos{color:#059669;} .neg{color:#dc2626;}</style></head><body>' +
             '<h2>🤝 كشف حساب عقد العربون</h2>' +
-            '<div class="info">' + mName + (mPhone ? ' | 📱 ' + mPhone : '') + ' — ' + new Date().toLocaleString('ar-EG') + '</div>' +
+            '<div class="info">' + mName + (mPhone ? ' | 📱 ' + mPhone : '') + ' — ' + new Date().toLocaleString('ar-EG-u-nu-latn') + '</div>' +
             '<table><thead><tr><th>التاريخ</th><th>البيان</th><th>عليه</th><th>له</th></tr></thead><tbody>' +
             rows.map(r => '<tr><td>' + (r.date || '').slice(0,10) + '</td><td>' + r.desc + '</td><td class="pos">' + (r.debit ? r.debit.toFixed(2) : '-') + '</td><td class="neg">' + (r.credit ? r.credit.toFixed(2) : '-') + '</td></tr>').join('') +
             '<tr class="total-row"><td colspan="2">الإجمالي</td><td class="pos">' + totalDebit.toFixed(2) + '</td><td class="neg">' + totalCredit.toFixed(2) + '</td></tr>' +
@@ -14127,7 +14128,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let running = opening;
         let rowsHtml = rows.map(r => {
             running += (r.debit || 0) - (r.credit || 0);
-            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? 'var(--danger)' : 'var(--success)';
             return '<tr style="border-bottom:1px solid var(--border);">' +
                 '<td style="padding:8px 6px;white-space:nowrap;">' + d + '</td>' +
@@ -14179,7 +14180,7 @@ body.employee-mode #undoBtn { display: none !important; }
         let running = opening;
         let rowsHtml = rows.map(r => {
             running += (r.debit || 0) - (r.credit || 0);
-            let d = new Date(r.date).toLocaleDateString('ar-EG');
+            let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? '#ef4444' : '#059669';
             return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
         }).join('');
@@ -14508,7 +14509,7 @@ body.employee-mode #undoBtn { display: none !important; }
             sales.forEach(s => {
                 let qty = s.quantity || 1;
                 let totalPrice = (s.sellPrice || 0) * qty;
-                let d = new Date(s.date).toLocaleDateString('ar-EG');
+                let d = new Date(s.date).toLocaleDateString('ar-EG-u-nu-latn');
                 html += '<tr><td>' + esc(s.deviceName || '') + '</td><td>' + qty + '</td><td>' + (s.sellPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
                 html += '<td><button class="btn-sm btn-outline" onclick="editMerchantSale(' + s.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantSale(' + s.id + ')">🗑️</button></td></tr>';
             });
@@ -14527,7 +14528,7 @@ body.employee-mode #undoBtn { display: none !important; }
             purchases.forEach(p => {
                 let qty = p.quantity || 1;
                 let totalPrice = (p.costPrice || 0) * qty;
-                let d = new Date(p.date).toLocaleDateString('ar-EG');
+                let d = new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn');
                 html += '<tr><td>' + esc(p.productName || '') + '</td><td>' + qty + '</td><td>' + (p.costPrice || 0).toFixed(2) + '</td><td>' + totalPrice.toFixed(2) + '</td><td class="text-muted">' + d + '</td>';
                 html += '<td><button class="btn-sm btn-outline" onclick="editMerchantPurchase(' + p.id + ')">✏️</button> <button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteMerchantPurchase(' + p.id + ')">🗑️</button></td></tr>';
             });
@@ -14548,7 +14549,7 @@ body.employee-mode #undoBtn { display: none !important; }
             html += '<table class="merchant-statement-table" style="font-size:0.8rem;">';
             html += '<thead><tr><th>البيان</th><th>المبلغ</th><th>النوع</th><th>التاريخ</th><th>إجراءات</th></tr></thead><tbody>';
             allPmts.forEach(p => {
-                let d = new Date(p.date).toLocaleDateString('ar-EG');
+                let d = new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn');
                 let typeLabel = p.dir === 'in' ? '🧾 دفعة منه' : '💸 دفعة له';
                 let color = p.dir === 'in' ? 'var(--success)' : 'var(--danger)';
                 let editFn = p.dir === 'in' ? 'editMerchantPayment' : 'editMerchantPaymentOut';
@@ -15236,7 +15237,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 '</div>' +
                 (p.phone ? '<div class="text-sm text-muted mb-2">📞 ' + esc(p.phone) + '</div>' : '') +
                 (p.notes ? '<div class="text-sm text-muted mb-2">📝 ' + esc(p.notes) + '</div>' : '') +
-                '<div class="text-xs text-muted mb-4">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG') + '</div>' +
+                '<div class="text-xs text-muted mb-4">📅 منذ ' + new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn') + '</div>' +
                 '<div class="flex gap-2 flex-wrap pt-3 border-t">' +
                     '<button class="btn-sm btn-success flex-1" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')">💵 إيداع</button>' +
                     '<button class="btn-sm btn-outline flex-1" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')">💰 سحب</button>' +
@@ -15281,11 +15282,11 @@ body.employee-mode #undoBtn { display: none !important; }
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>الرصيد</th></tr></thead><tbody>' +
                 partnerTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
-                    let d = new Date(t.date).toLocaleDateString('ar-EG');
+                    let d = new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn');
                     let isDeposit = t.type === 'partner_deposit';
                     let icon = isDeposit ? PI.deposit : PI.withdraw;
                     let color = isDeposit ? 'var(--success)' : 'var(--danger)';
-                    return '<tr><td>' + d + '</td><td style="display:flex;align-items:center;gap:4px;">' + icon + ' ' + (t.notes || t.type) + '</td><td style="color:' + color + ';font-weight:700;">' + (isDeposit ? '+' : '-') + (t.amount || 0).toLocaleString() + ' ج</td></tr>';
+                    return '<tr><td>' + d + '</td><td style="display:flex;align-items:center;gap:4px;">' + icon + ' ' + (t.notes || t.type) + '</td><td style="color:' + color + ';font-weight:700;">' + (isDeposit ? '+' : '-') + (t.amount || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</td></tr>';
                 }).join('') +
                 '</tbody></table>'
             : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد حركات مالية لهذا الشريك</div>';
@@ -15307,9 +15308,9 @@ body.employee-mode #undoBtn { display: none !important; }
             '</div>' +
             '<div class="customer-statement-body">' +
                 '<div class="customer-statement-summary">' +
-                    '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (p.balance >= 0 ? 'success' : 'danger') + '">' + p.balance.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي الإيداعات</div><div class="stat-value success">' + totalDeposits.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي السحوبات</div><div class="stat-value danger">' + totalWithdrawals.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (p.balance >= 0 ? 'success' : 'danger') + '">' + p.balance.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي الإيداعات</div><div class="stat-value success">' + totalDeposits.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي السحوبات</div><div class="stat-value danger">' + totalWithdrawals.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
                     '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + partnerTxns.length + '</div></div>' +
                 '</div>' +
                 '<h4 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">' + PI.user + ' سجل الحركات (' + partnerTxns.length + ')</h4>' +
@@ -15342,7 +15343,7 @@ body.employee-mode #undoBtn { display: none !important; }
         };
 
         let rowsHtml = partnerTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
-            let d = new Date(t.date).toLocaleDateString('ar-EG');
+            let d = new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn');
             let isDeposit = t.type === 'partner_deposit';
             let icon = isDeposit ? PPI.deposit : PPI.withdraw;
             let color = isDeposit ? '#059669' : '#ef4444';
@@ -15841,7 +15842,7 @@ body.employee-mode #undoBtn { display: none !important; }
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>وارد</th><th>منصرف</th><th>الرصيد</th></tr></thead><tbody>' +
                 accTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
-                    let d = new Date(t.date).toLocaleDateString('ar-EG');
+                    let d = new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn');
                     let isIn = INCOME_TRANS_TYPES.includes(t.type);
                     let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
                     if (isIn) runningBalCalc += t.amount;
@@ -15874,10 +15875,10 @@ body.employee-mode #undoBtn { display: none !important; }
             '</div>' +
             '<div class="customer-statement-body">' +
                 '<div class="customer-statement-summary">' +
-                    '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + (a.balance || 0).toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي الوارد</div><div class="stat-value success">' + totalIn.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي المنصرف</div><div class="stat-value danger">' + totalOut.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (runningBal >= 0 ? 'success' : 'danger') + '">' + runningBal.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">الرصيد الافتتاحي</div><div class="stat-value primary">' + (a.balance || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي الوارد</div><div class="stat-value success">' + totalIn.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المنصرف</div><div class="stat-value danger">' + totalOut.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">الرصيد الحالي</div><div class="stat-value ' + (runningBal >= 0 ? 'success' : 'danger') + '">' + runningBal.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
                     '<div class="stat-card"><div class="stat-label">عدد الحركات</div><div class="stat-value primary">' + accTxns.length + '</div></div>' +
                 '</div>' +
                 '<h4 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">' + ASI.doc + ' سجل الحركات (' + accTxns.length + ')</h4>' +
@@ -15909,7 +15910,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
         let runningBalCalc = a.balance || 0;
         let rowsHtml = accTxns.sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).map(t => {
-            let d = new Date(t.date).toLocaleDateString('ar-EG');
+            let d = new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn');
             let isIn = INCOME_TRANS_TYPES.includes(t.type);
             let isOut = EXPENSE_TRANS_TYPES.includes(t.type);
             if (isIn) runningBalCalc += t.amount;
@@ -15981,11 +15982,11 @@ body.employee-mode #undoBtn { display: none !important; }
             if (isIn) running += t.amount;
             if (isOut) running -= t.amount;
             rows.push([
-                new Date(t.date).toLocaleString('ar-EG'),
+                new Date(t.date).toLocaleString('ar-EG-u-nu-latn'),
                 (t.notes || t.type || ''),
-                isIn ? t.amount.toLocaleString() : '',
-                isOut ? t.amount.toLocaleString() : '',
-                running.toLocaleString()
+                isIn ? t.amount.toLocaleString('ar-EG-u-nu-latn') : '',
+                isOut ? t.amount.toLocaleString('ar-EG-u-nu-latn') : '',
+                running.toLocaleString('ar-EG-u-nu-latn')
             ]);
         });
         const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -16007,9 +16008,9 @@ body.employee-mode #undoBtn { display: none !important; }
             let paidCount = schedule.filter(s => s.isPaid).length;
 
         let cardsHtml = schedule.map(slot => {
-            let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG');
+            let dueDate = new Date(slot.dueDate).toLocaleDateString('ar-EG-u-nu-latn');
             let paidRaw = slot.isPaid ? slotPaidDate(inst, slot) : '';
-            let paidDate = paidRaw ? new Date(paidRaw + 'T00:00:00').toLocaleDateString('ar-EG') : dueDate;
+            let paidDate = paidRaw ? new Date(paidRaw + 'T00:00:00').toLocaleDateString('ar-EG-u-nu-latn') : dueDate;
             let statusColor = slot.isPaid ? '#059669' : '#f97316';
             let statusText = slot.isPaid ? '✅ مسدد' : '⏳ غير مسدد';
             let payDateRow = slot.isPaid
@@ -16159,7 +16160,7 @@ body.employee-mode #undoBtn { display: none !important; }
             totalRemaining += inst.remainingBalance || 0;
 
             paidSlots.forEach(s => {
-                let dueDate = new Date(s.dueDate).toLocaleDateString('ar-EG');
+                let dueDate = new Date(s.dueDate).toLocaleDateString('ar-EG-u-nu-latn');
                 let p = products.find(x => x.id == inst.productId);
                 let deviceName = p?.name || inst.deviceName || 'جهاز';
                 allPayments.push({
@@ -16211,14 +16212,14 @@ body.employee-mode #undoBtn { display: none !important; }
                 '</div>' +
                 '<div class="contract-info">' +
                     '<div class="info-row"><span>عقد رقم</span><span>' + (inst.contractNo || inst.id) + '</span></div>' +
-                    '<div class="info-row"><span>سعر الكاش</span><span>' + (inst.purchasePrice || 0).toLocaleString() + ' ج</span></div>' +
-                    '<div class="info-row"><span>المقدم</span><span>' + (inst.paidUpfront || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>سعر الكاش</span><span>' + (inst.purchasePrice || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
+                    '<div class="info-row"><span>المقدم</span><span>' + (inst.paidUpfront || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
                     '<div class="info-row"><span>نسبة الفائدة</span><span>' + (inst.interestRate || 0) + '%</span></div>' +
-                    '<div class="info-row"><span>الإجمالي بعد الفائدة</span><span>' + (inst.totalAfterInterest || 0).toLocaleString() + ' ج</span></div>' +
-                    '<div class="info-row"><span>القسط الشهري</span><span>' + (inst.monthlyAmount || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>الإجمالي بعد الفائدة</span><span>' + (inst.totalAfterInterest || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
+                    '<div class="info-row"><span>القسط الشهري</span><span>' + (inst.monthlyAmount || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
                     '<div class="info-row"><span>عدد الأقساط</span><span>' + (inst.numInstallments || schedule.length || '؟') + ' شهر</span></div>' +
-                    '<div class="info-row"><span>المسدد</span><span style="color:var(--success);font-weight:700;">' + paidAmount.toLocaleString() + ' ج</span></div>' +
-                    '<div class="info-row"><span>المتبقي</span><span style="color:var(--danger);font-weight:700;">' + (inst.remainingBalance || 0).toLocaleString() + ' ج</span></div>' +
+                    '<div class="info-row"><span>المسدد</span><span style="color:var(--success);font-weight:700;">' + paidAmount.toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
+                    '<div class="info-row"><span>المتبقي</span><span style="color:var(--danger);font-weight:700;">' + (inst.remainingBalance || 0).toLocaleString('ar-EG-u-nu-latn') + ' ج</span></div>' +
                 '</div>' +
                 '<div class="contract-progress">' +
                     '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">' +
@@ -16236,8 +16237,8 @@ body.employee-mode #undoBtn { display: none !important; }
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>المبلغ</th></tr></thead><tbody>' +
                 allPayments.map(p => {
-                    let d = new Date(p.date).toLocaleDateString('ar-EG');
-                    return '<tr><td>' + d + '</td><td>' + p.desc + '</td><td style="color:var(--success);font-weight:700;">' + p.amount.toLocaleString() + ' ج</td></tr>';
+                    let d = new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn');
+                    return '<tr><td>' + d + '</td><td>' + p.desc + '</td><td style="color:var(--success);font-weight:700;">' + p.amount.toLocaleString('ar-EG-u-nu-latn') + ' ج</td></tr>';
                 }).join('') +
                 '</tbody></table>'
             : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد دفعات مسجلة</div>';
@@ -16257,10 +16258,10 @@ body.employee-mode #undoBtn { display: none !important; }
             '<div class="customer-statement-body">' +
                 '<div class="customer-statement-summary">' +
                     '<div class="stat-card"><div class="stat-label">إجمالي العقود</div><div class="stat-value primary">' + totalContracts + '</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي المموّل</div><div class="stat-value primary">' + totalFinanced.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">المقدم الإجمالي</div><div class="stat-value primary">' + upfrontTotal.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي المحصّل</div><div class="stat-value success">' + totalPaid.toLocaleString() + ' ج</div></div>' +
-                    '<div class="stat-card"><div class="stat-label">إجمالي المتبقي</div><div class="stat-value danger">' + totalRemaining.toLocaleString() + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المموّل</div><div class="stat-value primary">' + totalFinanced.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">المقدم الإجمالي</div><div class="stat-value primary">' + upfrontTotal.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المحصّل</div><div class="stat-value success">' + totalPaid.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
+                    '<div class="stat-card"><div class="stat-label">إجمالي المتبقي</div><div class="stat-value danger">' + totalRemaining.toLocaleString('ar-EG-u-nu-latn') + ' ج</div></div>' +
                 '</div>' +
                 '<h4 style="margin:0 0 12px 0;font-size:0.95rem;display:flex;align-items:center;gap:6px;">' + I.pack + ' العقود (' + totalContracts + ')</h4>' +
                 contractCardsHtml +
@@ -16324,7 +16325,7 @@ body.employee-mode #undoBtn { display: none !important; }
         }).join('');
 
         let paymentRows = allPayments.map(p => {
-            let d = new Date(p.date).toLocaleDateString('ar-EG');
+            let d = new Date(p.date).toLocaleDateString('ar-EG-u-nu-latn');
             return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + p.desc + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + p.amount.toFixed(2) + ' ج</td></tr>';
         }).join('');
 
@@ -16425,7 +16426,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     function buildExportSheets() {
         const range = getDateRange();
-        const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG') : '---');
+        const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG-u-nu-latn') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG-u-nu-latn') : '---');
         const sheets = [];
         sheets.push({
             title: 'الحركات المالية (' + dateLabel + ')',
@@ -16435,7 +16436,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 let m = merchants.find(x => x.id == t.merchantId);
                 let a = accounts.find(x => x.id == t.accountId);
                 let emp = t.employeeId ? employees.find(x => x.id == t.employeeId) : null;
-                return [i+1, transTypeMap[t.type] || t.type, t.category || '', t.amount, t.discount || 0, p?.name || '', m?.name || '', emp?.name || '', a?.name || '', t.notes || '', new Date(t.date).toLocaleString('ar-EG')];
+                return [i+1, transTypeMap[t.type] || t.type, t.category || '', t.amount, t.discount || 0, p?.name || '', m?.name || '', emp?.name || '', a?.name || '', t.notes || '', new Date(t.date).toLocaleString('ar-EG-u-nu-latn')];
             })
         });
         sheets.push({
@@ -16531,7 +16532,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let header = ['النوع', 'البيان', 'المبلغ', 'الخصم', 'التاريخ'];
             let rows = transactions.map(t => {
                 let type = t.type === 'expense' || t.type === 'purchase' ? 'خارج (-)' : 'داخل (+)';
-                return [type, t.notes || t.type, t.amount, t.discount || 0, new Date(t.date).toLocaleDateString('ar-EG')];
+                return [type, t.notes || t.type, t.amount, t.discount || 0, new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn')];
             });
             downloadCSV('تقرير_الحركات_' + Date.now() + '.csv', header, rows);
             showToast('تم تصدير CSV');
@@ -16548,7 +16549,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 transactions.map((t,i) => {
                     let p = products.find(x => x.id == t.productId);
                     let m = merchants.find(x => x.id == t.merchantId);
-                    return [i+1, t.type, t.amount, t.discount || 0, p?.name || '', m?.name || '', t.notes || '', new Date(t.date).toLocaleDateString('ar-EG')];
+                    return [i+1, t.type, t.amount, t.discount || 0, p?.name || '', m?.name || '', t.notes || '', new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn')];
                 })
             );
             setTimeout(() => {
@@ -16587,8 +16588,8 @@ body.employee-mode #undoBtn { display: none !important; }
         try {
             const fin = getFinancials();
             const range = getDateRange();
-            const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG') : '---');
-            const now = new Date().toLocaleDateString('ar-EG', { year:'numeric', month:'long', day:'numeric' });
+            const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG-u-nu-latn') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG-u-nu-latn') : '---');
+            const now = new Date().toLocaleDateString('ar-EG-u-nu-latn', { year:'numeric', month:'long', day:'numeric' });
             const partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
 
             let html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير مالي</title>' +
