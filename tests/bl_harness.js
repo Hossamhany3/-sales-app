@@ -58,11 +58,11 @@ let products = [], merchants = [], transactions = [], installments = [], msgTemp
 let merchantSales = [], merchantPayments = [], merchantPurchases = [], merchantPaymentsOut = [];
 let partners = [], accounts = [], stockMovements = [], arabonSales = [], employees = [];
 let recurringExpenses = [], auditLog = [], expenseCategories = [], incomeCategories = [];
-let openingCapital = 0, db = null, __seq = 0;
+let openingCapital = 0, db = null, __seq = 0, __admin = true;
 const AUDIT_LOG_MAX = 1000;
 function saveData() {}
 function logAudit() {}
-function isAdminSession() { return true; }
+function isAdminSession() { return __admin; }
 function getNextContractNo() { return 'C-' + (++__seq); }
 function safeParse(v, f) { try { const x = JSON.parse(v); return x == null ? f : x; } catch (e) { return f; } }
 function getInstSchedule(inst) {
@@ -108,6 +108,7 @@ return {
     else if (name === 'accounts') accounts = v;
     else if (name === 'openingCapital') openingCapital = v;
   },
+  setAdmin(v) { __admin = !!v; },
   get(name) { return eval(name); }
 };
 `)();
@@ -1299,6 +1300,111 @@ test('كشف عام: الدفعة المقدمة الجزئية تظهر في ا
   eq(rows.reduce((s, r) => s + r.credit, 0), 800, 'مجموع الأقساط في الكشف العام');
   ok(rows.some(r => /\(جزئي\)/.test(r.desc)), 'الدفعة الجزئية موسومة');
   return 'الكشف العام يطابق النقد 800';
+});
+
+// ─────────── تعديل/حذف دفعة سداد محددة ───────────
+test('دفعات: تعديل مبلغ دفعة يحدّث الجدول والمتبقي والنقد والكشف', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  const r = BL.updateInstallmentPayment(id, g.sourceId, { amount: 700, date: '2026-11-11T09:00:00.000Z', accountId: 1 });
+  ok(r.success, 'تعديل الدفعة: ' + r.reason);
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.schedule[0].paidAmount, 500, 'القسط الأول اكتمل');
+  eq(inst.schedule[1].paidAmount, 200, 'الزائد على القسط الثاني');
+  eq(inst.remainingBalance, 1300, 'المتبقي بعد التعديل');
+  eq(cashIn(), 700, 'النقد بعد التعديل');
+  eq(slotRows().reduce((s, x) => s + x.credit, 0), 700, 'الكشف يطابق النقد');
+  eq(BL.accountBalance(1), 700, 'رصيد الخزينة بعد التعديل');
+  return '500 → 700 والمتبقي 1300 والكشف 700';
+});
+
+test('دفعات: تخفيض دفعة إلى مبلغ جزئي يظهر بوسم (جزئي) ويزيد المتبقي', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  const r = BL.updateInstallmentPayment(id, g.sourceId, { amount: 200, date: '2026-11-10T09:00:00.000Z', accountId: 1 });
+  ok(r.success, 'تعديل الدفعة: ' + r.reason);
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.schedule[0].paidAmount, 200, 'القسط الأول جزئي');
+  ok(!inst.schedule[0].isPaid, 'القسط الأول لم يكتمل');
+  eq(inst.remainingBalance, 1800, 'المتبقي بعد التخفيض');
+  const rows = slotRows();
+  eq(rows.length, 1, 'صف واحد');
+  ok(/\(جزئي\)/.test(rows[0].desc), 'وسم الدفعة الجزئية: ' + rows[0].desc);
+  eq(rows[0].credit, 200, 'مبلغ الدفعة الجزئية');
+  eq(cashIn(), 200, 'النقد بعد التخفيض');
+  return '500 → 200 جزئي والمتبقي 1800';
+});
+
+test('دفعات: حذف دفعة محددة يعيد الجدول والمتبقي والنقد', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 1, amount: 300, accountId: 1, date: '2026-11-11T09:00:00.000Z' });
+  const first = BL.paymentGroups(id)[0];
+  const r = BL.deleteInstallmentPayment(id, first.sourceId);
+  ok(r.success, 'حذف الدفعة: ' + r.reason);
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.remainingBalance, 1700, 'المتبقي بعد حذف 500');
+  eq(cashIn(), 300, 'النقد المتبقي');
+  eq(inst.schedule[1].paidAmount, 300, 'الدفعة الباقية ما زالت مرتبطة بالقسط الثاني المحدد لها');
+  eq(inst.schedule[0].paidAmount, 0, 'القسط الأول عاد غير مسدد');
+  eq(BL.paymentGroups(id).length, 1, 'بقيت دفعة واحدة');
+  eq(slotRows().reduce((s, x) => s + x.credit, 0), 300, 'الكشف مطابق');
+  return 'حُذفت دفعة وبقي 300 على القسط الثاني والمتبقي 1700';
+});
+
+test('دفعات: تعديل دفعة أكبر من المتبقي مرفوض ولا يغيّر البيانات', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  const r = BL.updateInstallmentPayment(id, g.sourceId, { amount: 2500, accountId: 1 });
+  ok(!r.success, 'يجب رفض المبلغ الزائد');
+  eq(r.reason, 'overpayment', 'سبب الرفض');
+  eq(r.max, 2000, 'الحد الأقصى المسموح = إجمالي العقد بعد استبعاد الدفعة نفسها');
+  eq(cashIn(), 500, 'النقد لم يتغير');
+  eq(D().installments.find(i => i.id == id).remainingBalance, 1500, 'المتبقي لم يتغير');
+  return 'رُفض 2500 والحد 2000';
+});
+
+test('دفعات: تعديل دفعة مقسمة كاش/بنك يحافظ على التقسيم والأرصدة', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, bankAmount: 500, bankAccountId: 2, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  const r = BL.updateInstallmentPayment(id, g.sourceId, {
+    amount: 800, date: '2026-11-12T09:00:00.000Z',
+    cashAmount: 300, bankAmount: 500, cashAccountId: 1, bankAccountId: 2
+  });
+  ok(r.success, 'تعديل الدفعة المقسمة: ' + r.reason);
+  const inst = D().installments.find(i => i.id == id);
+  eq(inst.schedule[0].paidAmount, 500, 'القسط الأول');
+  eq(inst.schedule[1].paidAmount, 300, 'القسط الثاني');
+  eq(inst.remainingBalance, 1200, 'المتبقي');
+  eq(BL.accountBalance(1), 300, 'رصيد الخزينة');
+  eq(BL.accountBalance(2), 500, 'رصيد البنك');
+  eq(BL.paymentGroups(id).length, 1, 'مجموعة دفعة واحدة');
+  return 'كاش 300 + بنك 500 = 800';
+});
+
+test('صلاحيات: تعديل/حذف دفعة مرفوض لغير المدير دون تغيير البيانات', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  factory.setAdmin(false);
+  const e1 = BL.updateInstallmentPayment(id, g.sourceId, { amount: 600, accountId: 1 });
+  const e2 = BL.deleteInstallmentPayment(id, g.sourceId);
+  factory.setAdmin(true);
+  eq(e1.reason, 'not_admin', 'تعديل مرفوض');
+  eq(e2.reason, 'not_admin', 'حذف مرفوض');
+  eq(cashIn(), 500, 'النقد لم يتغير');
+  eq(D().installments.find(i => i.id == id).remainingBalance, 1500, 'المتبقي لم يتغير');
+  return 'الموظف ممنوع من التعديل والحذف';
 });
 
 // ─────────── التقرير ───────────

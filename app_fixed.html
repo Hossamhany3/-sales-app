@@ -1128,6 +1128,43 @@
 /* جداول كشوف الحساب داخل النوافذ: منع الخروج عن الشاشة في كل الأحجام */
 .customer-statement-body { overflow-x: auto; }
 
+/* ===== وضع الموظف: إخفاء أزرار التعديل/الحذف/الأرشفة — الصلاحية للمدير فقط ===== */
+body.employee-mode [onclick^="editProduct("],
+body.employee-mode [onclick^="deleteProduct("],
+body.employee-mode [onclick^="editEmployee("],
+body.employee-mode [onclick^="deleteEmployee("],
+body.employee-mode [onclick^="editRecurring("],
+body.employee-mode [onclick^="deleteRecurring("],
+body.employee-mode [onclick^="editTransaction("],
+body.employee-mode [onclick^="deleteTransaction("],
+body.employee-mode [onclick^="returnTransaction("],
+body.employee-mode [onclick^="toggleInstEdit("],
+body.employee-mode [onclick^="deleteInstallment("],
+body.employee-mode [onclick^="undoLastInstPayment("],
+body.employee-mode [onclick^="rescheduleInstallment("],
+body.employee-mode [onclick^="editInstPayment("],
+body.employee-mode [onclick^="deleteInstPayment("],
+body.employee-mode [onclick^="editArabonSale("],
+body.employee-mode [onclick^="deleteArabonSale("],
+body.employee-mode [onclick^="editMerchantPayment("],
+body.employee-mode [onclick^="deleteMerchantPayment("],
+body.employee-mode [onclick^="editMerchantPaymentOut("],
+body.employee-mode [onclick^="deleteMerchantPaymentOut("],
+body.employee-mode [onclick^="editMerchantPurchase("],
+body.employee-mode [onclick^="deleteMerchantPurchase("],
+body.employee-mode [onclick^="editMerchantSale("],
+body.employee-mode [onclick^="deleteMerchantSale("],
+body.employee-mode [onclick^="deleteMerchant("],
+body.employee-mode [onclick^="editPartner("],
+body.employee-mode [onclick^="deletePartner("],
+body.employee-mode [onclick^="addPartnerTransaction("],
+body.employee-mode [onclick^="editAccount("],
+body.employee-mode [onclick^="archiveAccount("],
+body.employee-mode [onclick^="restoreAccount("],
+body.employee-mode [onclick^="purgeAccount("],
+body.employee-mode [onclick^="removeExpenseCategory("],
+body.employee-mode [onclick^="removeIncomeCategory("] { display: none !important; }
+
 /* ===== تقليل الحركة للوصول ===== */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -4384,6 +4421,92 @@
             return { success: true, amount: last.amount, date: last.date, remaining: inst.remainingBalance };
         },
 
+        // ─── تعديل دفعة سداد محددة (مجموعة حركات) مع إعادة بناء الجدول بأمان ───
+        updateInstallmentPayment(installmentId, sourceId, opts) {
+            if (!isAdminSession()) return { success: false, reason: 'not_admin' };
+            const inst = installments.find(i => i.id == installmentId);
+            if (!inst) return { success: false, reason: 'installment_not_found' };
+            const groups = this.paymentGroups(installmentId);
+            const g = groups.find(x => String(x.sourceId) === String(sourceId));
+            if (!g) return { success: false, reason: 'payment_not_found' };
+
+            const amt = this.toNum(opts.amount);
+            if (!(amt > 0)) return { success: false, reason: 'invalid_amount' };
+            const total = this.toNum(inst.totalAfterInterest)
+                || this.toNum(inst.monthlyAmount) * ((inst.schedule || []).length || 0);
+            const otherPaid = groups.filter(x => x !== g).reduce((s, x) => s + x.amount, 0);
+            const maxAllowed = parseFloat(Math.max(total - otherPaid, 0).toFixed(2));
+            if (amt > maxAllowed + 0.01) return { success: false, reason: 'overpayment', max: maxAllowed };
+
+            const cash = this.toNum(opts.cashAmount);
+            const bank = this.toNum(opts.bankAmount);
+            const hasSplit = cash > 0 || bank > 0;
+            if (hasSplit && Math.abs((cash + bank) - amt) > 0.01) {
+                return { success: false, reason: 'split_mismatch', expected: amt, cash, bank };
+            }
+
+            const snap = this._snapshotState();
+            const oldIds = new Set(g.txns.map(t => String(t.id)));
+            transactions = transactions.filter(t => !oldIds.has(String(t.id)));
+            this.rebuildInstallmentSchedule(inst);
+
+            const txnDate = opts.date || g.date || new Date().toISOString();
+            const seq = (g.txns.find(t => t.paymentSeq != null) || {}).paymentSeq;
+            const slotIndex = g.slotIndex;
+            const base = String(g.sourceId);
+            const mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
+            const pName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
+            const transNotes = 'سداد قسط معدّل | ' + mName + ' - ' + pName;
+            const make = (typeAmount, accId, srcSuffix) => this.postTransaction({
+                type: 'payment_in', amount: typeAmount,
+                accountId: accId ? parseInt(accId) : undefined,
+                merchantId: inst.merchantId, productId: inst.productId,
+                instId: installmentId, notes: transNotes,
+                sourceType: 'installment_payment', sourceId: base + srcSuffix,
+                operationType: slotIndex != null ? 'pay_slot' : 'pay',
+                paymentSeq: seq, slotIndex: slotIndex, date: txnDate
+            });
+
+            const txns = [];
+            if (hasSplit) {
+                if (cash > 0) { const t = make(cash, opts.cashAccountId, '_c'); if (t) txns.push(t); }
+                if (bank > 0) { const t = make(bank, opts.bankAccountId, '_b'); if (t) txns.push(t); }
+            } else {
+                const t = make(amt, opts.accountId, ''); if (t) txns.push(t);
+            }
+            const createdTotal = txns.reduce((s, t) => s + this.toNum(t.amount), 0);
+            const expectedTotal = hasSplit ? (cash + bank) : amt;
+            if (!txns.length || Math.abs(createdTotal - expectedTotal) > 0.01) {
+                this._restoreState(snap);
+                return { success: false, reason: 'transaction_failed' };
+            }
+
+            this.rebuildInstallmentSchedule(inst);
+            logAudit('update', 'سداد قسط', installmentId,
+                'تعديل دفعة: ' + g.amount.toFixed(2) + ' → ' + amt.toFixed(2) + ' ج بتاريخ '
+                + String(txnDate).slice(0, 10) + ' — المتبقي ' + inst.remainingBalance.toFixed(2) + ' ج');
+            saveData();
+            return { success: true, amount: amt, date: txnDate, remaining: inst.remainingBalance };
+        },
+
+        // ─── حذف دفعة سداد محددة مع إعادة بناء الجدول ───
+        deleteInstallmentPayment(installmentId, sourceId) {
+            if (!isAdminSession()) return { success: false, reason: 'not_admin' };
+            const inst = installments.find(i => i.id == installmentId);
+            if (!inst) return { success: false, reason: 'installment_not_found' };
+            const g = this.paymentGroups(installmentId).find(x => String(x.sourceId) === String(sourceId));
+            if (!g) return { success: false, reason: 'payment_not_found' };
+
+            const ids = new Set(g.txns.map(t => String(t.id)));
+            transactions = transactions.filter(t => !ids.has(String(t.id)));
+            this.rebuildInstallmentSchedule(inst);
+            logAudit('delete', 'سداد قسط', installmentId,
+                'حذف دفعة بقيمة ' + g.amount.toFixed(2) + ' ج بتاريخ ' + String(g.date).slice(0, 10)
+                + ' — المتبقي ' + inst.remainingBalance.toFixed(2) + ' ج');
+            saveData();
+            return { success: true, amount: g.amount, remaining: inst.remainingBalance };
+        },
+
         // ─── دفعة قسط ───
         recordInstallmentPayment(opts) {
             let { installmentId, amount, accountId, cashAmount, bankAmount,
@@ -6332,6 +6455,8 @@
     };
     function applyPermissions() {
         const isEmployee = !isAdminSession();
+        // وضع الموظف: إخفاء أزرار التعديل/الحذف/الأرشفة (الحراسة الفعلية في كل دالة)
+        if (document.body) document.body.classList.toggle('employee-mode', isEmployee);
         // إخفاء عناصر المدير الحساسة
         document.querySelectorAll('.admin-only').forEach(el => { el.style.display = isEmployee ? 'none' : ''; });
         document.querySelectorAll('.admin-only-nav').forEach(el => { el.style.display = isEmployee ? 'none' : ''; });
@@ -9979,6 +10104,7 @@
     };
 
     window.editProduct = (id) => {
+        if (!requireAdmin()) return;
         let p = products.find(x => x.id == id);
         if (p) {
             document.getElementById('productId').value = p.id;
@@ -10403,6 +10529,7 @@
     });
 
     window.editEmployee = (id) => {
+        if (!requireAdmin()) return;
         const emp = employees.find(x => x.id == id);
         if (!emp) return;
         document.getElementById('empId').value = emp.id;
@@ -10485,6 +10612,7 @@
     });
 
     window.editRecurring = (id) => {
+        if (!requireAdmin()) return;
         const rec = recurringExpenses.find(x => x.id == id);
         if (!rec) return;
         document.getElementById('recId').value = rec.id;
@@ -10545,6 +10673,7 @@
     };
 
     window.removeExpenseCategory = async (name) => {
+        if (!requireAdmin()) return;
         if (name === 'أخرى') { showToast('لا يمكن حذف تصنيف «أخرى»', 'error'); return; }
         const used = transactions.filter(t => t.category === name).length;
         const ok = await showConfirmModal('حذف التصنيف «' + name + '»؟' + (used ? '\n' + used + ' حركة ستُعاد إلى «أخرى».' : ''), '🗑️ تأكيد الحذف');
@@ -10584,6 +10713,7 @@
     };
 
     window.removeIncomeCategory = async (name) => {
+        if (!requireAdmin()) return;
         if (name === 'أخرى') { showToast('لا يمكن حذف تصنيف «أخرى»', 'error'); return; }
         const used = transactions.filter(t => t.type === 'income' && t.category === name).length;
         const ok = await showConfirmModal('حذف التصنيف «' + name + '»؟' + (used ? '\n' + used + ' حركة ستُعاد إلى «أخرى».' : ''), '🗑️ تأكيد الحذف');
@@ -10709,6 +10839,7 @@
 
     window.editTransaction = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let t = transactions.find(x => x.id == id);
             if (!t) { showToast('الحركة غير موجودة', 'error'); return; }
             if (!BusinessLogic.isManualTransaction(t)) {
@@ -11205,6 +11336,28 @@
                 html += '</div>';
             }
 
+            // الدفعات الفعلية المسجلة — قابلة للتعديل/الحذف للمدير فقط
+            let payGroups = BusinessLogic.paymentGroups(inst.id);
+            if (payGroups.length > 0) {
+                let canManage = isAdminSession();
+                html += '<div class="inst-details-list"><div class="inst-details-list-title">🧾 الدفعات المسجلة' + (canManage ? ' — إدارة' : '') + '</div>';
+                payGroups.forEach((g, gi) => {
+                    let d = g.date ? new Date(g.date).toLocaleDateString('ar-EG') : '—';
+                    let sid = esc(String(g.sourceId));
+                    html += '<div class="inst-details-pay-row">' +
+                        '<span>دفعة #' + (gi + 1) + ' — ' + d + '</span>' +
+                        '<b>' + Number(g.amount).toLocaleString() + ' ج</b>' +
+                        (canManage
+                            ? '<span style="display:flex;gap:6px;">' +
+                                '<button class="btn-sm btn-outline" onclick="editInstPayment(' + inst.id + ', \'' + sid + '\')" title="تعديل الدفعة">✏️</button>' +
+                                '<button class="btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="deleteInstPayment(' + inst.id + ', \'' + sid + '\')" title="حذف الدفعة">🗑️</button>' +
+                              '</span>'
+                            : '') +
+                        '</div>';
+                });
+                html += '</div>';
+            }
+
             panel.innerHTML = html;
             panel.classList.add('open');
         } catch (err) {
@@ -11214,6 +11367,7 @@
 
     window.toggleInstEdit = (id) => {
         try {
+            if (!requireAdmin()) return;
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             if (inst.isPaid) { showToast('لا يمكن تعديل عقد مسدد بالكامل', 'error'); return; }
@@ -11265,6 +11419,7 @@
 
     window.saveInstEdit = (id) => {
         try {
+            if (!requireAdmin()) return;
             let inst = installments.find(i => i.id == id);
             if (!inst) { showToast('العقد غير موجود', 'error'); return; }
             let m = merchants.find(x => x.id == inst.merchantId);
@@ -11780,6 +11935,67 @@
             showToast('↩️ تم التراجع عن الدفعة (' + res.amount.toFixed(2) + ' ج)');
         } catch (err) {
             showError('حدث خطأ أثناء التراجع', err.message);
+        }
+    };
+
+    // تعديل دفعة سداد محددة (للمدير فقط): المبلغ/التاريخ/الحساب مع إعادة بناء الجدول
+    window.editInstPayment = async (instId, sourceId) => {
+        try {
+            if (!requireAdmin()) return;
+            let inst = installments.find(i => i.id == instId);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            let g = BusinessLogic.paymentGroups(instId).find(x => String(x.sourceId) === String(sourceId));
+            if (!g) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let mName = merchants.find(x => x.id == inst.merchantId)?.name || 'عميل';
+            let devName = products.find(x => x.id == inst.productId)?.name || inst.deviceName || 'جهاز';
+            let oldDate = g.date ? String(g.date).slice(0, 10) : new Date().toISOString().split('T')[0];
+            let msg = 'تعديل دفعة سداد\nالعميل: ' + mName + '\nالجهاز: ' + devName +
+                '\nالدفعة الحالية: ' + g.amount.toFixed(2) + ' ج\nتاريخها: ' + oldDate;
+            let res = await showPaymentModal(msg, g.amount.toFixed(2), '✏️ تعديل دفعة', { showDate: true, defaultDate: oldDate });
+            if (!res || typeof res !== 'object' || isNaN(res.amount)) return;
+
+            let origAccount = (g.txns.find(t => t.accountId != null && t.accountId !== '') || {}).accountId;
+            let result = BusinessLogic.updateInstallmentPayment(instId, sourceId, {
+                amount: res.amount,
+                date: res.date,
+                accountId: res.accountId != null ? res.accountId : (origAccount || null),
+                cashAmount: res.cashAmount || 0,
+                bankAmount: res.bankAmount || 0,
+                cashAccountId: res.cashAccountId || null,
+                bankAccountId: res.bankAccountId || null
+            });
+            if (!result.success) {
+                if (result.reason === 'overpayment') showToast('المبلغ أكبر من الحد المسموح (' + result.max.toFixed(2) + ' ج)', 'error');
+                else if (result.reason === 'split_mismatch') showToast('مجموع الكاش والبنك لا يساوي المبلغ', 'error');
+                else showToast('تعذر تعديل الدفعة: ' + result.reason, 'error');
+                return;
+            }
+            renderInstallments(); renderTransactions(); renderDashboard(); renderAccounts();
+            if (document.getElementById('detailsPanel-' + instId)) toggleInstDetails(instId);
+            showToast('✅ تم تعديل الدفعة — المتبقي ' + result.remaining.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ أثناء تعديل الدفعة', err.message);
+        }
+    };
+
+    // حذف دفعة سداد محددة (للمدير فقط) مع إعادة بناء الجدول والمتبقي
+    window.deleteInstPayment = async (instId, sourceId) => {
+        try {
+            if (!requireAdmin()) return;
+            let inst = installments.find(i => i.id == instId);
+            if (!inst) { showToast('العقد غير موجود', 'error'); return; }
+            let g = BusinessLogic.paymentGroups(instId).find(x => String(x.sourceId) === String(sourceId));
+            if (!g) { showToast('الدفعة غير موجودة', 'error'); return; }
+            let d = g.date ? String(g.date).slice(0, 10) : '—';
+            let ok = await showConfirmModal('حذف دفعة بقيمة ' + g.amount.toFixed(2) + ' ج بتاريخ ' + d + '؟\nسيُعاد حساب جدول الأقساط والمتبقي تلقائيًا.', '⚠️ تأكيد حذف دفعة');
+            if (!ok) return;
+            let res = BusinessLogic.deleteInstallmentPayment(instId, sourceId);
+            if (!res.success) { showToast('تعذر حذف الدفعة: ' + res.reason, 'error'); return; }
+            renderInstallments(); renderTransactions(); renderDashboard(); renderAccounts();
+            if (document.getElementById('detailsPanel-' + instId)) toggleInstDetails(instId);
+            showToast('✅ تم حذف الدفعة — المتبقي ' + res.remaining.toFixed(2) + ' ج');
+        } catch (err) {
+            showError('حدث خطأ أثناء حذف الدفعة', err.message);
         }
     };
 
@@ -12330,6 +12546,7 @@
     };
 
     window.editArabonSale = (arabonId) => {
+        if (!requireAdmin()) return;
         let a = arabonSales.find(x => x.id == arabonId);
         if (!a) return;
         let mName = merchants.find(x => x.id == a.merchantId)?.name || '';
@@ -12983,6 +13200,7 @@
 
     window.editMerchantPayment = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let pay = merchantPayments.find(p => p.id == id);
             if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
             let m = merchants.find(x => x.id == pay.merchantId);
@@ -13001,6 +13219,8 @@
                     if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
                 });
             }
+            logAudit('update', 'دفعة من تاجر', pay.id,
+                'تعديل من ' + oldAmount.toFixed(2) + ' إلى ' + newAmount.toFixed(2) + ' ج — ' + (m ? m.name : ''));
             saveData(); renderMerchantSales(); renderTransactions();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
@@ -13011,6 +13231,7 @@
 
     window.deleteMerchantPayment = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let pay = merchantPayments.find(p => p.id == id);
             if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
             let m = merchants.find(x => x.id == pay.merchantId);
@@ -13019,6 +13240,8 @@
             let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
             if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
             merchantPayments = merchantPayments.filter(p => p.id != id);
+            logAudit('delete', 'دفعة من تاجر', id,
+                'حذف دفعة بقيمة ' + pay.amount.toFixed(2) + ' ج — ' + (m ? m.name : ''));
             saveData(); renderMerchantSales(); renderTransactions(); renderAccounts();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('تم حذف الدفعة');
@@ -13029,6 +13252,7 @@
 
     window.editMerchantPaymentOut = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let pay = merchantPaymentsOut.find(p => p.id == id);
             if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
             let m = merchants.find(x => x.id == pay.merchantId);
@@ -13047,6 +13271,8 @@
                     if (trans) trans.amount = Math.round(trans.amount * ratio * 100) / 100;
                 });
             }
+            logAudit('update', 'دفعة إلى تاجر', pay.id,
+                'تعديل من ' + oldAmount.toFixed(2) + ' إلى ' + newAmount.toFixed(2) + ' ج — ' + (m ? m.name : ''));
             saveData(); renderMerchantSales(); renderTransactions();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('✅ تم تعديل الدفعة إلى ' + newAmount.toFixed(2) + ' ج');
@@ -13057,6 +13283,7 @@
 
     window.deleteMerchantPaymentOut = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let pay = merchantPaymentsOut.find(p => p.id == id);
             if (!pay) { showToast('الدفعة غير موجودة', 'error'); return; }
             let m = merchants.find(x => x.id == pay.merchantId);
@@ -13065,6 +13292,8 @@
             let tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
             if (tids.length > 0) transactions = transactions.filter(t => !tids.includes(t.id));
             merchantPaymentsOut = merchantPaymentsOut.filter(p => p.id != id);
+            logAudit('delete', 'دفعة إلى تاجر', id,
+                'حذف دفعة بقيمة ' + pay.amount.toFixed(2) + ' ج — ' + (m ? m.name : ''));
             saveData(); renderMerchantSales(); renderTransactions(); renderAccounts();
             if (document.getElementById('merchantPage').classList.contains('active-page')) renderMerchantPage();
             showToast('تم حذف الدفعة');
@@ -13075,6 +13304,7 @@
 
     window.deleteMerchantPurchase = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let purchase = merchantPurchases.find(p => p.id == id);
             if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
             let p = BusinessLogic.findProductForRecord(purchase);
@@ -13105,6 +13335,7 @@
 
     window.editMerchantPurchase = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let purchase = merchantPurchases.find(p => p.id == id);
             if (!purchase) { showToast('الشراء غير موجود', 'error'); return; }
             let qty = purchase.quantity || 1;
@@ -13194,6 +13425,7 @@
 
     window.editMerchantSale = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
 
@@ -13236,6 +13468,7 @@
 
     window.deleteMerchantSale = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let sale = merchantSales.find(s => s.id == id);
             if (!sale) { showToast('البيع غير موجود', 'error'); return; }
             let ok = await showConfirmModal('حذف بيع "' + (sale.deviceName || '') + '" لـ ' + (sale.merchantName || '') + ' بقيمة ' + ((sale.sellPrice || 0) * (sale.quantity || 1)).toFixed(2) + ' ج؟\n(سيتم إعادة الكمية إلى المخزون)', '⚠️ تأكيد الحذف');
@@ -13253,6 +13486,7 @@
     };
 
     window.deleteMerchant = async (merchantId) => {
+        if (!requireAdmin()) return;
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
         let linkedInsts = installments.filter(i => i.merchantId == merchantId);
@@ -13479,6 +13713,7 @@
     // ====== إدارة الشركاء ======
     window.addPartnerTransaction = async (id, type) => {
         try {
+            if (!requireAdmin()) return;
             let p = partners.find(x => x.id == id);
             if (!p) { showToast('الشريك غير موجود', 'error'); return; }
             let label = type === 'deposit' ? 'إيداع' : 'سحب';
@@ -13506,6 +13741,7 @@
     };
 
     window.editPartner = (id) => {
+        if (!requireAdmin()) return;
         let p = partners.find(x => x.id == id);
         if (!p) { showToast('الشريك غير موجود', 'error'); return; }
         document.getElementById('partnerId').value = p.id;
@@ -13521,6 +13757,7 @@
 
     window.deletePartner = async (id) => {
         try {
+            if (!requireAdmin()) return;
             let p = partners.find(x => x.id == id);
             if (!p) { showToast('الشريك غير موجود', 'error'); return; }
             if (p.balance > 0) {
@@ -13531,6 +13768,7 @@
             if (!ok2) return;
             partners = partners.filter(x => x.id != id);
             transactions = transactions.filter(t => t.partnerId != id);
+            logAudit('delete', 'شريك', p.name, 'حذف شريك برصيد ' + (parseFloat(p.balance) || 0).toFixed(2) + ' ج وحذف حركاته');
             saveData(); renderPartners(); renderTransactions(); renderDashboard();
             showToast('تم حذف الشريك');
         } catch (err) {
@@ -13732,6 +13970,7 @@
     document.getElementById('partnerForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
+            if (!requireAdmin()) return;
             let name = document.getElementById('partnerName').value.trim();
             if (!name) { showToast('أدخل اسم الشريك', 'error'); return; }
             let phone = document.getElementById('partnerPhone').value.trim();
@@ -13743,9 +13982,11 @@
                 // تعديل
                 let idx = partners.findIndex(x => x.id == parseInt(id));
                 if (idx >= 0) {
+                    let before = partners[idx].name + ' | ' + (partners[idx].phone || '');
                     partners[idx].name = name;
                     partners[idx].phone = phone;
                     partners[idx].notes = notes;
+                    logAudit('update', 'شريك', partners[idx].id, 'تعديل بيانات: ' + before + ' → ' + name + ' | ' + (phone || ''));
                     showToast('تم تحديث بيانات الشريك');
                 }
             } else {
@@ -13974,6 +14215,7 @@
     };
 
     window.editAccount = (id) => {
+        if (!requireAdmin()) return;
         let a = accounts.find(x => x.id == id);
         if (!a) return;
         if (a.archived) { showToast('الحساب مؤرشف — استعده أولاً للتعديل', 'error'); return; }
@@ -14085,6 +14327,7 @@
     document.getElementById('accountForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
+            if (!requireAdmin()) return;
             let name = document.getElementById('accountName').value.trim();
             let type = document.getElementById('accountType').value;
             let accountNumber = document.getElementById('accountNumber').value.trim();
@@ -14981,6 +15224,7 @@
 
     // ====== إعادة جدولة الأقساط ======
     window.rescheduleInstallment = async (instId) => {
+        if (!requireAdmin()) return;
         let inst = installments.find(i => i.id == instId);
         if (!inst) { showToast('العقد غير موجود', 'error'); return; }
         let paidCount = (inst.schedule || getInstSchedule(inst)).filter(s => s.isPaid).length;
