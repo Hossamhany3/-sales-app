@@ -51,7 +51,9 @@ if (blStart < 0) throw new Error('BusinessLogic not found');
 const blObj = sliceBalanced(js, js.indexOf('{', blStart));
 const blSrc = 'const BusinessLogic = ' + blObj + ';';
 
-const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'uniqueProductByName', 'getInstSchedule', 'slotPaidDate', 'paidScheduleSlots', 'slotPayDesc', 'installmentRemaining', 'buildGeneralStatementRows', 'buildComprehensiveRows'].map(n => extractFunction(js, n)).join('\n');
+const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'uniqueProductByName', 'getInstSchedule', 'slotPaidDate', 'paidScheduleSlots', 'slotPayDesc', 'installmentRemaining', 'buildGeneralStatementRows', 'buildComprehensiveRows',
+  '__cloneDeep', 'snapshotAll', 'restoreAllSnap', 'recordUndoPoint',
+  'repairMoney', 'repairTable', 'repairRow', 'repairPlan'].map(n => extractFunction(js, n)).join('\n');
 
 const factory = new Function(`
 let products = [], merchants = [], transactions = [], installments = [], msgTemplates = {};
@@ -59,9 +61,14 @@ let merchantSales = [], merchantPayments = [], merchantPurchases = [], merchantP
 let partners = [], accounts = [], stockMovements = [], arabonSales = [], employees = [];
 let recurringExpenses = [], auditLog = [], expenseCategories = [], incomeCategories = [];
 let openingCapital = 0, db = null, __seq = 0, __admin = true;
-const AUDIT_LOG_MAX = 1000;
+let __undoStack = [], __undoSuppress = 0, __undoLastSnap = null, __undoPendingLabel = '', __undoReady = true;
+const AUDIT_LOG_MAX = 1000, UNDO_MAX = 10;
 function saveData() {}
-function logAudit() {}
+function logAudit(action, entity, ref, detail) {
+  auditLog.push({ action, entity, ref, detail, ts: Date.now() });
+  if (auditLog.length > AUDIT_LOG_MAX) auditLog.splice(0, auditLog.length - AUDIT_LOG_MAX);
+}
+function refreshUndoButton() {}
 function isAdminSession() { return __admin; }
 function getNextContractNo() { return 'C-' + (++__seq); }
 function safeParse(v, f) { try { const x = JSON.parse(v); return x == null ? f : x; } catch (e) { return f; } }
@@ -91,12 +98,20 @@ return {
   BL: BusinessLogic,
   calcTransactionProfit, computeIncomeStatement, uniqueProductByName,
   buildComprehensiveRows, buildGeneralStatementRows,
+  snapshotAll, restoreAllSnap, recordUndoPoint, repairPlan,
+  // يحاكي ما يفعله saveData(): تسجيل نقطة ثم تحديث اللقطة الحالية
+  tick(label) { recordUndoPoint(label); __undoLastSnap = snapshotAll(); },
+  undoCount() { return __undoStack.length; },
+  undoTop() { return __undoStack.length ? __undoStack[__undoStack.length - 1] : null; },
+  resetUndo() { __undoStack = []; __undoLastSnap = null; __undoPendingLabel = ''; },
   seed(d) {
     products = d.products || []; merchants = d.merchants || []; accounts = d.accounts || [];
-    employees = d.employees || []; partners = [];
-    transactions = []; installments = []; arabonSales = []; stockMovements = [];
+    employees = d.employees || []; partners = d.partners || [];
+    transactions = d.transactions || []; installments = d.installments || [];
+    arabonSales = d.arabonSales || []; stockMovements = d.stockMovements || [];
     merchantSales = []; merchantPurchases = []; merchantPayments = []; merchantPaymentsOut = [];
     auditLog = []; openingCapital = d.openingCapital || 0; __seq = 0;
+    __undoStack = []; __undoLastSnap = null; __undoPendingLabel = '';
   },
   dump() {
     return JSON.parse(JSON.stringify({ products, merchants, transactions, installments, arabonSales, stockMovements, merchantSales, merchantPurchases, merchantPayments, merchantPaymentsOut, accounts, openingCapital }));
@@ -106,6 +121,10 @@ return {
     else if (name === 'products') products = v;
     else if (name === 'merchantSales') merchantSales = v;
     else if (name === 'accounts') accounts = v;
+    else if (name === 'installments') installments = v;
+    else if (name === 'arabonSales') arabonSales = v;
+    else if (name === 'partners') partners = v;
+    else if (name === 'stockMovements') stockMovements = v;
     else if (name === 'openingCapital') openingCapital = v;
   },
   setAdmin(v) { __admin = !!v; },
@@ -1405,6 +1424,162 @@ test('صلاحيات: تعديل/حذف دفعة مرفوض لغير المدي�
   eq(cashIn(), 500, 'النقد لم يتغير');
   eq(D().installments.find(i => i.id == id).remainingBalance, 1500, 'المتبقي لم يتغير');
   return 'الموظف ممنوع من التعديل والحذف';
+});
+
+// ─────────── سبب الحذف والتراجع ومركز الإصلاح ───────────
+test('حذف: سبب الحذف يُسجَّل في سجل التدقيق مع مرجع الدفعة', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  const r = BL.deleteInstallmentPayment(id, g.sourceId, 'خطأ في إدخال المبلغ');
+  ok(r.success, 'حذف الدفعة: ' + r.reason);
+  const logs = factory.get('auditLog');
+  const rec = logs[logs.length - 1];
+  ok(rec && rec.action === 'delete', 'سجل حذف موجود');
+  eq(String(rec.ref), String(id), 'مرجع السجل هو العقد');
+  ok(String(rec.detail).includes('خطأ في إدخال المبلغ'), 'السبب مذكور في السجل: ' + rec.detail);
+  return 'السبب مثبت في سجل التدقيق';
+});
+
+test('حذف: بدون سبب لا يُضاف نص سبب وهمي إلى السجل', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const g = BL.paymentGroups(id)[0];
+  BL.deleteInstallmentPayment(id, g.sourceId);
+  const logs = factory.get('auditLog');
+  const rec = logs[logs.length - 1];
+  ok(!String(rec.detail).includes('السبب:'), 'لا يظهر حقل سبب فارغ');
+  return 'لا سبب = لا نص سبب';
+});
+
+test('تراجع: لقطة كاملة تستعيد الحركات والجدول بعد حذف دفعة', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  factory.tick('قبل الحذف');
+  const before = factory.dump();
+  const g = BL.paymentGroups(id)[0];
+  BL.deleteInstallmentPayment(id, g.sourceId, 'اختبار التراجع');
+  eq(factory.dump().transactions.length, 0, 'الحركة حُذفت فعلًا');
+  factory.tick('بعد الحذف');
+  eq(factory.undoCount(), 1, 'نقطة تراجع واحدة');
+  const step = factory.undoTop();
+  ok(step && step.snap, 'اللقطة محفوظة');
+  ok(factory.restoreAllSnap(step.snap), 'الاسترجاع نجح');
+  const after = factory.dump();
+  eq(after.transactions.length, before.transactions.length, 'الحركات رجعت');
+  eq(after.installments[0].remainingBalance, before.installments[0].remainingBalance, 'المتبقي رجع');
+  eq(after.installments[0].schedule[0].paidAmount, 500, 'القسط المسدد رجع');
+  eq(cashIn(), 500, 'النقد رجع');
+  return 'استرجاع كامل بعد حذف دفعة';
+});
+
+test('تراجع: الحفظات المتتابعة تُدمج في خطوة واحدة وتحمل آخر تسمية', () => {
+  factory.seed(BASE());
+  factory.resetUndo();
+  factory.tick('الخطوة أ');
+  factory.get('products')[0].stock = 1;
+  factory.tick('الخطوة ب');
+  factory.get('products')[0].stock = 2;
+  factory.tick('الخطوة ج');
+  eq(factory.undoCount(), 1, 'خطوة واحدة مدمجة');
+  eq(factory.undoTop().label, 'الخطوة ج', 'آخر تسمية هي المعروضة');
+  factory.restoreAllSnap(factory.undoTop().snap);
+  eq(factory.get('products')[0].stock, 10, 'اللقطة تعيد المخزون الأصلي');
+  return 'دمج الحفظات السريعة في نقطة واحدة';
+});
+
+test('تراجع: اللقطة لا تتأثر بتعديل لاحق على نفس الكائن (نسخ عميق)', () => {
+  factory.seed(BASE());
+  const snap = factory.snapshotAll();
+  factory.get('products')[0].stock = 77;
+  factory.get('installments').push({ id: 99, schedule: [{ index: 1, paidAmount: 5 }] });
+  factory.restoreAllSnap(snap);
+  eq(factory.get('products')[0].stock, 10, 'المخزون كما كان');
+  eq(factory.get('installments').length, 0, 'العقد المؤقت اختفى');
+  return 'نسخ عميق يمنع تسرّب التعديلات';
+});
+
+test('إصلاح: إعادة بناء جدول عقد بمتبقٍّ خاطئ من الدفعات الفعلية', () => {
+  factory.seed(BASE());
+  const id = contractForStatement();
+  BL.recordSlotPayment({ installmentId: id, slotIdx: 0, amount: 500, accountId: 1, date: '2026-11-10T09:00:00.000Z' });
+  const inst = factory.get('installments')[0];
+  inst.remainingBalance = 9999;
+  const plan = factory.repairPlan({ checkId: 'INST_BALANCE_MISMATCH', recordId: String(inst.id) });
+  ok(plan, 'خطة إصلاح آمنة موجودة');
+  ok(plan.previewHtml.includes('قبل') && plan.previewHtml.includes('بعد'), 'المعاينة تعرض قبل/بعد');
+  plan.apply();
+  eq(factory.get('installments')[0].remainingBalance, 1500, 'المتبقي صُحّح من الحركات');
+  return 'أُعيد البناء: 9999 ← 1500';
+});
+
+test('إصلاح: تصحيح رصيد المخزون من حركات المخزون', () => {
+  factory.seed(Object.assign(BASE(), {
+    stockMovements: [
+      { id: 1, productId: 3, type: 'in', qty: 12 },
+      { id: 2, productId: 3, type: 'out', qty: 2 }
+    ]
+  }));
+  const p = factory.get('products').find(x => x.id == 3);
+  p.stock = 5;
+  const plan = factory.repairPlan({ checkId: 'INV_STOCK_MISMATCH', recordId: '3' });
+  ok(plan, 'خطة إصلاح المخزون موجودة');
+  plan.apply();
+  eq(factory.get('products').find(x => x.id == 3).stock, 10, 'المخزون صار 12 − 2');
+  return 'رصيد المخزون = صافي الحركات';
+});
+
+test('إصلاح: إعادة حساب رصيد الشريك من حركاته فقط', () => {
+  factory.seed(BASE());
+  factory.get('partners').push({ id: 7, name: 'شريك أ', balance: 500 });
+  factory.get('transactions').push({ id: 11, type: 'partner_deposit', amount: 200, partnerId: 7, accountId: 1, date: '2026-01-01' });
+  const plan = factory.repairPlan({ checkId: 'PART_BALANCE_RECON', recordId: '7' });
+  ok(plan, 'خطة إصلاح الشريك موجودة');
+  plan.apply();
+  eq(factory.get('partners')[0].balance, 200, 'الرصيد = الإيداعات − السحوبات');
+  return 'رصيد الشريك 500 ← 200';
+});
+
+test('إصلاح: إعادة حساب متبقي العربون غير المحوّل', () => {
+  factory.seed(Object.assign(BASE(), {
+    arabonSales: [{ id: 3, sellPrice: 1000, depositAmount: 200, remainingAmount: 999, isPaid: false }]
+  }));
+  const plan = factory.repairPlan({ checkId: 'ARB_REMAINING_MISMATCH', recordId: '3' });
+  ok(plan, 'خطة إصلاح العربون موجودة');
+  plan.apply();
+  eq(factory.get('arabonSales')[0].remainingAmount, 800, 'المتبقي = 1000 − 200');
+  ok(!factory.get('arabonSales')[0].isPaid, 'العربون ما زال مفتوحًا');
+  return 'متبقي العربون 999 ← 800';
+});
+
+test('إصلاح: إسناد كود فريد لحساب بلا كود', () => {
+  factory.seed(BASE());
+  factory.get('accounts').push({ id: 9, name: 'حساب جديد', type: 'cash' });
+  const plan = factory.repairPlan({ checkId: 'ACC_MISSING_CODE', recordId: '9' });
+  ok(plan, 'خطة الكود موجودة');
+  plan.apply();
+  ok(/^ACC-\d{3,}$/.test(factory.get('accounts')[2].code), 'كود بصيغة ACC-NNN: ' + factory.get('accounts')[2].code);
+  return 'أُسند كود فريد للحساب';
+});
+
+test('إصلاح: المشكلات غير الآمنة لا تُعرض كإصلاح تلقائي', () => {
+  factory.seed(BASE());
+  eq(factory.repairPlan({ checkId: 'DUP_TX_SOURCE', recordId: '1' }), null, 'التكرار يحتاج تدخلًا بشريًا');
+  eq(factory.repairPlan({ checkId: 'INV_ORPHAN_MOVEMENT', recordId: '1' }), null, 'حركة يتيمة تحتاج مراجعة');
+  return 'لا إصلاح تلقائي لغير الآمن';
+});
+
+test('ربط الواجهة: زر التراجع وتبويب الإصلاح والتفصيل وحذف بالسبب موصولة', () => {
+  ok(html.includes('id="undoBtn"'), 'زر التراجع في الترويسة');
+  ok(html.includes("switchReportTab('tabRepair')"), 'تبويب مركز الإصلاح');
+  ok(html.includes('window.renderRepairCenter'), 'دالة عرض المركز');
+  ok(html.includes('window.coaDrillDown'), 'دالة تفصيل بند الميزان');
+  ok(html.includes('window.confirmDelete') && html.includes('window.askDeleteReason'), 'الحذف يطلب سببًا');
+  ok(/employee-mode[^}]*#undoBtn/.test(html) || html.includes('#undoBtn { display: none !important; }'), 'التراجع مخفي عن الموظف');
+  return 'كل نقاط الواجهة موصولة';
 });
 
 // ─────────── التقرير ───────────

@@ -349,3 +349,49 @@
 - لا يمكن تعديل حركة مرتبطة (بيع/شراء/قسط) من شاشة الحركات؛ يجب تعديل العملية الأصلية، حرصًا على اتساق المخزون والأرصدة (سلوك قائم ومقصود).
 - ميزان المراجعة لا يُخفى ولا يُقفل بقيد وهمي: الفروق تُصحَّح من مصدرها (تعديل شراء التاجر/تكلفة الصنف/الدفعات/الحركات اليدوية). سطر 322 يبقى ظاهرًا لأي فرق حقيقي، و323 للفروق المفسَّرة.
 - حذف دفعة قسط لا يعيد ترقيم `paymentSeq` (يبقى فريدًا)، وهو آمن لأن الترقيم للتمييز فقط.
+
+---
+
+## 19. المرحلة 0 + 1 — تراجع عام، سبب حذف إلزامي، سجل تغييرات، مركز إصلاح، تفصيل الميزان (Phase 0 + 1)
+
+### 19.1 التراجع العام (Undo)
+- **المحرك:** `__undoStack` (max 10) + `__undoLastSnap` + `__undoSuppress` + `__undoReady`. `snapshotAll()`/`restoreAllSnap()` (نسخ عميق) يشملان كل المصفوفات.
+- **الربط:** `saveData()` (async) يستدعي `recordUndoPoint(label)` ثم `__undoLastSnap = snapshotAll()` **قبل** كتابة localStorage — كل حفظ يصبح نقطة تراجع.
+- **الدمج:** الحفظات المتتابعة (<1500ms) تُدمج في خطوة واحدة (لتجنب تراجعات متعددة لعملية واحدة).
+- **الحماية:** `__undoReady` يمنع حفظات التهيئة/الترحيل من إنشاء نقاط؛ `__undoSuppress` يمنع إنشاء نقطة أثناء التراجع نفسه.
+- **الواجهة:** زر `#undoBtn` في الترويسة (↩️) + اختصار `Ctrl+Z` + توست «↩️ تراجع» (8s) على كل عملية. `body.employee-mode #undoBtn { display:none }`.
+- **API:** `window.undoLastAction()`, `window.setUndoLabel(label)`, `window.refreshAllViews()`.
+
+### 19.2 سبب الحذف إلزامي + معاينة الأثر
+- `window.askDeleteReason(msg, title)` (showPromptModal) يتطلب ≥3 أحرف، وإلا توست خطأ و`null`.
+- `window.confirmDelete(msg, title)` = تأكيد + سبب، يُرجع السبب أو `null`.
+- كل معالجات الحذف (صنف، حركة، عقد قسط، عربون، دفعة من/إلى تاجر، شراء/بيع تاجر، تاجر، شريك، حساب، دفعة قسط) wired بـ `confirmDelete` + `setUndoLabel` + توست undo.
+- `BusinessLogic.delete*` قبل/أثناء/بعد: reason يُلحق بسلسلة `detail` في `logAudit` (مثلاً `... | السبب: ...`).
+- `BusinessLogic.deleteInstallmentPayment(inst, sourceId, reason)`.
+- **معاينة قبل/بعد:** `instPaymentImpactHtml()` (متبقي، إجمالي مسدد، أرصدة الحسابات، فرق ميزان المراجعة) + `showHtmlConfirm` قبل تعديل/حذف دفعة.
+
+### 19.3 سجل تغييرات لسجل واحد
+- `window.showRecordHistory(entity, ref, title, opts)` يقرأ `auditLog` مفلترًا بـ `ref` (و`opts.prefix` لدفعات القسط: `"<id> | <slot>"`).
+- زر 🕘 في كل صف دفعة + زر 🕘 على مستوى العقد (`{prefix:true}`).
+- modal للقراءة فقط (تأكيد = «إغلاق»).
+
+### 19.4 مركز إصلاح الفروق (tabRepair داخل التقارير)
+- تبويب `tabRepair` في Reports (ليس عنصر قائمة) + `switchReportTab('tabRepair')`.
+- `SHC.runAllChecks()` ثم `repairPlan(issue)` يحدد خطة آمنة (أو `null`).
+- إصلاحات آمنة: `INST_*` (إعادة بناء جدول من الدفعات)، `INV_STOCK_MISMATCH` (من الحركات)، `PART_BALANCE_RECON` (من الحركات)، `ARB_*` (من `getArabonTotals`)، `ACC_ARCHIVED_BALANCE` (استعادة)، `ACC_MISSING_CODE`/`ACC_DUPLICATE_CODE` (كود فريد).
+- كل إصلاح: معاينة قبل/بعد (`previewRepair`)، تطبيق، `logAudit('repair', ...)`, `saveData`, `refreshAllViews`, توست undo. «🔧 إصلاح كل ما يمكن إصلاحه» (`repairAllSafe`).
+- غير الآمن: يبقى «تحتاج تدخّلك» + «📂 فتح السجل» (`openRepairTarget`).
+
+### 19.5 تفصيل بند ميزان المراجعة
+- `window.coaDrillDown(code)`: modal (🔍) يعرض مكوّنات بند: حساب (حركات)، `114-INV` (مخزون)، `115-AR` (أقساط)، `116-MAR`/`211-AP` (تجار)، `212-PTR` (شركاء)، `311-CAP` (رأس المال).
+- زر 🔍 في `coaTrialRowsHtml` (فقط للأكواد القابلة للتفصيل).
+
+### 19.6 التحقق
+- **Node:** 93/93 ناجح (12 اختبارًا جديدًا: سبب الحذف، التراجع + نسخ عميق، 6 إصلاحات، ربط الواجهة). `node --check` → `SYNTAX_OK`.
+- **المتصفح المعزول:** undo (admin flex / employee none)، preview edit (قبل/بعد 4 صفوف، إلغاء يُبقي المتبقي 1500)، delete reason (≥3 أحرف، cancel→null، valid→string، short→null)، CoA drill (3 أزرار، modal 1 صف)، repair (1 قابلة للإصلاح + 3 فتح سجل + نص 9999)، undo end-to-end (حذف حركة → تراجع → استرجاع tx=1، نقد=300).
+- **خطأ 404:** `html5-qrcode` من unpkg (بيئي، غير ناتج عن التغييرات).
+
+### 19.7 حدود
+- Undo يخزن 10 خطوات كحد أقصى؛ الحفظات <1500ms تُدمج.
+- Repair لا يُنشئ قيودًا وهمية؛ كل إصلاح يعيد الحساب من حركاته الفعلية.
+- Diff (322) يبقى ظاهرًا لأي فرق حقيقي.
