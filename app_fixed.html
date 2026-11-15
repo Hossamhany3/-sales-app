@@ -7228,18 +7228,11 @@ body.employee-mode #undoBtn { display: none !important; }
         try {
             if (!__undoLastSnap) { __undoLastSnap = snapshotAll(); return; }
             const now = Date.now();
-            const top = __undoStack[__undoStack.length - 1];
-            // دمج الحفظات المتتابعة لنفس العملية في خطوة تراجع واحدة
-            if (top && (now - top.ts) < 1500) {
-                top.ts = now;
-                if (label) top.label = label;
-            } else {
-                __undoStack.push({
-                    ts: now, label: label || 'تعديل', snap: __undoLastSnap,
-                    auditLen: Array.isArray(auditLog) ? auditLog.length : 0
-                });
-                if (__undoStack.length > UNDO_MAX) __undoStack.shift();
-            }
+            __undoStack.push({
+                ts: now, label: label || 'تعديل', snap: __undoLastSnap,
+                auditLen: Array.isArray(auditLog) ? auditLog.length : 0
+            });
+            if (__undoStack.length > UNDO_MAX) __undoStack.shift();
             __undoPendingLabel = '';
         } catch (e) { console.warn('recordUndoPoint', e); }
         refreshUndoButton();
@@ -9423,6 +9416,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.executeQuickCollect = function () {
         try {
+            setUndoLabel('تحصيل سريع');
             const date = (document.getElementById('qcDate').value || new Date().toISOString().slice(0, 10));
             const accountId = document.getElementById('qcAccount').value;
             const inputs = document.querySelectorAll('.qc-amount');
@@ -12996,6 +12990,7 @@ body.employee-mode #undoBtn { display: none !important; }
         try {
             let inst = installments.find(i => i.id == id);
             if (!inst) return;
+            setUndoLabel('تحصيل قسط #' + (inst.contractNo || id));
             let prePaidSlots = (inst.schedule || []).map(s => !!s.isPaid);
             let result = await showPaymentModal('المبلغ المحصل\nالمطلوب: ' + inst.monthlyAmount.toFixed(2) + ' ج.م\nالمتبقي الكلي: ' + inst.remainingBalance.toFixed(2) + ' ج.م', inst.monthlyAmount.toFixed(2), '💵 تحصيل', { showDate: true, defaultDate: new Date().toISOString().split('T')[0] });
             if (!result || isNaN(result.amount)) return;

@@ -1478,7 +1478,7 @@ test('تراجع: لقطة كاملة تستعيد الحركات والجدول
   return 'استرجاع كامل بعد حذف دفعة';
 });
 
-test('تراجع: الحفظات المتتابعة تُدمج في خطوة واحدة وتحمل آخر تسمية', () => {
+test('تراجع: كل حفظ يُنشئ نقطة تراجع مستقلة (بدون دمج) so each action is independently reversible', () => {
   factory.seed(BASE());
   factory.resetUndo();
   factory.tick('الخطوة أ');
@@ -1486,11 +1486,10 @@ test('تراجع: الحفظات المتتابعة تُدمج في خطوة و�
   factory.tick('الخطوة ب');
   factory.get('products')[0].stock = 2;
   factory.tick('الخطوة ج');
-  eq(factory.undoCount(), 1, 'خطوة واحدة مدمجة');
-  eq(factory.undoTop().label, 'الخطوة ج', 'آخر تسمية هي المعروضة');
+  eq(factory.undoCount(), 2, '2 نقاط تراجع (الأولى تُنشئ خط الأساس)');
   factory.restoreAllSnap(factory.undoTop().snap);
-  eq(factory.get('products')[0].stock, 10, 'اللقطة تعيد المخزون الأصلي');
-  return 'دمج الحفظات السريعة في نقطة واحدة';
+  eq(factory.get('products')[0].stock, 1, 'آخر نقطة تراجع تعيد 1 (حالة قبل آخر حفظ)');
+  return 'كل حفظ = نقطة تراجع';
 });
 
 test('تراجع: اللقطة لا تتأثر بتعديل لاحق على نفس الكائن (نسخ عميق)', () => {
