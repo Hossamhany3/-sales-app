@@ -16726,19 +16726,26 @@ body.employee-mode #undoBtn { display: none !important; }
             reader.onload = (ev) => {
                 try {
                     const text = ev.target.result;
-                    const lines = String(text).split(/\r?\n/).filter(l => l.trim());
+                    // إزالة BOM إن وجد
+                    const clean = String(text).replace(/^\uFEFF/, '');
+                    // دعم الفاصلة أو الفاصلة المنقوطة (Excel Arabic locale)
+                    const sep = clean.indexOf(';') > clean.indexOf(',') || (clean.indexOf(',') < 0 && clean.indexOf(';') >= 0) ? ';' : ',';
+                    const lines = clean.split(/\r?\n/).filter(l => l.trim());
                     if (lines.length < 2) { showToast('الملف فارغ أو غير صالح', 'error'); return; }
-                    const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-                    const idx = (name) => header.indexOf(name);
-                    const iName = idx('اسم الصنف') >= 0 ? idx('اسم الصنف') : idx('name');
-                    const iCost = idx('التكلفة') >= 0 ? idx('التكلفة') : idx('costPrice');
-                    const iExp = idx('المصروفات') >= 0 ? idx('المصروفات') : idx('expenses');
-                    const iSell = idx('سعر البيع') >= 0 ? idx('سعر البيع') : idx('sellPrice');
-                    const iStock = idx('المخزون') >= 0 ? idx('المخزون') : idx('stock');
+                    const header = lines[0].split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+                    const idx = (names) => {
+                        for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; }
+                        return -1;
+                    };
+                    const iName = idx(['الصنف', 'اسم الصنف', 'name']);
+                    const iCost = idx(['سعر الشراء', 'التكلفة', 'costPrice']);
+                    const iExp = idx(['المصروفات', 'expenses']);
+                    const iSell = idx(['سعر البيع', 'sellPrice']);
+                    const iStock = idx(['المخزون', 'stock']);
                     if (iName < 0) { showToast('عمود "اسم الصنف" مفقود', 'error'); return; }
                     let added = 0, updated = 0;
                     for (let li = 1; li < lines.length; li++) {
-                        const cols = lines[li].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                        const cols = lines[li].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
                         const name = cols[iName];
                         if (!name) continue;
                         const cost = iCost >= 0 ? (parseFloat(cols[iCost]) || 0) : 0;
