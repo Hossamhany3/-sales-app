@@ -2350,7 +2350,7 @@ body.employee-mode #undoBtn { display: none !important; }
             <!-- Phase 2: سلة محذوفات + نسخ متعددة + قفل فترة -->
             <div class="card">
                 <h3 style="margin:0 0 10px 0; font-size:1rem;">♻️ سلة المحذوفات (30 يومًا)</h3>
-                <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">الحذوفات تُنقل هنا بدل حذفها finaliًا. يمكن استعادتها خلال 30 يومًا، أو حذفها finaliًا.</p>
+                <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">الحذوفات تُنقل هنا بدل حذفها نهائيًا. يمكن استعادتها خلال 30 يومًا، أو حذفها نهائيًا.</p>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
                     <button class="btn-sm btn-outline" style="width:auto;" onclick="openRecycleBin()">🗑️ فتح سلة المحذوفات (<span id="recycleCount">0</span>)</button>
                     <button class="btn-sm btn-outline" style="width:auto;" onclick="purgeExpiredRecycleBin(); renderRecycleBinCount(); showToast('تم تنظيف المنتهية')">🧹 تنظيف المنتهية</button>
@@ -9076,15 +9076,15 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.purgeRecycleBinEntry = async function (id) {
         if (!requireAdmin()) return false;
-        const ok = await showConfirmModal('حذف نهائياً من سلة المحذوفات؟ لا يمكن التراجع.', '⚠️ حذف finali');
+        const ok = await showConfirmModal('حذف نهائياً من سلة المحذوفات؟ لا يمكن التراجع.', '⚠️ حذف نهائي');
         if (!ok) return false;
         recycleBin = recycleBin.filter(x => x.id !== id);
         try { lsSet('recycleBin', JSON.stringify(recycleBin)); } catch (e) { /* تجاهل */ }
-        logAudit('purge', 'سلة محذوفات', id, 'حذف finali من سلة المحذوفات');
+        logAudit('purge', 'سلة محذوفات', id, 'حذف نهائي من سلة المحذوفات');
         await saveData();
         refreshAllViews();
         renderRecycleBinCount();
-        showToast('تم الحذف finali');
+        showToast('تم الحذف نهائي');
         return true;
     };
 
@@ -9175,7 +9175,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">حُذف: ' + esc(d) + ' — ينتهي: ' + esc(exp) + '</div>' +
                     '<div style="display:flex;gap:6px;margin-top:8px;">' +
                     '<button class="btn-sm btn-success" style="width:auto;" onclick="restoreFromRecycleBin(\'' + esc(e.id) + '\')">♻️ استعادة</button>' +
-                    '<button class="btn-sm" style="width:auto;background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="purgeRecycleBinEntry(\'' + esc(e.id) + '\')">🗑️ حذف finali</button>' +
+                    '<button class="btn-sm" style="width:auto;background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="purgeRecycleBinEntry(\'' + esc(e.id) + '\')">🗑️ حذف نهائي</button>' +
                     '</div></div>';
             }).join('');
             const body = (recycleBin || []).length
@@ -11401,7 +11401,50 @@ body.employee-mode #undoBtn { display: none !important; }
             let linkedPurchase = merchantPurchases.some(s => s.productId == id);
             let linkedMovement = stockMovements.some(s => s.productId == id);
             if (linkedTxn || linkedInst || linkedArabon || linkedSale || linkedPurchase) {
-                showToast('لا يمكن حذف الصنف لارتباطه بحركات مالية (بيع/شراء/قسط/عربون/تاجر). احذف العملية الأصلية أو استخدم المرتجع', 'error'); return;
+                // عرض خيار الحذف مع كل العمليات ( cascade ) بدلاً من الحظر
+                let counts = 'حركات مالية: ' + transactions.filter(t => t.productId == id).length +
+                    '\\nعقود قسط: ' + installments.filter(i => i.productId == id).length +
+                    '\\nعربون: ' + arabonSales.filter(a => a.productId == id).length +
+                    '\\nمبيعات تجار: ' + merchantSales.filter(s => s.productId == id).length +
+                    '\\nمشتريات تجار: ' + merchantPurchases.filter(s => s.productId == id).length;
+                let proceed = await showConfirmModal(
+                    'الصنف "' + (p.name || '') + '" مرتبط بعمليات:\\n' + counts + '\\n\\n⚠️ حذف الصنف مع جميع عملياته (لا يمكن التراجع إلا من سلة المحذوفات).\\nهل تريد المتابعة؟',
+                    '⚠️ حذف الصنف مع عملياته'
+                );
+                if (!proceed) return;
+                let reason = await askDeleteReason('سبب حذف الصنف "' + (p.name || '') + '" مع جميع عملياته', '🗑️ سبب الحذف');
+                if (!reason) return;
+                let r2 = await showConfirmModal('تأكيد نهائي: سيتم حذف الصنف وجميع عملياته.\\n\\nهل أنت متأكد 100%؟', '⚠️ تأكيد نهائي');
+                if (!r2) return;
+                try { window.moveToRecycleBin('product_cascade', 'صنف (مع عملياته): ' + (p.name || id), reason); } catch (e) { /* تجاهل */ }
+                setUndoLabel('حذف صنف مع عملياته: ' + (p.name || id));
+                // حذف جميع السجلات المرتبطة
+                const instIds = installments.filter(i => i.productId == id).map(i => i.id);
+                const arabonIds = arabonSales.filter(a => a.productId == id).map(a => a.id);
+                const msIds = merchantSales.filter(s => s.productId == id).map(s => s.transactionId).filter(Boolean);
+                const mpIds = merchantPurchases.filter(s => s.productId == id).map(s => s.transactionId).filter(Boolean);
+                // حذف حركات الدفعات للأقساط
+                transactions = transactions.filter(t => !(t.instId && instIds.includes(t.instId)));
+                // حذف حركات الدفعات للعربون
+                transactions = transactions.filter(t => !(t.arabonId && arabonIds.includes(t.arabonId)));
+                // حذف حركات بيع/شراء تاجر
+                msIds.forEach(tid => { transactions = transactions.filter(t => !(t.sourceType === 'merchant_sale' && String(t.sourceId).startsWith(String(tid)))); });
+                mpIds.forEach(tid => { transactions = transactions.filter(t => !(t.sourceType === 'merchant_purchase' && String(t.sourceId).startsWith(String(tid)))); });
+                // حذف حركات بـ productId
+                transactions = transactions.filter(t => t.productId != id);
+                // حذف stock movements
+                stockMovements = stockMovements.filter(s => s.productId != id);
+                // حذف السجلات
+                installments = installments.filter(i => i.productId != id);
+                arabonSales = arabonSales.filter(a => a.productId != id);
+                merchantSales = merchantSales.filter(s => s.productId != id);
+                merchantPurchases = merchantPurchases.filter(s => s.productId != id);
+                products = products.filter(x => x.id != id);
+                logAudit('delete', 'صنف (مع عملياته)', id, 'حذف الصنف مع جميع عملياته | السبب: ' + reason +
+                    ' | أقساط=' + instIds.length + ' عربون=' + arabonIds.length + ' بيع تاجر=' + msIds.length + ' شراء تاجر=' + mpIds.length);
+                saveData(); renderProducts(); refreshSelectors(); renderDashboard(); renderInstallments(); renderArabonSales(); renderMerchantSales();
+                showToast('تم حذف الصنف مع جميع عملياته', 'success', { actionLabel: '↩️ تراجع', onAction: () => window.undoLastAction() });
+                return;
             }
             let reason = null;
             if (linkedMovement || BusinessLogic.toNum(p.stock) !== 0) {
