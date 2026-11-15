@@ -3238,9 +3238,8 @@ body.employee-mode #undoBtn { display: none !important; }
             };
         }
 
-        products = products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
+        products = products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 0, archived: p.archived || false }));
         // ترحيل: أرشفة الأصناف اللي رصيدها صفر
-        products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
 
         ensureContractNumbers();
         migrateTransactionNotes();
@@ -7104,7 +7103,6 @@ body.employee-mode #undoBtn { display: none !important; }
                 return;
             }
             products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
-            products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
             merchants = data.merchants || [];
             transactions = data.transactions || [];
             installments = data.installments || [];
@@ -17233,7 +17231,6 @@ const backup = {
             }));
         } catch (e) { console.warn('تعذر حفظ نسخة ما قبل الاستعادة', e); }
         products = data.products.map(p => ({ ...p, stock: p.stock !== undefined ? p.stock : 1, archived: p.archived || false }));
-        products.forEach(p => { if (p.stock <= 0 && !p.archived) p.archived = true; });
         merchants = data.merchants || [];
         transactions = data.transactions || [];
         installments = data.installments || [];
