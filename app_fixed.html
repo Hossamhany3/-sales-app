@@ -2148,7 +2148,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">ملخص التدفقات (دفوعات/قبض) مصنّفة: تشغيلية، استثمارية، تمويلية. يعتمد على حركات الخزينة (payment_in/out، تحويل، شركاء، تجار).</p>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="renderCashFlow()">🔄 تحديث</button>
-                        <button class="btn-sm btn-outline" style="width:auto;" onclick="exportCashFlowCSV()">📎 CSV</button>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="exportCashFlowExcel()">📊 Excel</button>
                     </div>
                     <div id="cashFlowContent"></div>
                 </div>
@@ -9247,68 +9247,66 @@ body.employee-mode #undoBtn { display: none !important; }
         container.innerHTML = html;
     };
 
-    window.exportCashFlowCSV = function () {
+    window.exportCashFlowExcel = function () {
         try {
-            const money = v => (Number(v) || 0).toFixed(2);
+            const fmt = v => (Number(v) || 0).toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
             const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(t.type);
             const sectionOf = t => {
-                if (t.type === 'partner_deposit') return 'تمويل (إيداع)';
-                if (t.type === 'partner_withdrawal') return 'تمويل (سحب)';
-                if (t.type === 'transfer_in') return 'استثمار (داخل)';
-                if (t.type === 'transfer_out') return 'استثمار (خارج)';
-                if (isIn(t)) return 'تشغيلي (قبض)';
-                if (isOut(t)) return 'تشغيلي (دفع)';
-                return 'أخرى';
+                if (t.type === 'partner_deposit') return '\u062a\u0645\u0648\u064a\u0644 (\u0625\u064a\u062f\u0627\u0639)';
+                if (t.type === 'partner_withdrawal') return '\u062a\u0645\u0648\u064a\u0644 (\u0633\u062d\u0628)';
+                if (t.type === 'transfer_in') return '\u0627\u0633\u062a\u062b\u0645\u0627\u0631 (\u062f\u0627\u062e\u0644)';
+                if (t.type === 'transfer_out') return '\u0627\u0633\u062a\u062b\u0645\u0627\u0631 (\u062e\u0627\u0631\u062c)';
+                if (isIn(t)) return '\u062a\u0634\u063a\u064a\u0644\u064a (\u0642\u0628\u0636)';
+                if (isOut(t)) return '\u062a\u0634\u063a\u064a\u0644\u064a (\u062f\u0641\u0639)';
+                return '\u0623\u062e\u0631\u0649';
             };
-
             const groups = {};
-            (transactions || []).forEach(t => {
-                const s = sectionOf(t);
-                (groups[s] = groups[s] || []).push(t);
-            });
-
+            (transactions || []).forEach(t => { const s = sectionOf(t); (groups[s] = groups[s] || []).push(t); });
             const sum = arr => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-            const opIn = sum(groups['تشغيلي (قبض)'] || []);
-            const opOut = sum(groups['تشغيلي (دفع)'] || []);
-            const finIn = sum(groups['تمويل (إيداع)'] || []);
-            const finOut = sum(groups['تمويل (سحب)'] || []);
-            const invIn = sum(groups['استثمار (داخل)'] || []);
-            const invOut = sum(groups['استثمار (خارج)'] || []);
+            const opIn = sum(groups['\u062a\u0634\u063a\u064a\u0644\u064a (\u0642\u0628\u0636)'] || []);
+            const opOut = sum(groups['\u062a\u0634\u063a\u064a\u0644\u064a (\u062f\u0641\u0639)'] || []);
+            const finIn = sum(groups['\u062a\u0645\u0648\u064a\u0644 (\u0625\u064a\u062f\u0627\u0639)'] || []);
+            const finOut = sum(groups['\u062a\u0645\u0648\u064a\u0644 (\u0633\u062d\u0628)'] || []);
+            const invIn = sum(groups['\u0627\u0633\u062a\u062b\u0645\u0627\u0631 (\u062f\u0627\u062e\u0644)'] || []);
+            const invOut = sum(groups['\u0627\u0633\u062a\u062b\u0645\u0627\u0631 (\u062e\u0627\u0631\u062c)'] || []);
             const net = (opIn - opOut) + (finIn - finOut) + (invIn - invOut);
 
-            const rows = [];
-            rows.push(['التدفق النقدي']);
-            rows.push(['تاريخ التصدير', new Date().toLocaleString('ar-EG')]);
-            rows.push([]);
-            rows.push(['=== ملخص ===']);
-            rows.push(['القسم', 'قبض', 'دفع', 'صافي']);
-            rows.push(['تشغيلي', money(opIn), money(opOut), money(opIn - opOut)]);
-            rows.push(['تمويل', money(finIn), money(finOut), money(finIn - finOut)]);
-            rows.push(['استثمار', money(invIn), money(invOut), money(invIn - invOut)]);
-            rows.push(['الإجمالي', money(opIn + finIn + invIn), money(opOut + finOut + invOut), money(net)]);
-            rows.push([]);
-            rows.push(['=== التفاصيل ===']);
-            rows.push(['القسم', 'التاريخ', 'البيان', 'المبلغ', 'النوع']);
-            const order = ['تشغيلي (قبض)', 'تشغيلي (دفع)', 'تمويل (إيداع)', 'تمويل (سحب)', 'استثمار (داخل)', 'استثمار (خارج)', 'أخرى'];
+            const escHtml = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            let html = '<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>Cash Flow</title>';
+            html += '<style>body{font-family:Tahoma,Arial,sans-serif;font-size:12px;} table{border-collapse:collapse;width:100%;margin-bottom:16px;} th,td{border:1px solid #999;padding:6px 8px;} th{background:#1e3a5f;color:#fff;font-weight:700;} .title{font-size:16px;font-weight:800;margin:8px 0;} .sec{background:#e8eef5;font-weight:700;} .total{background:#dbeafe;font-weight:800;} .net{background:#dcfce7;font-weight:800;font-size:14px;} .num{text-align:left;direction:ltr;}</style></head><body>';
+            html += '<div class="title">\ud83d\udcb8 \u0627\u0644\u062a\u062f\u0641\u0642 \u0627\u0644\u0646\u0642\u062f\u064a (Cash Flow)</div>';
+            html += '<div style="color:#555;font-size:11px;margin-bottom:12px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0635\u062f\u064a\u0631: ' + escHtml(new Date().toLocaleString('ar-EG')) + '</div>';
+
+            html += '<table><thead><tr><th>\u0627\u0644\u0642\u0633\u0645</th><th>\u0642\u0628\u0636</th><th>\u062f\u0641\u0639</th><th>\u0635\u0627\u0641\u064a</th></tr></thead><tbody>';
+            html += '<tr><td>\u062a\u0634\u063a\u064a\u0644\u064a</td><td class="num">' + fmt(opIn) + '</td><td class="num">' + fmt(opOut) + '</td><td class="num">' + fmt(opIn - opOut) + '</td></tr>';
+            html += '<tr><td>\u062a\u0645\u0648\u064a\u0644</td><td class="num">' + fmt(finIn) + '</td><td class="num">' + fmt(finOut) + '</td><td class="num">' + fmt(finIn - finOut) + '</td></tr>';
+            html += '<tr><td>\u0627\u0633\u062a\u062b\u0645\u0627\u0631</td><td class="num">' + fmt(invIn) + '</td><td class="num">' + fmt(invOut) + '</td><td class="num">' + fmt(invIn - invOut) + '</td></tr>';
+            html += '<tr class="total"><td>\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</td><td class="num">' + fmt(opIn + finIn + invIn) + '</td><td class="num">' + fmt(opOut + finOut + invOut) + '</td><td class="num">' + fmt(net) + '</td></tr>';
+            html += '</tbody></table>';
+            html += '<div class="net" style="padding:8px;margin-bottom:16px;">\u0635\u0627\u0641\u064a \u0627\u0644\u062a\u063a\u064a\u0631 \u0641\u064a \u0627\u0644\u0646\u0642\u062f: ' + fmt(net) + '</div>';
+
+            const order = Object.keys(groups);
+            html += '<table><thead><tr><th>\u0627\u0644\u0642\u0633\u0645</th><th>\u0627\u0644\u062a\u0627\u0631\u064a\u062e</th><th>\u0627\u0644\u0628\u064a\u0627\u0646</th><th>\u0627\u0644\u0645\u0628\u0644\u063a</th><th>\u0627\u0644\u0646\u0648\u0639</th></tr></thead><tbody>';
             order.forEach(sec => {
                 const items = groups[sec];
                 if (!items || !items.length) return;
+                html += '<tr class="sec"><td colspan="5">' + escHtml(sec) + ' (' + items.length + ')</td></tr>';
                 items.forEach(t => {
-                    rows.push([sec, t.date ? String(t.date).slice(0, 10) : '', (t.notes || t.type || ''), money(t.amount), t.type || '']);
+                    html += '<tr><td>' + escHtml(sec) + '</td><td>' + escHtml(t.date ? String(t.date).slice(0, 10) : '\u2014') + '</td><td>' + escHtml(t.notes || t.type || '') + '</td><td class="num">' + fmt(t.amount) + '</td><td>' + escHtml(t.type || '') + '</td></tr>';
                 });
+                html += '<tr class="total"><td colspan="3">\u0627\u0644\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u0641\u0631\u0639\u064a \u2014 ' + escHtml(sec) + '</td><td class="num">' + fmt(sum(items)) + '</td><td></td></tr>';
             });
-            rows.push([]);
+            html += '</tbody></table></body></html>';
 
-            const csv = rows.map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\\n');
-            const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'cashflow_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click();
+            const a = document.createElement('a'); a.href = url; a.download = 'cashflow_' + new Date().toISOString().slice(0, 10) + '.xls'; a.click();
             URL.revokeObjectURL(url);
-            showToast('✅ تم تصدير التدفق النقدي (Excel/CSV)');
-        } catch (e) { showError('تعذر التصدير', e.message); }
+            showToast('\u2705 \u062a\u0645 \u062a\u0635\u062f\u064a\u0631 \u0627\u0644\u062a\u062f\u0641\u0642 \u0627\u0644\u0646\u0642\u062f\u064a (Excel)');
+        } catch (e) { showError('\u062a\u0639\u0630\u0631 \u0627\u0644\u062a\u0635\u062f\u064a\u0631', e.message); }
     };
-
     window.openGlobalSearch = function () {
         try {
             _modalResolve = function () {};
