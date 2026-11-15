@@ -1687,6 +1687,34 @@ test('مخزون: شراء صنف مؤرشف يعيد إظهاره', () => {
   return 'شراء يرجع الصنف للنشط';
 });
 
+// ─────────── إعادة تعيين البيانات ───────────
+test('إعادة تعيين: مسح كل المخازن بما فيها العربون وحركات المخزون', () => {
+  factory.seed(BASE());
+  newInst();
+  newArabon({ productId: 3, sellPrice: 8000, depositAmount: 1000, deviceName: 'Samsung A54' });
+  BL.sellToMerchant({ merchantId: 2, productId: 1, qty: 1, actualTotal: 13000, date: '2026-01-03T10:00:00.000Z' });
+  ok(D().arabonSales.length > 0, 'عربون قبل المسح');
+  ok(factory.get('employees').length > 0, 'موظف قبل المسح');
+  ok(factory.get('auditLog').length > 0, 'سجل قبل المسح');
+  ok(BL.clearAllData(), 'فشل المسح');
+  const d = D();
+  eq(d.arabonSales.length, 0, 'عربون');
+  eq(d.stockMovements.length, 0, 'حركات مخزون');
+  eq(d.products.length, 0, 'أصناف');
+  eq(d.merchants.length, 0, 'عملاء');
+  eq(d.transactions.length, 0, 'حركات مالية');
+  eq(d.installments.length, 0, 'عقود');
+  eq(d.merchantSales.length, 0, 'مبيعات تجار');
+  eq(d.accounts.length, 0, 'حسابات');
+  eq(d.openingCapital, 0, 'رأس المال');
+  eq(factory.get('employees').length, 0, 'موظفون');
+  eq(factory.get('auditLog').length, 0, 'سجل تدقيق');
+  eq(factory.get('partners').length, 0, 'شركاء');
+  eq(factory.get('recurringExpenses').length, 0, 'مصروفات دورية');
+  eq(Object.keys(factory.get('msgTemplates')).length, 0, 'قوالب الرسائل');
+  return 'كل المخازن صفر';
+});
+
 // ─────────── التقرير ───────────
 const pass = results.filter(r => r.ok).length;
 const fail = results.length - pass;

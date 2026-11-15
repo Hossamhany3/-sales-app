@@ -4108,6 +4108,28 @@ body.employee-mode #undoBtn { display: none !important; }
             return { totalCash, totalBank, totalVodafone, totalDebt, stockValue };
         },
 
+        // ─── مسح كل بيانات التشغيل (إعادة تعيين كاملة) ───
+        clearAllData() {
+            products = [];
+            merchants = [];
+            transactions = [];
+            installments = [];
+            msgTemplates = {};
+            merchantSales = [];
+            merchantPayments = [];
+            merchantPurchases = [];
+            merchantPaymentsOut = [];
+            partners = [];
+            accounts = [];
+            stockMovements = [];
+            arabonSales = [];
+            employees = [];
+            recurringExpenses = [];
+            auditLog = [];
+            openingCapital = 0;
+            return true;
+        },
+
         // ═══════════════ العمليات ═══════════════
 
         // ─── بيع نقدي ───
@@ -16710,20 +16732,35 @@ body.employee-mode #undoBtn { display: none !important; }
 
     // ====== إعادة تعيين البيانات ======
     document.getElementById('resetAllBtn').addEventListener('click', async () => {
-        let ok1 = await showConfirmModal('هذا سيحذف جميع البيانات (المخزون، العملاء، الحركات، العقود، القوالب).\n\nلا يمكن التراجع عن هذا الإجراء!', '⚠️ تحذير شديد');
+        let ok1 = await showConfirmModal('هذا سيحذف جميع البيانات: المخزون، العملاء، الحركات، العقود، العقود العربون، مبيعات/مشتريات التجار، الموظفون، الشركاء، الحسابات، سجل التدقيق، سلة المحذوفات، والنسخ الاحتياطية.\n\nلا يمكن التراجع عن هذا الإجراء!', '⚠️ تحذير شديد');
         if (!ok1) return;
         let ok2 = await showConfirmModal('هل تريد فعلاً مسح كل البيانات؟', '🔴 تأكيد نهائي');
         if (!ok2) return;
-        products = []; merchants = []; transactions = []; installments = [];
+
+        // مسح كل مخازن البيانات (كان العربون وحركات المخزون والموظفون وباقي المخازن تبقى بعد الحذف)
+        BusinessLogic.clearAllData();
         msgTemplates = { reminder: '', late: '' };
-        merchantSales = []; merchantPayments = []; merchantPurchases = []; merchantPaymentsOut = []; partners = []; accounts = [];
-        openingCapital = 0;
-        localStorage.setItem('openingCapital', '0');
-        saveData();
+        expenseCategories = [...DEFAULT_EXPENSE_CATEGORIES];
+        incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
+        recycleBin = [];
+        backups = [];
+        periodLockDate = null;
+        localStorage.removeItem('periodLockDate');
+        localStorage.removeItem('preRestoreBackup');
+        localStorage.removeItem('autoBackup_last');
+        // لا نريد أن يعيد زر التراجع البيانات المحذوفة
+        __undoStack = [];
+        __undoLastSnap = null;
+        __undoSuppress++;
+
+        // حفظ الحالة الفارغة في localStorage + IndexedDB (وإرسالها لمزامنة Drive إن كانت مفعّلة)
+        try { await saveData(); } finally { __undoSuppress--; }
+        __undoStack = [];
+
         refreshSelectors(); renderProducts();
-        renderTransactions(); renderInstallments(); renderMerchantSales(); renderPartners(); renderDashboard(); initSettingsPage();
-        renderPartners();
-        showToast('تم مسح جميع البيانات');
+        renderTransactions(); renderInstallments(); renderMerchantSales(); renderArabonSales();
+        renderPartners(); renderAccounts(); renderEmployees(); renderDashboard(); initSettingsPage();
+        showToast('تم مسح كل البيانات');
     });
 
     document.getElementById('clearCacheBtn').addEventListener('click', async () => {
