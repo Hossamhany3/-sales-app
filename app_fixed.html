@@ -9294,12 +9294,11 @@ body.employee-mode #undoBtn { display: none !important; }
             order.forEach(sec => {
                 const items = groups[sec];
                 if (!items || !items.length) return;
-                rows.push(['--- ' + sec + ' (' + items.length + ') ---']);
                 items.forEach(t => {
                     rows.push([sec, t.date ? String(t.date).slice(0, 10) : '', (t.notes || t.type || ''), money(t.amount), t.type || '']);
                 });
-                rows.push(['المجموع الفرعي ' + sec, '', '', money(sum(items)), '']);
             });
+            rows.push([]);
 
             const csv = rows.map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\\n');
             const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
