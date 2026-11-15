@@ -2138,6 +2138,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <button class="btn-sm btn-success" style="width:auto;" onclick="renderRepairCenter(true)">🔍 فحص الآن</button>
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="repairAllSafe()">🔧 إصلاح كل ما يمكن إصلاحه</button>
+                        <button class="btn-sm btn-outline" style="width:auto;" onclick="reconcileAllStock()">📦 إعادة حساب المخزون من الحركات</button>
                     </div>
                     <div id="repairContent"></div>
                 </div>
@@ -9442,6 +9443,21 @@ body.employee-mode #undoBtn { display: none !important; }
             renderInstallments(); renderTransactions(); renderDashboard(); renderAccounts();
             showToast('⚡ تم تحصيل ' + done + ' دفعة — مجموع ' + total.toFixed(2) + ' ج' + (failed ? ' (فشل ' + failed + ')' : ''), 'success');
         } catch (e) { showError('تعذر التحصيل', e.message); }
+    };
+
+    window.reconcileAllStock = function () {
+        try {
+            let changed = 0;
+            (products || []).forEach(p => {
+                const mvCount = (stockMovements || []).filter(s => s.productId == p.id).length;
+                if (mvCount === 0) return;
+                const calc = BusinessLogic.calculateStockFromMovements(p.id);
+                if (Math.abs((p.stock || 0) - calc) > 0.0001) { p.stock = calc; changed++; }
+            });
+            logAudit('repair', 'إعادة حساب المخزون', '', 'تم إعادة حساب ' + changed + ' صنف من الحركات');
+            saveData(); renderProducts(); renderDashboard();
+            showToast('📦 تم إعادة حساب ' + changed + ' صنف من حركات المخزون', 'success');
+        } catch (e) { showError('تعذر إعادة الحساب', e.message); }
     };
 
     window.renderChartOfAccounts = function() {
