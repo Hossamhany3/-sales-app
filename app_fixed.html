@@ -13064,6 +13064,7 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!slot) { showToast('القسط غير موجود', 'error'); return; }
             if (slot.isPaid) { showToast('هذا القسط مسدد بالفعل', 'error'); return; }
             let panel = document.getElementById('payPanel-' + instId);
+            if (!panel) { showToast('افتح قائمة الأقساط أولاً', 'error'); return; }
             let editPanel = document.getElementById('editPanel-' + instId);
             if (editPanel) editPanel.classList.remove('open');
             if (panel.classList.contains('open') && window._payTargetInst === instId && window._payTargetSlot === slotIdx) {
@@ -13108,6 +13109,9 @@ body.employee-mode #undoBtn { display: none !important; }
             cashSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && a.type === 'cash').map(a => '<option value="' + a.id + '">💵 ' + a.name + '</option>').join('');
             const bankSel = document.getElementById('payBankSelect-' + instId);
             bankSel.innerHTML = '<option value="">بدون حساب</option>' + accounts.filter(a => !a.archived && (a.type === 'bank' || a.type === 'vodafone')).map(a => '<option value="' + a.id + '">' + (a.type === 'bank' ? '🏦' : '📱') + ' ' + a.name + '</option>').join('');
+
+            // لوحة السداد أعلى البطاقة: بدون تمريرها للعرض تظهر «كأن الزر لا يعمل» في الأقساط البعيدة
+            panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (err) {
             showError('حدث خطأ', err.message);
         }
@@ -13213,6 +13217,9 @@ body.employee-mode #undoBtn { display: none !important; }
             setTimeout(() => {
                 let el = document.getElementById('schedule-' + instId);
                 if (el) el.classList.add('open');
+                // إعادة التمرير للقسط الذي تم التعامل معه بعد إعادة رسم القائمة
+                const item = document.querySelector('#schedule-' + instId + ' .schedule-item:nth-child(' + (slotIdx + 2) + ')');
+                if (item && item.scrollIntoView) item.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, 50);
         } catch (err) {
             showError('حدث خطأ أثناء تحصيل القسط', err.message);

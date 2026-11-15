@@ -1583,6 +1583,16 @@ test('ربط الواجهة: زر التراجع وتبويب الإصلاح و�
   return 'كل نقاط الواجهة موصولة';
 });
 
+test('واجهة: فتح لوحة تحصيل القسط يمرّرها للعرض داخل الشاشة', () => {
+  const start = html.indexOf('window.openSlotPay');
+  const end = html.indexOf('window.instSplitToggle', start);
+  const block = html.slice(start, end);
+  ok(start >= 0 && end > start, 'دالة openSlotPay موجودة');
+  ok(block.includes("scrollIntoView({ behavior: 'smooth', block: 'center' })"), 'تمرير لوحة السداد للعرض (أزرار الأقساط البعيدة تعمل)');
+  ok(block.includes('if (!panel) { showToast('), 'حماية عند غياب لوحة السداد');
+  return 'اللوحة تُمرَّر للعرض';
+});
+
 // ───────────不 invariant: خصائص ثابتة للنظام ───────────
 test('不 invariant: سداد كامل يغلق العقد (remaining=0, isPaid=true)', () => {
   factory.seed(BASE());
