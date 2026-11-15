@@ -11424,12 +11424,21 @@ body.employee-mode #undoBtn { display: none !important; }
                 const msIds = merchantSales.filter(s => s.productId == id).map(s => s.transactionId).filter(Boolean);
                 const mpIds = merchantPurchases.filter(s => s.productId == id).map(s => s.transactionId).filter(Boolean);
                 // حذف حركات الدفعات للأقساط
-                transactions = transactions.filter(t => !(t.instId && instIds.includes(t.instId)));
+                transactions = transactions.filter(t => !(t.instId && instIds.some(x => String(x) === String(t.instId))));
                 // حذف حركات الدفعات للعربون
-                transactions = transactions.filter(t => !(t.arabonId && arabonIds.includes(t.arabonId)));
+                transactions = transactions.filter(t => !(t.arabonId && arabonIds.some(x => String(x) === String(t.arabonId))));
                 // حذف حركات بيع/شراء تاجر
                 msIds.forEach(tid => { transactions = transactions.filter(t => !(t.sourceType === 'merchant_sale' && String(t.sourceId).startsWith(String(tid)))); });
                 mpIds.forEach(tid => { transactions = transactions.filter(t => !(t.sourceType === 'merchant_purchase' && String(t.sourceId).startsWith(String(tid)))); });
+                // حذف دفعات التجار المرتبطة (إن وُجدت)
+                merchantPayments = merchantPayments.filter(pay => {
+                    const tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+                    return !tids.some(t => msIds.map(String).includes(String(t)));
+                });
+                merchantPaymentsOut = merchantPaymentsOut.filter(pay => {
+                    const tids = pay.transactionIds || (pay.transactionId ? [pay.transactionId] : []);
+                    return !tids.some(t => mpIds.map(String).includes(String(t)));
+                });
                 // حذف حركات بـ productId
                 transactions = transactions.filter(t => t.productId != id);
                 // حذف stock movements
