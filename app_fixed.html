@@ -1214,6 +1214,7 @@ body.employee-mode #undoBtn { display: none !important; }
         </button>
         <div class="app-title">الإدارة المحاسبية للموبايلات</div>
         <button class="menu-icon" id="undoBtn" title="تراجع عن آخر عملية" style="display:none;">↩️</button>
+        <button class="menu-icon" id="globalSearchBtn" title="بحث عام (Ctrl+K)" onclick="openGlobalSearch()">🔍</button>
         <button class="menu-icon" id="themeToggleBtn" title="تبديل الثيم">🌙</button>
     </div>
     
@@ -1674,6 +1675,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     <option value="paid">✅ المسددة / المغلقة</option>
                 </select>
                 <button onclick="exportInstallmentsCSV()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;" title="تصدير العقود إلى CSV">📎 CSV</button>
+                <button onclick="openQuickCollect()" class="btn-sm btn-success" style="padding:5px 10px;font-size:0.82rem;" title="تحصيل سريع لعدة عقود">⚡ تحصيل سريع</button>
             </div>
             <div id="installmentsList"></div>
         </div>
@@ -9251,6 +9253,168 @@ body.employee-mode #undoBtn { display: none !important; }
             URL.revokeObjectURL(url);
             showToast('✅ تم تصدير التدفق النقدي');
         } catch (e) { showError('تعذر التصدير', e.message); }
+    };
+
+    window.openGlobalSearch = function () {
+        try {
+            _modalResolve = function () {};
+            document.getElementById('modalIcon').textContent = '🔍';
+            document.getElementById('modalTitle').textContent = '🔍 بحث عام';
+            document.getElementById('modalMessage').innerHTML =
+                '<input type="text" id="gsInput" placeholder="ابحث عن منتج، تاجر، عميل، حركة، عقد…" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:0.95rem;" oninput="runGlobalSearch(this.value)">' +
+                '<div id="gsResults" style="margin-top:10px;max-height:60vh;overflow:auto;"></div>';
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
+            document.getElementById('modalConfirmBtn').textContent = 'إغلاق';
+            document.getElementById('modalCancelBtn').style.display = 'none';
+            document.getElementById('modalOverlay').classList.add('show');
+            setTimeout(() => { const i = document.getElementById('gsInput'); if (i) i.focus(); }, 50);
+            runGlobalSearch('');
+        } catch (e) { showError('تعذر فتح البحث', e.message); }
+    };
+
+    window.runGlobalSearch = function (q) {
+        const box = document.getElementById('gsResults');
+        if (!box) return;
+        q = String(q || '').trim().toLowerCase();
+        const results = [];
+        const push = (type, icon, label, sub, action) => results.push({ type, icon, label, sub, action });
+
+        if (!q) {
+            box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);">اكتب للبحث في كل السجلات</div>';
+            return;
+        }
+
+        // منتجات
+        (products || []).forEach(p => {
+            const hay = ((p.name || '') + ' ' + (p.deviceName || '')).toLowerCase();
+            if (hay.includes(q)) push('product', '📦', p.name || ('صنف #' + p.id), 'مخزون: ' + (p.stock || 0) + ' | تكلفة: ' + (p.costPrice || 0), "switchPage('products')");
+        });
+        // تجار
+        (merchants || []).forEach(m => {
+            if (String(m.name || '').toLowerCase().includes(q) || String(m.phone || '').includes(q))
+                push('merchant', '🏪', m.name || ('تاجر #' + m.id), m.phone || '', "switchPage('merchantSales')");
+        });
+        // حركات
+        (transactions || []).forEach(t => {
+            const hay = ((t.notes || '') + ' ' + (t.type || '')).toLowerCase();
+            if (hay.includes(q)) push('transaction', '💰', (t.notes || t.type || 'حركة') + ' — ' + (t.amount || 0) + ' ج', t.date ? String(t.date).slice(0, 10) : '', "switchPage('transactions')");
+        });
+        // أقساط
+        (installments || []).forEach(i => {
+            const m = merchants.find(x => x.id == i.merchantId);
+            const hay = ((m ? m.name : '') + ' ' + (i.deviceName || '') + ' ' + (i.contractNo || '')).toLowerCase();
+            if (hay.includes(q)) push('installment', '📅', 'عقد #' + (i.contractNo || i.id) + ' — ' + (m ? m.name : ''), 'متبقي: ' + (i.remainingBalance || 0).toFixed(2) + ' ج', "switchPage('installments')");
+        });
+        // عربون
+        (arabonSales || []).forEach(a => {
+            const m = merchants.find(x => x.id == a.merchantId);
+            const p = (products || []).find(x => x.id == a.productId);
+            const hay = ((m ? m.name : '') + ' ' + (p ? p.name : '') + ' ' + (a.id || '')).toLowerCase();
+            if (hay.includes(q)) push('arabon', '🤝', 'عربون #' + a.id + ' — ' + (m ? m.name : ''), 'متبقي: ' + (a.remainingAmount || 0).toFixed(2) + ' ج', "switchPage('arabonSales')");
+        });
+        // مبيعات/مشتريات تجار
+        (merchantSales || []).forEach(s => {
+            const hay = ((s.merchantName || '') + ' ' + (s.deviceName || '')).toLowerCase();
+            if (hay.includes(q)) push('merchantSale', '🏪', 'بيع تاجر: ' + (s.deviceName || '') + ' — ' + (s.merchantName || ''), (s.sellPrice || 0) + ' ج', "switchPage('merchantSales')");
+        });
+        (merchantPurchases || []).forEach(p => {
+            const hay = ((p.merchantName || '') + ' ' + (p.productName || '')).toLowerCase();
+            if (hay.includes(q)) push('merchantPurchase', '🛒', 'شراء من تاجر: ' + (p.productName || '') + ' — ' + (p.merchantName || ''), (p.costPrice || 0) + ' ج', "switchPage('merchantSales')");
+        });
+
+        if (!results.length) {
+            box.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);">لا توجد نتائج لـ «' + esc(q) + '»</div>';
+            return;
+        }
+        const groups = {};
+        results.forEach(r => { (groups[r.type] = groups[r.type] || []).push(r); });
+        const typeLabel = { product: '📦 منتجات', merchant: '🏪 تجار', transaction: '💰 حركات', installment: '📅 أقساط', arabon: '🤝 عربون', merchantSale: '🏪 مبيعات تجار', merchantPurchase: '🛒 مشتريات تجار' };
+        let html = '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;">' + results.length + ' نتيجة</div>';
+        Object.keys(groups).forEach(k => {
+            html += '<div style="margin-bottom:8px;"><div style="font-weight:700;font-size:0.82rem;color:var(--primary);margin-bottom:4px;">' + (typeLabel[k] || k) + ' (' + groups[k].length + ')</div>';
+            groups[k].slice(0, 12).forEach(r => {
+                html += '<div onclick="' + r.action + '; window._closeModal(false);" style="padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;" onmouseover="this.style.background=\'var(--background)\'" onmouseout="this.style.background=\'\'">' +
+                    '<div style="font-size:0.85rem;font-weight:600;">' + esc(r.label) + '</div>' +
+                    (r.sub ? '<div style="font-size:0.74rem;color:var(--text-muted);">' + esc(r.sub) + '</div>' : '') +
+                    '</div>';
+            });
+            if (groups[k].length > 12) html += '<div style="font-size:0.72rem;color:var(--text-muted);padding:4px 8px;">… و' + (groups[k].length - 12) + ' أخرى</div>';
+            html += '</div>';
+        });
+        box.innerHTML = html;
+    };
+
+    // اختصار Ctrl+K
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'k') {
+            e.preventDefault();
+            openGlobalSearch();
+        }
+    });
+
+    window.openQuickCollect = function () {
+        try {
+            const active = (installments || []).filter(i => !i.isPaid && (i.remainingBalance || 0) > 0.01);
+            if (!active.length) { showToast('لا توجد عقود نشطة للتحصيل', 'warning'); return; }
+            const accOpts = (accounts || []).map(a => '<option value="' + a.id + '">' + esc(a.name) + '</option>').join('');
+            const rows = active.map(i => {
+                const m = merchants.find(x => x.id == i.merchantId);
+                return '<tr style="border-bottom:1px solid var(--border);">' +
+                    '<td style="padding:4px 6px;font-size:0.78rem;">' + esc(String(i.contractNo || i.id)) + '</td>' +
+                    '<td style="padding:4px 6px;font-size:0.78rem;">' + esc(m ? m.name : '') + '</td>' +
+                    '<td style="padding:4px 6px;font-size:0.78rem;text-align:left;">' + (i.remainingBalance || 0).toFixed(2) + '</td>' +
+                    '<td style="padding:4px 6px;"><input type="number" step="any" min="0" class="qc-amount" data-id="' + i.id + '" placeholder="0" style="width:90px;padding:4px;border-radius:6px;border:1px solid var(--border);"></td>' +
+                    '</tr>';
+            }).join('');
+            const body =
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">' +
+                '<label style="font-size:0.8rem;">📅 تاريخ: <input type="date" id="qcDate" value="' + new Date().toISOString().slice(0, 10) + '" style="padding:4px;border-radius:6px;border:1px solid var(--border);"></label>' +
+                '<label style="font-size:0.8rem;">🏦 حساب: <select id="qcAccount" style="padding:4px;border-radius:6px;border:1px solid var(--border);">' + accOpts + '</select></label>' +
+                '</div>' +
+                '<div style="max-height:50vh;overflow:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:2px solid var(--border);">' +
+                '<th style="padding:4px 6px;font-size:0.72rem;">عقد</th><th style="padding:4px 6px;font-size:0.72rem;">عميل</th><th style="padding:4px 6px;font-size:0.72rem;">متبقي</th><th style="padding:4px 6px;font-size:0.72rem;">مبلغ</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+                '<div style="margin-top:10px;display:flex;gap:8px;">' +
+                '<button class="btn-sm btn-success" style="flex:1;" onclick="executeQuickCollect()">⚡ تحصيل</button>' +
+                '<button class="btn-sm btn-outline" style="flex:1;" onclick="window._closeModal(false)">إلغاء</button></div>';
+            _modalResolve = function () {};
+            document.getElementById('modalIcon').textContent = '⚡';
+            document.getElementById('modalTitle').textContent = '⚡ تحصيل سريع';
+            document.getElementById('modalMessage').innerHTML = body;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalNumberInput').style.display = 'none';
+            document.getElementById('modalSelectInput').style.display = 'none';
+            document.getElementById('modalAccountRow').style.display = 'none';
+            document.getElementById('modalConfirmBtn').style.display = 'none';
+            document.getElementById('modalCancelBtn').style.display = 'none';
+            document.getElementById('modalOverlay').classList.add('show');
+        } catch (e) { showError('تعذر فتح التحصيل السريع', e.message); }
+    };
+
+    window.executeQuickCollect = function () {
+        try {
+            const date = (document.getElementById('qcDate').value || new Date().toISOString().slice(0, 10));
+            const accountId = document.getElementById('qcAccount').value;
+            const inputs = document.querySelectorAll('.qc-amount');
+            let done = 0, total = 0, failed = 0;
+            inputs.forEach(inp => {
+                const amt = parseFloat(inp.value);
+                if (!amt || amt <= 0) return;
+                const id = inp.getAttribute('data-id');
+                const inst = installments.find(i => String(i.id) === String(id));
+                if (!inst) { failed++; return; }
+                const sched = getInstSchedule(inst);
+                const slotIdx = sched.findIndex(s => !s.isPaid);
+                if (slotIdx < 0) { failed++; return; }
+                const r = BusinessLogic.recordSlotPayment({ installmentId: inst.id, slotIdx: slotIdx, amount: amt, accountId: accountId ? parseInt(accountId) : null, date: date + 'T09:00:00.000Z' });
+                if (r && r.success) { done++; total += amt; } else { failed++; }
+            });
+            window._closeModal(false);
+            renderInstallments(); renderTransactions(); renderDashboard(); renderAccounts();
+            showToast('⚡ تم تحصيل ' + done + ' دفعة — مجموع ' + total.toFixed(2) + ' ج' + (failed ? ' (فشل ' + failed + ')' : ''), 'success');
+        } catch (e) { showError('تعذر التحصيل', e.message); }
     };
 
     window.renderChartOfAccounts = function() {
