@@ -1470,6 +1470,8 @@ body.employee-mode #undoBtn { display: none !important; }
                     ⚠️ المنخفض فقط
                 </label>
                 <button onclick="exportProductsCSV()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;white-space:nowrap;" title="تصدير الأصناف إلى CSV">📎 CSV</button>
+                <button onclick="document.getElementById('productImportInput').click()" class="btn-sm btn-outline" style="padding:5px 10px;font-size:0.82rem;white-space:nowrap;" title="استيراد أصناف من CSV">📥 استيراد</button>
+                <input type="file" id="productImportInput" accept=".csv" style="display:none;">
             </div>
             <div id="productsList"></div>
         </div>
@@ -16616,6 +16618,58 @@ body.employee-mode #undoBtn { display: none !important; }
         }
         e.target.value = '';
     });
+
+    // استيراد أصناف من CSV
+    (function wireProductImport() {
+        const input = document.getElementById('productImportInput');
+        if (!input) return;
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const text = ev.target.result;
+                    const lines = String(text).split(/\r?\n/).filter(l => l.trim());
+                    if (lines.length < 2) { showToast('الملف فارغ أو غير صالح', 'error'); return; }
+                    const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+                    const idx = (name) => header.indexOf(name);
+                    const iName = idx('اسم الصنف') >= 0 ? idx('اسم الصنف') : idx('name');
+                    const iCost = idx('التكلفة') >= 0 ? idx('التكلفة') : idx('costPrice');
+                    const iExp = idx('المصروفات') >= 0 ? idx('المصروفات') : idx('expenses');
+                    const iSell = idx('سعر البيع') >= 0 ? idx('سعر البيع') : idx('sellPrice');
+                    const iStock = idx('المخزون') >= 0 ? idx('المخزون') : idx('stock');
+                    if (iName < 0) { showToast('عمود "اسم الصنف" مفقود', 'error'); return; }
+                    let added = 0, updated = 0;
+                    for (let li = 1; li < lines.length; li++) {
+                        const cols = lines[li].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                        const name = cols[iName];
+                        if (!name) continue;
+                        const cost = iCost >= 0 ? (parseFloat(cols[iCost]) || 0) : 0;
+                        const exp = iExp >= 0 ? (parseFloat(cols[iExp]) || 0) : 0;
+                        const sell = iSell >= 0 ? (parseFloat(cols[iSell]) || 0) : 0;
+                        const stock = iStock >= 0 ? (parseFloat(cols[iStock]) || 0) : 0;
+                        const existing = products.find(p => p.name === name && !p.archived);
+                        if (existing) {
+                            existing.costPrice = cost || existing.costPrice;
+                            existing.expenses = exp;
+                            existing.sellPrice = sell || existing.sellPrice;
+                            existing.stock = stock;
+                            updated++;
+                        } else {
+                            products.push({ id: Date.now() + li, name: name, costPrice: cost, expenses: exp, sellPrice: sell, stock: stock, archived: false });
+                            added++;
+                        }
+                    }
+                    saveData(); renderProducts(); refreshSelectors(); renderDashboard();
+                    logAudit('import', 'استيراد أصناف', '', 'أُضيف ' + added + ' وعُدّل ' + updated);
+                    showToast('📥 استيراد: ' + added + ' جديد، ' + updated + ' معدّل');
+                } catch (err) { showError('تعذر الاستيراد', err.message); }
+            };
+            reader.readAsText(file, 'UTF-8');
+            e.target.value = '';
+        });
+    })();
 
     // ====== Web Share — مشاركة النسخة ======
     document.getElementById('shareBackupBtn')?.addEventListener('click', async () => {
