@@ -1840,7 +1840,140 @@ test('أرباح: توزيع يبقى consistent مع فحص أرصدة الشر
   });
   ok(Math.abs(calc - p.balance) < 0.01, 'رصيد الشريك يجب أن يطابق حركاته');
   return 'فحص أرصدة شركاء نظيف';
-  return 'فحص أرصدة شركاء نظيف';
+});
+
+// ─────────── دخول شريك جديد على نشاط قائم ───────────
+const addPartners = (list) => {
+  const ps = factory.get('partners');
+  list.forEach(p => ps.push(p));
+  return ps;
+};
+const P = (id, name, balance, pct) => ({ id, name, phone: '', notes: '', date: '2026-01-01T00:00:00.000Z', balance, profitPercent: pct });
+
+test('دخول شريك (أ): ضخ أموال يحسب النسبة بعد التوسعة ويخفف القدامى', () => {
+  factory.seed(BASE());
+  const ps = addPartners([P(1, 'ش1', 6000, 60), P(2, 'ش2', 4000, 40)]);
+  const res = BL.admitPartner({
+    method: 'cash_injection', name: 'ش3', amount: 10000, valuation: 40000,
+    accountId: 1, recordGoodwill: false, date: '2026-02-01T00:00:00.000Z'
+  });
+  ok(res.success, 'فشل الدخول: ' + res.reason);
+  eq(res.newPercent, 20, 'نسبة الشريك الجديد');
+  eq(ps[0].profitPercent, 48, 'ش1 بعد التخفيف');
+  eq(ps[1].profitPercent, 32, 'ش2 بعد التخفيف');
+  eq(ps[2].profitPercent, 20, 'نسبة الجديد');
+  eq(ps[2].balance, 10000, 'رصيد رأس مال الجديد');
+  eq(BL.accountBalance(1), 10000, 'الخزينة استلمت المبلغ');
+  eq(BL.partnerBookEquity(), 20000, 'رأس المال الدفتري بعد');
+  const deposit = D().transactions.find(t => t.type === 'partner_deposit');
+  ok(deposit && Math.abs(deposit.amount - 10000) < 0.01, 'قيد إيداع الشريك');
+  const jd = res.journal.filter(l => l.side === 'debit').reduce((s, l) => s + l.amount, 0);
+  const jc = res.journal.filter(l => l.side === 'credit').reduce((s, l) => s + l.amount, 0);
+  eq(jd, jc, 'القيد متوازن');
+  return '10,000 ÷ 50,000 = 20% | 48% / 32%';
+});
+
+test('دخول شريك (أ): الشهرة/إعادة التقييم تُوزع على القدامى قبل الدخول', () => {
+  factory.seed(BASE());
+  const ps = addPartners([P(1, 'ش1', 6000, 60), P(2, 'ش2', 4000, 40)]);
+  const res = BL.admitPartner({
+    method: 'cash_injection', name: 'ش3', amount: 10000, valuation: 40000,
+    accountId: 1, recordGoodwill: true, date: '2026-02-01T00:00:00.000Z'
+  });
+  ok(res.success, 'فشل الدخول: ' + res.reason);
+  eq(res.goodwill, 30000, 'فرق التقييم/الشهرة');
+  eq(ps[0].balance, 24000, 'ش1 بعد الشهرة');
+  eq(ps[1].balance, 16000, 'ش2 بعد الشهرة');
+  eq(ps[2].balance, 10000, 'رصيد الجديد');
+  eq(BL.partnerBookEquity(), 50000, 'رأس المال = القيمة بعد التوسعة');
+  const gw = D().transactions.filter(t => t.type === 'partner_goodwill');
+  eq(gw.length, 2, 'عدد قيود الشهرة');
+  eq(gw.reduce((s, t) => s + t.amount, 0), 30000, 'إجمالي الشهرة');
+  return 'شهرة 30,000 → 18,000 / 12,000';
+});
+
+test('دخول شريك (ب): شراء حصة ينقل رأس المال دون تغيير الإجمالي أو النقدية', () => {
+  factory.seed(BASE());
+  const ps = addPartners([P(1, 'ش1', 12000, 60), P(2, 'ش2', 8000, 40)]);
+  const res = BL.admitPartner({
+    method: 'stake_purchase', name: 'ش3', amount: 15000, valuation: 50000,
+    sellerId: 1, recordGoodwill: false, date: '2026-02-01T00:00:00.000Z'
+  });
+  ok(res.success, 'فشل الشراء: ' + res.reason);
+  eq(res.newPercent, 30, 'نسبة الشريك الجديد');
+  eq(ps[0].profitPercent, 30, 'نسبة البائع بعد البيع');
+  eq(ps[2].profitPercent, 30, 'نسبة المشتري');
+  eq(ps[2].balance, 6000, 'رأس المال المنقول للمشتري');
+  eq(ps[0].balance, 6000, 'رصيد البائع بعد النقل');
+  eq(ps[1].balance, 8000, 'الشريك الآخر لم يتأثر');
+  eq(BL.partnerBookEquity(), 20000, 'إجمالي رأس المال لم يتغير');
+  eq(BL.accountBalance(1), 0, 'لا تدخل نقدية للمشروع');
+  const outT = D().transactions.find(t => t.type === 'partner_capital_out');
+  const inT = D().transactions.find(t => t.type === 'partner_capital_in');
+  ok(outT && inT && Math.abs(outT.amount - 6000) < 0.01 && Math.abs(inT.amount - 6000) < 0.01, 'قيدا نقل الحصة');
+  return '30% من البائع | 6,000 ج نقل رأس مال';
+});
+
+test('دخول شريك (ب): مع تسجيل الشهرة تُعاد تقييم الحصص قبل البيع', () => {
+  factory.seed(BASE());
+  const ps = addPartners([P(1, 'ش1', 12000, 60), P(2, 'ش2', 8000, 40)]);
+  const res = BL.admitPartner({
+    method: 'stake_purchase', name: 'ش3', amount: 15000, valuation: 50000,
+    sellerId: 1, recordGoodwill: true, date: '2026-02-01T00:00:00.000Z'
+  });
+  ok(res.success, 'فشل الشراء: ' + res.reason);
+  eq(res.goodwill, 30000, 'فرق التقييم');
+  eq(ps[0].balance, 15000, 'رصيد البائع بعد إعادة التقييم والبيع');
+  eq(ps[2].balance, 15000, 'رصيد المشتري بقيمة الحصة');
+  eq(ps[1].balance, 20000, 'رصيد الشريك الآخر بعد الشهرة');
+  eq(BL.partnerBookEquity(), 50000, 'إجمالي رأس المال = التقييم');
+  eq(res.capitalTransferred, 15000, 'الحصة المنقولة');
+  return 'شهرة ثم بيع 30% = 15,000 ج';
+});
+
+test('دخول شريك: النسب المتبقية أقل من 100% تُخفف دون تجاوز 100%', () => {
+  factory.seed(BASE());
+  const ps = addPartners([P(1, 'ش1', 6000, 30), P(2, 'ش2', 4000, 20)]);
+  const res = BL.admitPartner({
+    method: 'cash_injection', name: 'ش3', amount: 10000, valuation: 40000,
+    accountId: 1, recordGoodwill: false, date: '2026-02-01T00:00:00.000Z'
+  });
+  ok(res.success, 'فشل الدخول: ' + res.reason);
+  eq(ps[0].profitPercent, 24, 'ش1 بعد التخفيف');
+  eq(ps[1].profitPercent, 16, 'ش2 بعد التخفيف');
+  eq(ps[2].profitPercent, 20, 'الجديد');
+  const total = ps.reduce((s, p) => s + p.profitPercent, 0);
+  ok(total <= 100.001, 'المجموع لا يتجاوز 100%');
+  return '30/20 → 24/16 + 20% جديد';
+});
+
+test('دخول شريك: رفض المدخلات غير الصحيحة وتجاوز حصة البائع', () => {
+  factory.seed(BASE());
+  addPartners([P(1, 'ش1', 12000, 40), P(2, 'ش2', 8000, 60)]);
+  let r = BL.admitPartner({ method: 'cash_injection', name: 'ش3', amount: 0, valuation: 40000, accountId: 1 });
+  ok(!r.success && r.reason === 'invalid_amount', 'رفض مبلغ صفر');
+  r = BL.admitPartner({ method: 'cash_injection', name: 'ش3', amount: 10000, valuation: 0, accountId: 1 });
+  ok(!r.success && r.reason === 'invalid_valuation', 'رفض تقييم صفر');
+  r = BL.admitPartner({ method: 'stake_purchase', name: 'ش3', amount: 50000, valuation: 100000, sellerId: 1 });
+  ok(!r.success && r.reason === 'percent_exceeds_seller', 'رفض تجاوز حصة البائع');
+  r = BL.admitPartner({ method: 'cash_injection', name: 'ش1', amount: 10000, valuation: 40000, accountId: 1 });
+  ok(!r.success && r.reason === 'duplicate_name', 'رفض تكرار الاسم');
+  return 'رفض: مبلغ/تقييم/حصة/اسم مكرر';
+});
+
+test('دخول شريك: سجل العمليات والقيود قابل للاسترجاع', () => {
+  factory.seed(BASE());
+  addPartners([P(1, 'ش1', 6000, 60), P(2, 'ش2', 4000, 40)]);
+  const r1 = BL.admitPartner({ method: 'cash_injection', name: 'ش3', amount: 10000, valuation: 40000, accountId: 1, recordGoodwill: true });
+  ok(r1.success, r1.reason);
+  const list = BL.listPartnerAdmissions();
+  eq(list.length, 1, 'عملية واحدة في السجل');
+  eq(list[0].newPartnerName, 'ش3', 'اسم الشريك في السجل');
+  eq(list[0].journal.length >= 2, true, 'القيد محفوظ');
+  const d = list[0].journal.filter(l => l.side === 'debit').reduce((s, l) => s + l.amount, 0);
+  const c = list[0].journal.filter(l => l.side === 'credit').reduce((s, l) => s + l.amount, 0);
+  eq(d, c, 'القيد المحفوظ متوازن');
+  return 'سجل + قيد متوازن';
 });
 
 // ─────────── التقرير ───────────
