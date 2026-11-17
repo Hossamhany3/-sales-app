@@ -3538,8 +3538,26 @@ body.employee-mode #undoBtn { display: none !important; }
         receivablesTotal() {
             const inst = installments.filter(i => !i.isPaid)
                 .reduce((s, i) => s + Math.max(this.toNum(i.remainingBalance), 0), 0);
-            const arb = arabonSales.filter(a => !a.isPaid && !a.instId)
-                .reduce((s, a) => s + Math.max(this.getArabonTotals(a).remaining, 0), 0);
+            // مرور واحد على الحركات بدل مسحها مرة لكل عقد عربون (كان O(عقود × حركات))
+            const openArabons = arabonSales.filter(a => !a.isPaid && !a.instId);
+            const payByArabon = new Map();
+            if (openArabons.length && transactions.length) {
+                const ids = new Set(openArabons.map(a => String(a.id)));
+                transactions.forEach(t => {
+                    if (t.type !== 'payment_in' || t.sourceType === 'arabon' || t.instId) return;
+                    if (t.arabonId == null) return;
+                    const key = String(t.arabonId);
+                    if (!ids.has(key)) return;
+                    payByArabon.set(key, (payByArabon.get(key) || 0) + this.toNum(t.amount));
+                });
+            }
+            const arb = openArabons.reduce((s, a) => {
+                const sellPrice = this.toNum(a.sellPrice);
+                const deposit = this.toNum(a.depositAmount);
+                const payments = payByArabon.get(String(a.id)) || 0;
+                const paid = Math.min(deposit + payments, sellPrice);
+                return s + Math.max(sellPrice - paid, 0);
+            }, 0);
             return parseFloat((inst + arb).toFixed(2));
         },
 
@@ -3601,7 +3619,19 @@ body.employee-mode #undoBtn { display: none !important; }
         findProductForRecord(rec) {
             if (!rec) return null;
             if (rec.productId != null && rec.productId !== '') {
-                return products.find(p => String(p.id) === String(rec.productId)) || null;
+                // فهرس مؤقت للمعرفات: البحث الخطي عن الصنف لكل حركة كان يستهلك معظم زمن التقارير
+                // يُعاد بناء الفهرس تلقائياً إذا تغيّر مصفوف الصنوف (إضافة/حذف/استبدال المصفوفة)
+                const key = String(rec.productId);
+                const cache = this._prodIndex;
+                if (cache && cache.arr === products && cache.len === products.length) {
+                    const hit = cache.map.get(key);
+                    if (hit && String(hit.id) === key) return hit;
+                }
+                const map = new Map();
+                products.forEach(p => { if (p && p.id != null) map.set(String(p.id), p); });
+                this._prodIndex = { arr: products, len: products.length, map };
+                const found = map.get(key);
+                return (found && String(found.id) === key) ? found : null;
             }
             const nm = rec.deviceName || rec.productName || '';
             if (!nm) return null;
@@ -8585,9 +8615,11 @@ body.employee-mode #undoBtn { display: none !important; }
             cogs += BusinessLogic.recordUnitCost(a);
         });
 
+        // مجموعة مسبقة بدل مسح كل عقود العربون لكل عقد تقسيط
+        const convertedInstIds = new Set(arabonSales.filter(a => a.instId != null).map(a => String(a.instId)));
         filteredInst.forEach(inst => {
             // تخطي الأقساط الناتجة عن تحويل عربون (إيرادها محسوب بالفعل ضمن إيراد العربون)
-            if (arabonSales.some(a => a.instId == inst.id)) {
+            if (convertedInstIds.has(String(inst.id))) {
                 interestProfit += BusinessLogic.toNum(inst.totalAfterInterest) - BusinessLogic.toNum(inst.purchasePrice);
                 return;
             }
@@ -11870,9 +11902,10 @@ body.employee-mode #undoBtn { display: none !important; }
         });
 
         // 2) عقود التقسيط (تشمل ربح الفوائد)
+        const convInstIds = new Set(arabonSales.filter(a => a.instId != null).map(a => String(a.instId)));
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
-            if (arabonSales.some(a => a.instId == inst.id)) {
+            if (convInstIds.has(String(inst.id))) {
                 // محوّل من عربون: الوحدة والتكلفة حُسبتا ضمن العربون، تضاف الفائدة فقط
                 addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
@@ -11942,9 +11975,10 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             addSale(t.productId, null, qty, t.amount, BusinessLogic.recordUnitCost(t));
         });
+        const convInstIds = new Set(arabonSales.filter(a => a.instId != null).map(a => String(a.instId)));
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
-            if (arabonSales.some(a => a.instId == inst.id)) {
+            if (convInstIds.has(String(inst.id))) {
                 addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
                 // نفس معادلة الشاشة: سعر البيع الصافي (يشمل المقدم) + الفائدة
@@ -18950,9 +18984,10 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
             }
             addProdSale(t.productId, null, qty, t.amount, BusinessLogic.recordUnitCost(t));
         });
+        const convInstIds = new Set(arabonSales.filter(a => a.instId != null).map(a => String(a.instId)));
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
-            if (arabonSales.some(a => a.instId == inst.id)) {
+            if (convInstIds.has(String(inst.id))) {
                 addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
                 const netPrice = BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
