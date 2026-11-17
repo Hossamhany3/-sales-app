@@ -8617,15 +8617,24 @@ body.employee-mode #undoBtn { display: none !important; }
 
         filteredInst.forEach(inst => {
             // تخطي الأقساط الناتجة عن تحويل عربون (إيرادها محسوب بالفعل ضمن إيراد العربون)
-            if (arabonSales.some(a => a.instId == inst.id)) {
-                interestProfit += recognizeInstallmentInterest(inst, inst.totalAfterInterest - inst.purchasePrice, range);
-                return;
-            }
+            if (arabonSales.some(a => a.instId == inst.id)) return;
             // الإيراد صافي خصم العقد (مثل البيع النقدي: amount = sellPrice - discount)
             revenue += BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
             totalDiscounts += BusinessLogic.toNum(inst.discount);
             cogs += BusinessLogic.recordUnitCost(inst);
-            interestProfit += recognizeInstallmentInterest(inst, inst.totalAfterInterest - (inst.purchasePrice - (inst.paidUpfront || 0)), range);
+        });
+
+        // فوائد التقسيط تُعترف زمنياً لكل عقد امتدّت مدته داخل الفترة، لا للعقود الموقّعة داخل الفترة فقط؛
+        // وإلا ظهر الرقم صفراً في أي تقرير شهري لعقود سبقت بداية الفترة.
+        installments.forEach(inst => {
+            const price = BusinessLogic.toNum(inst.purchasePrice);
+            const financed = BusinessLogic.toNum(inst.totalAfterInterest);
+            // العربون المحوّل: ثمن الجهاز دخل إيراد العربون، فيبقى من التمويل المتبقي المحوّل فقط
+            const isFromArabon = arabonSales.some(a => a.instId == inst.id);
+            const totalInterest = isFromArabon
+                ? financed - price
+                : financed - (price - BusinessLogic.toNum(inst.paidUpfront));
+            interestProfit += recognizeInstallmentInterest(inst, totalInterest, range);
         });
 
         const totalCommissions = getTotalCommissions(range);
@@ -11905,8 +11914,10 @@ body.employee-mode #undoBtn { display: none !important; }
                 // محوّل من عربون: الوحدة والتكلفة حُسبتا ضمن العربون، تضاف الفائدة فقط
                 addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
-                // ربح التقسيط الكامل = سعر البيع + الفائدة (مع إضافة المقدم)
-                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0), BusinessLogic.recordUnitCost(inst));
+                // إيراد العقد = سعر البيع الصافي (يشمل المقدم) + الفائدة — لا تُضاف المقدمة مرة ثانية
+                const netPrice = BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
+                const instInterest = Math.max(BusinessLogic.toNum(inst.totalAfterInterest) - (BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.paidUpfront)), 0);
+                addSale(inst.productId, null, 1, netPrice + instInterest, BusinessLogic.recordUnitCost(inst));
             }
         });
 
