@@ -285,10 +285,10 @@
         .rs-item span { font-size: 1rem; }
         .report-tab { padding: 8px 0; }
         .report-tab h3 { margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-        .report-tab .flex-between { padding: 8px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+        .report-tab .flex-between { padding: 10px 0; border-bottom: 1px solid var(--border); gap: 12px; display: grid; grid-template-columns: 1fr auto; align-items: center; }
         .report-tab .flex-between:last-child { border-bottom: none; }
-        .report-tab .flex-between span { flex: 1; min-width: 0; word-break: break-word; }
-        .report-tab .flex-between strong { flex-shrink: 0; text-align: left; min-width: 80px; }
+        .report-tab .flex-between span { min-width: 0; word-break: break-word; }
+        .report-tab .flex-between strong { text-align: left; min-width: 80px; white-space: nowrap; }
         .cat-btn { padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(17,24,39,0.5);color:var(--text-muted);font-size:0.9rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit;font-weight:600; }
         .cat-btn.active { background:var(--primary);color:#fff;border-color:var(--primary); }
         .cat-btn:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
@@ -468,6 +468,12 @@
             .sale-row .info .detail { font-size: 0.75rem; }
             .sale-row .info { min-width: 140px; }
             .sale-row .balance { font-size: 0.82rem; }
+        }
+        @media (max-width: 640px) {
+            #reportDetailOverlay { padding: 8px; }
+            #reportDetailContent { padding: 12px; border-radius: 8px; max-width: 100%; }
+            .report-tab .flex-between { grid-template-columns: 1fr; gap: 4px; }
+            .report-tab .flex-between strong { text-align: right; min-width: auto; }
         }
 
         /* مبيعات التجار */
