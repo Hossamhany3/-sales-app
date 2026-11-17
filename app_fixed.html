@@ -11947,7 +11947,10 @@ body.employee-mode #undoBtn { display: none !important; }
             if (arabonSales.some(a => a.instId == inst.id)) {
                 addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
-                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0), BusinessLogic.recordUnitCost(inst));
+                // نفس معادلة الشاشة: سعر البيع الصافي (يشمل المقدم) + الفائدة
+                const netPrice = BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
+                const instInterest = Math.max(BusinessLogic.toNum(inst.totalAfterInterest) - (BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.paidUpfront)), 0);
+                addSale(inst.productId, null, 1, netPrice + instInterest, BusinessLogic.recordUnitCost(inst));
             }
         });
         arabonSales.filter(a => inRange(a.date, range)).forEach(a => {
@@ -18927,13 +18930,16 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
             })
         });
         const prodMap = {};
-        function addProdSale(productId, name, qty, revenue) {
+        function addProdSale(productId, name, qty, revenue, unitCost, countUnit) {
             let p = productId ? products.find(x => x.id == productId) : null;
             if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
-            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), cost: p ? (p.costPrice + (p.expenses || 0)) : 0, qty: 0, revenue: 0 };
-            prodMap[key].qty += qty || 1;
-            prodMap[key].revenue += revenue;
+            if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), qty: 0, revenue: 0, costTotal: 0 };
+            const units = countUnit === false ? 0 : (qty || 1);
+            prodMap[key].qty += units;
+            prodMap[key].revenue += Number(revenue) || 0;
+            const uc = (unitCost != null && isFinite(unitCost)) ? unitCost : (p ? (p.costPrice + (p.expenses || 0)) : 0);
+            prodMap[key].costTotal += (Number(uc) || 0) * units;
         }
         transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
             if (!t.productId) return;
@@ -18942,17 +18948,22 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
                 let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
                 if (mv && mv.qty) qty = mv.qty;
             }
-            addProdSale(t.productId, null, qty, t.amount);
+            addProdSale(t.productId, null, qty, t.amount, BusinessLogic.recordUnitCost(t));
         });
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
-            if (arabonSales.some(a => a.instId == inst.id)) addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
-            else addProdSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+            if (arabonSales.some(a => a.instId == inst.id)) {
+                addProdSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
+            } else {
+                const netPrice = BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
+                const instInterest = Math.max(BusinessLogic.toNum(inst.totalAfterInterest) - (BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.paidUpfront)), 0);
+                addProdSale(inst.productId, null, 1, netPrice + instInterest, BusinessLogic.recordUnitCost(inst));
+            }
         });
-        arabonSales.filter(a => inRange(a.date, range)).forEach(a => { if (a.productId) addProdSale(a.productId, null, 1, a.sellPrice); });
+        arabonSales.filter(a => inRange(a.date, range)).forEach(a => { if (a.productId) addProdSale(a.productId, null, 1, a.sellPrice, BusinessLogic.recordUnitCost(a)); });
         merchantSales.filter(s => inRange(s.date, range)).forEach(s => {
             let qty = s.quantity || 1;
-            addProdSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty);
+            addProdSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty, BusinessLogic.recordUnitCost(s));
         });
         sheets.push({
             title: 'أرباح الأصناف (' + dateLabel + ')',
