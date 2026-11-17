@@ -277,6 +277,12 @@
         .tab-btn { padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(17,24,39,0.5);color:var(--text-muted);font-size:0.85rem;cursor:pointer;transition:color 0.15s ease,border-color 0.15s ease,background-color 0.15s ease;font-family:inherit; }
         .tab-btn.active { background:var(--gradient-primary);color:#fff;border-color:var(--primary); }
         .tab-btn:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
+        .cat-btn { padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(17,24,39,0.5);color:var(--text-muted);font-size:0.9rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit;font-weight:600; }
+        .cat-btn.active { background:var(--primary);color:#fff;border-color:var(--primary); }
+        .cat-btn:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
+        .subtab-btn { padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:0.82rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit; }
+        .subtab-btn.active { background:var(--primary-light);color:var(--primary);border-color:var(--primary);font-weight:700; }
+        .subtab-btn:hover:not(.active) { border-color:var(--primary); }
         .grid-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px; }
 
         #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
@@ -1917,23 +1923,17 @@ body.employee-mode #undoBtn { display: none !important; }
                     </div>
                 </div>
 
-                <!-- قائمة تبويب -->
-                <div class="report-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
-                    <button class="tab-btn active" data-tab="tabPnl" onclick="switchReportTab('tabPnl')">📊 قائمة الدخل</button>
-                    <button class="tab-btn" data-tab="tabBalance" onclick="switchReportTab('tabBalance')">🏦 المركز المالي</button>
-                    <button class="tab-btn" data-tab="tabDebt" onclick="switchReportTab('tabDebt')">📋 تحليل المديونية</button>
-                    <button class="tab-btn" data-tab="tabChart" onclick="switchReportTab('tabChart')">📈 الرسوم البيانية</button>
-                    <button class="tab-btn" data-tab="tabDaily" onclick="switchReportTab('tabDaily')">📅 التقرير اليومي</button>
-                    <button class="tab-btn" data-tab="tabProdProfit" onclick="switchReportTab('tabProdProfit')">📦 أرباح الأصناف</button>
-                    <button class="tab-btn" data-tab="tabCompare" onclick="switchReportTab('tabCompare')">📊 مقارنة</button>
-                    <button class="tab-btn" data-tab="tabStockMov" onclick="switchReportTab('tabStockMov')">📋 حركة المخزون</button>
-                    <button class="tab-btn" data-tab="tabStatement" onclick="switchReportTab('tabStatement')">📋 كشف الحساب العام</button>
-                    <button class="tab-btn" data-tab="tabCommissions" onclick="switchReportTab('tabCommissions')">🧑‍💼 تقرير العمولات</button>
-                    <button class="tab-btn" data-tab="tabAuditLog" onclick="switchReportTab('tabAuditLog')">📋 سجل التدقيق</button>
-                    <button class="tab-btn" data-tab="tabCoA" onclick="switchReportTab('tabCoA')">📚 شجرة الحسابات</button>
-                    <button class="tab-btn" data-tab="tabRepair" onclick="switchReportTab('tabRepair')">🛠️ مركز الإصلاح</button>
-                    <button class="tab-btn" data-tab="tabCashFlow" onclick="switchReportTab('tabCashFlow')">💸 التدفق النقدي</button>
-                    <button class="tab-btn" data-tab="tabAgeing" onclick="switchReportTab('tabAgeing')">⏳ تقادم الديون</button>
+                <!-- قائمة تبويب مجمّعة -->
+                <div class="report-categories" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+                    <button class="cat-btn active" data-cat="financial" onclick="switchReportCategory('financial')">💰 مالية</button>
+                    <button class="cat-btn" data-cat="sales" onclick="switchReportCategory('sales')">📊 مبيعات</button>
+                    <button class="cat-btn" data-cat="inventory" onclick="switchReportCategory('inventory')">📦 مخزون</button>
+                    <button class="cat-btn" data-cat="customers" onclick="switchReportCategory('customers')">👥 عملاء</button>
+                    <button class="cat-btn" data-cat="charts" onclick="switchReportCategory('charts')">📈 رسوم</button>
+                    <button class="cat-btn" data-cat="admin" onclick="switchReportCategory('admin')">🛠️ إدارية</button>
+                </div>
+                <div class="report-subtabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:8px;background:var(--bg-muted);border-radius:8px;">
+                    <!-- يتم تعبئتها ديناميكياً -->
                 </div>
 
                 <!-- P&L -->
@@ -9479,10 +9479,10 @@ body.employee-mode #undoBtn { display: none !important; }
 
     function switchReportTab(tabId) {
         document.querySelectorAll('.report-tab').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.subtab-btn').forEach(el => el.classList.remove('active'));
         const tab = document.getElementById(tabId);
         if (tab) { tab.style.display = 'block'; }
-        const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+        const btn = document.querySelector(`.subtab-btn[data-tab="${tabId}"]`);
         if (btn) btn.classList.add('active');
         if (tabId === 'tabChart') { setTimeout(() => { drawChart('reportChartCanvas'); drawExpensePie(); }, 100); }
         if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
@@ -9498,6 +9498,53 @@ body.employee-mode #undoBtn { display: none !important; }
         if (tabId === 'tabCashFlow') { setTimeout(() => renderCashFlow(), 50); }
         if (tabId === 'tabAgeing') { setTimeout(() => renderAgeingReport(), 50); }
     }
+
+    const REPORT_CATEGORIES = {
+        financial: [
+            { id: 'tabPnl', label: '📊 قائمة الدخل' },
+            { id: 'tabBalance', label: '🏦 المركز المالي' },
+            { id: 'tabCashFlow', label: '💸 التدفق النقدي' },
+            { id: 'tabStatement', label: '📋 كشف الحساب العام' }
+        ],
+        sales: [
+            { id: 'tabDaily', label: '📅 التقرير اليومي' },
+            { id: 'tabProdProfit', label: '📦 أرباح الأصناف' },
+            { id: 'tabCompare', label: '📊 مقارنة' },
+            { id: 'tabCommissions', label: '🧑‍💼 العمولات' }
+        ],
+        inventory: [
+            { id: 'tabStockMov', label: '📋 حركة المخزون' },
+            { id: 'tabCoA', label: '📚 شجرة الحسابات' },
+            { id: 'tabRepair', label: '🛠️ مركز الإصلاح' }
+        ],
+        customers: [
+            { id: 'tabDebt', label: '📋 تحليل المديونية' },
+            { id: 'tabAgeing', label: '⏳ تقادم الديون' }
+        ],
+        charts: [
+            { id: 'tabChart', label: '📈 الرسوم البيانية' }
+        ],
+        admin: [
+            { id: 'tabAuditLog', label: '📋 سجل التدقيق' }
+        ]
+    };
+
+    function switchReportCategory(cat) {
+        document.querySelectorAll('.cat-btn').forEach(el => el.classList.remove('active'));
+        const catBtn = document.querySelector(`.cat-btn[data-cat="${cat}"]`);
+        if (catBtn) catBtn.classList.add('active');
+        const subs = REPORT_CATEGORIES[cat] || [];
+        const subContainer = document.querySelector('.report-subtabs');
+        if (subContainer) {
+            subContainer.innerHTML = subs.map(s =>
+                `<button class="subtab-btn" data-tab="${s.id}" onclick="switchReportTab('${s.id}')">${s.label}</button>`
+            ).join('');
+        }
+        // activate first subtab
+        if (subs.length) switchReportTab(subs[0].id);
+    }
+    window.switchReportCategory = switchReportCategory;
+    window.switchReportTab = switchReportTab;
 
     // ====== سجل التدقيق (عرض + تصدير) ======
     const AUDIT_ACTION_LABELS = {
@@ -19502,6 +19549,7 @@ const backup = {
         document.getElementById(pageId).classList.add('active-page');
         if (pageId === 'admin') renderAdminPage();
         if (pageId === 'settings') { renderBackupsList(); renderRecycleBinCount(); updatePeriodLockStatus(); renderPermissionSettings(); }
+        if (pageId === 'reports') { switchReportCategory('financial'); }
     }
 
     const menuBtn = document.getElementById('menuToggleBtn');
