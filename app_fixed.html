@@ -1929,41 +1929,41 @@ body.employee-mode #undoBtn { display: none !important; }
                     </div>
                 </div>
 
-                <!-- تخطيط شريط جانبي + محتوى -->
-                <div class="report-sidebar-layout" style="display:flex;gap:16px;align-items:flex-start;">
-                    <nav class="report-sidebar" style="width:220px;flex-shrink:0;background:var(--bg-muted);border-radius:10px;padding:12px;border:1px solid var(--border);max-height:70vh;overflow-y:auto;">
-                        <div class="rs-group">
-                            <div class="rs-group-title">💰 مالية</div>
-                            <div class="rs-item active" data-tab="tabPnl" onclick="switchReportTab('tabPnl')"><span>📊</span> قائمة الدخل</div>
-                            <div class="rs-item" data-tab="tabBalance" onclick="switchReportTab('tabBalance')"><span>🏦</span> المركز المالي</div>
-                            <div class="rs-item" data-tab="tabCashFlow" onclick="switchReportTab('tabCashFlow')"><span>💸</span> التدفق النقدي</div>
-                            <div class="rs-item" data-tab="tabStatement" onclick="switchReportTab('tabStatement')"><span>📋</span> كشف الحساب</div>
-                        </div>
-                        <div class="rs-group">
-                            <div class="rs-group-title">📊 مبيعات</div>
-                            <div class="rs-item" data-tab="tabDaily" onclick="switchReportTab('tabDaily')"><span>📅</span> التقرير اليومي</div>
-                            <div class="rs-item" data-tab="tabProdProfit" onclick="switchReportTab('tabProdProfit')"><span>📦</span> أرباح الأصناف</div>
-                            <div class="rs-item" data-tab="tabCompare" onclick="switchReportTab('tabCompare')"><span>📊</span> مقارنة</div>
-                            <div class="rs-item" data-tab="tabCommissions" onclick="switchReportTab('tabCommissions')"><span>🧑‍💼</span> العمولات</div>
-                        </div>
-                        <div class="rs-group">
-                            <div class="rs-group-title">👥 عملاء</div>
-                            <div class="rs-item" data-tab="tabDebt" onclick="switchReportTab('tabDebt')"><span>📋</span> المديونية</div>
-                            <div class="rs-item" data-tab="tabAgeing" onclick="switchReportTab('tabAgeing')"><span>⏳</span> التقادم</div>
-                        </div>
-                        <div class="rs-group">
-                            <div class="rs-group-title">📦 مخزون</div>
-                            <div class="rs-item" data-tab="tabStockMov" onclick="switchReportTab('tabStockMov')"><span>📋</span> حركة المخزون</div>
-                            <div class="rs-item" data-tab="tabCoA" onclick="switchReportTab('tabCoA')"><span>📚</span> شجرة الحسابات</div>
-                            <div class="rs-item" data-tab="tabRepair" onclick="switchReportTab('tabRepair')"><span>🛠️</span> مركز الإصلاح</div>
-                        </div>
-                        <div class="rs-group">
-                            <div class="rs-group-title">📈 رسوم + 🛠️ إدارية</div>
-                            <div class="rs-item" data-tab="tabChart" onclick="switchReportTab('tabChart')"><span>📈</span> الرسوم البيانية</div>
-                            <div class="rs-item" data-tab="tabAuditLog" onclick="switchReportTab('tabAuditLog')"><span>📋</span> سجل التدقيق</div>
-                        </div>
-                    </nav>
-                    <div class="report-content" style="flex:1;min-width:0;">
+                <!-- قائمة تقارير (مغلقة) -->
+                <div class="report-list" style="display:flex;flex-direction:column;gap:6px;">
+                    <div class="rs-group-title" style="padding:4px 8px;">💰 مالية</div>
+                    <div class="rs-item" data-tab="tabPnl" onclick="openReportDetail('tabPnl')"><span>📊</span> قائمة الدخل</div>
+                    <div class="rs-item" data-tab="tabBalance" onclick="openReportDetail('tabBalance')"><span>🏦</span> المركز المالي</div>
+                    <div class="rs-item" data-tab="tabCashFlow" onclick="openReportDetail('tabCashFlow')"><span>💸</span> التدفق النقدي</div>
+                    <div class="rs-item" data-tab="tabStatement" onclick="openReportDetail('tabStatement')"><span>📋</span> كشف الحساب</div>
+                    <div class="rs-group-title" style="padding:4px 8px;margin-top:8px;">📊 مبيعات</div>
+                    <div class="rs-item" data-tab="tabDaily" onclick="openReportDetail('tabDaily')"><span>📅</span> التقرير اليومي</div>
+                    <div class="rs-item" data-tab="tabProdProfit" onclick="openReportDetail('tabProdProfit')"><span>📦</span> أرباح الأصناف</div>
+                    <div class="rs-item" data-tab="tabCompare" onclick="openReportDetail('tabCompare')"><span>📊</span> مقارنة</div>
+                    <div class="rs-item" data-tab="tabCommissions" onclick="openReportDetail('tabCommissions')"><span>🧑‍💼</span> العمولات</div>
+                    <div class="rs-group-title" style="padding:4px 8px;margin-top:8px;">👥 عملاء</div>
+                    <div class="rs-item" data-tab="tabDebt" onclick="openReportDetail('tabDebt')"><span>📋</span> المديونية</div>
+                    <div class="rs-item" data-tab="tabAgeing" onclick="openReportDetail('tabAgeing')"><span>⏳</span> التقادم</div>
+                    <div class="rs-group-title" style="padding:4px 8px;margin-top:8px;">📦 مخزون</div>
+                    <div class="rs-item" data-tab="tabStockMov" onclick="openReportDetail('tabStockMov')"><span>📋</span> حركة المخزون</div>
+                    <div class="rs-item" data-tab="tabCoA" onclick="openReportDetail('tabCoA')"><span>📚</span> شجرة الحسابات</div>
+                    <div class="rs-item" data-tab="tabRepair" onclick="openReportDetail('tabRepair')"><span>🛠️</span> مركز الإصلاح</div>
+                    <div class="rs-group-title" style="padding:4px 8px;margin-top:8px;">📈 رسوم + 🛠️ إدارية</div>
+                    <div class="rs-item" data-tab="tabChart" onclick="openReportDetail('tabChart')"><span>📈</span> الرسوم البيانية</div>
+                    <div class="rs-item" data-tab="tabAuditLog" onclick="openReportDetail('tabAuditLog')"><span>📋</span> سجل التدقيق</div>
+                </div>
+
+                <!-- Report detail overlay (full-screen) -->
+                <div id="reportDetailOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);overflow:auto;padding:16px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <button onclick="closeReportDetail()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);cursor:pointer;font-family:inherit;font-size:0.9rem;">← رجوع</button>
+                        <h3 id="reportDetailTitle" style="flex:1;font-size:1.1rem;color:var(--primary);margin:0;"></h3>
+                        <div id="reportDetailActions" style="display:flex;gap:6px;"></div>
+                    </div>
+                    <div id="reportDetailContent" style="max-width:1100px;margin:0 auto;">
+                        <!-- report tab content moved here -->
+                    </div>
+                </div>
 
                 <!-- P&L -->
                 <div id="tabPnl" class="report-tab">
@@ -2212,9 +2212,6 @@ body.employee-mode #undoBtn { display: none !important; }
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="renderAgeingReport()">🔄 تحديث</button>
                     </div>
                     <div id="ageingReportContent"></div>
-                </div>
-
-                </div>
                 </div>
 
                 <!-- أزرار التصدير -->
@@ -9510,12 +9507,34 @@ body.employee-mode #undoBtn { display: none !important; }
     }
 
     function switchReportTab(tabId) {
+        // (kept for compatibility; now opens detail overlay)
+        openReportDetail(tabId);
+    }
+
+    const REPORT_TITLES = {
+        tabPnl: '📊 قائمة الدخل', tabBalance: '🏦 المركز المالي', tabCashFlow: '💸 التدفق النقدي',
+        tabStatement: '📋 كشف الحساب', tabDaily: '📅 التقرير اليومي', tabProdProfit: '📦 أرباح الأصناف',
+        tabCompare: '📊 مقارنة', tabCommissions: '🧑‍💼 العمولات', tabDebt: '📋 المديونية',
+        tabAgeing: '⏳ التقادم', tabStockMov: '📋 حركة المخزون', tabCoA: '📚 شجرة الحسابات',
+        tabRepair: '🛠️ مركز الإصلاح', tabChart: '📈 الرسوم البيانية', tabAuditLog: '📋 سجل التدقيق'
+    };
+
+    function openReportDetail(tabId) {
+        const title = REPORT_TITLES[tabId] || tabId;
+        document.getElementById('reportDetailTitle').textContent = title;
+        // hide all report tabs
         document.querySelectorAll('.report-tab').forEach(el => el.style.display = 'none');
-        document.querySelectorAll('.rs-item').forEach(el => el.classList.remove('active'));
         const tab = document.getElementById(tabId);
-        if (tab) { tab.style.display = 'block'; }
-        const btn = document.querySelector(`.rs-item[data-tab="${tabId}"]`);
-        if (btn) btn.classList.add('active');
+        if (tab) {
+            tab.style.display = 'block';
+            const content = document.getElementById('reportDetailContent');
+            if (content && tab.parentNode !== content) {
+                content.appendChild(tab);
+            }
+        }
+        document.getElementById('reportDetailOverlay').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        // render hooks
         if (tabId === 'tabChart') { setTimeout(() => { drawChart('reportChartCanvas'); drawExpensePie(); }, 100); }
         if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
         if (tabId === 'tabDaily') { setTimeout(() => renderDailySummary(), 50); }
@@ -9530,6 +9549,14 @@ body.employee-mode #undoBtn { display: none !important; }
         if (tabId === 'tabCashFlow') { setTimeout(() => renderCashFlow(), 50); }
         if (tabId === 'tabAgeing') { setTimeout(() => renderAgeingReport(), 50); }
     }
+    window.openReportDetail = openReportDetail;
+
+    function closeReportDetail() {
+        document.getElementById('reportDetailOverlay').style.display = 'none';
+        document.body.style.overflow = '';
+        // move tabs back? They stay in overlay; fine for next open
+    }
+    window.closeReportDetail = closeReportDetail;
 
     const REPORT_CATEGORIES = {
         financial: [
@@ -19581,7 +19608,7 @@ const backup = {
         document.getElementById(pageId).classList.add('active-page');
         if (pageId === 'admin') renderAdminPage();
         if (pageId === 'settings') { renderBackupsList(); renderRecycleBinCount(); updatePeriodLockStatus(); renderPermissionSettings(); }
-        if (pageId === 'reports') { switchReportTab('tabPnl'); }
+        if (pageId === 'reports') { /* list only; report opens on click */ }
     }
 
     const menuBtn = document.getElementById('menuToggleBtn');
