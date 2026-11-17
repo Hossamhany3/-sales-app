@@ -282,7 +282,7 @@
         .tab-btn:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
         .rs-group { margin-bottom: 14px; }
         .rs-group-title { font-size: 0.72rem; color: var(--primary); font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 4px; }
-        .rs-item { padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text); margin-bottom: 2px; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+        .rs-item { padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; color: var(--text-main); margin-bottom: 2px; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
         .rs-item:hover { background: var(--card-bg); }
         .rs-item.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
         .rs-item span { font-size: 1rem; }
@@ -292,16 +292,15 @@
         .report-tab .flex-between:last-child { border-bottom: none; }
         .report-tab .flex-between span { min-width: 0; word-break: break-word; }
         .report-tab .flex-between strong { text-align: left; min-width: 80px; white-space: nowrap; }
-        .cat-btn { padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(17,24,39,0.5);color:var(--text-muted);font-size:0.9rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit;font-weight:600; }
-        .cat-btn.active { background:var(--primary);color:#fff;border-color:var(--primary); }
-        .cat-btn:hover:not(.active) { border-color:var(--primary); color:var(--primary); }
-        .subtab-btn { padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font-size:0.82rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit; }
+        .subtab-btn { padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);font-size:0.82rem;cursor:pointer;transition:all 0.15s ease;font-family:inherit; }
         .subtab-btn.active { background:var(--primary-light);color:var(--primary);border-color:var(--primary);font-weight:700; }
         .subtab-btn:hover:not(.active) { border-color:var(--primary); }
         .grid-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px; }
 
         /* ===== أزرار التقارير الداخلية: نفس شكل أزرار البرنامج (Rounded) ===== */
-        #reports button {
+        /* تُطبَّق على أزرار التقارير الحقيقية فقط: أزرار الجداول الصغيرة (.btn-sm)
+           وأزرار واتساب وزر الرجوع تبقى بشكلها الطبيعي. */
+        #reports button:not(.btn-sm):not(.whatsapp-btn):not(.report-back-btn) {
             border-radius: 12px !important;
             border: none !important;
             background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
@@ -313,18 +312,18 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
             transition: all 0.15s ease !important;
         }
-        #reports button:hover {
+        #reports button:not(.btn-sm):not(.whatsapp-btn):not(.report-back-btn):hover {
             transform: translateY(-2px) !important;
             box-shadow: 0 6px 20px rgba(99,102,241,0.3) !important;
             filter: brightness(1.05) !important;
         }
-        #reports button:active {
+        #reports button:not(.btn-sm):not(.whatsapp-btn):not(.report-back-btn):active {
             transform: translateY(0) !important;
             box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
             filter: brightness(0.95) !important;
         }
-        #reports button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-        #reports button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; filter: none !important; box-shadow: none !important; }
+        #reports button:not(.btn-sm):not(.whatsapp-btn):not(.report-back-btn):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        #reports button:not(.btn-sm):not(.whatsapp-btn):not(.report-back-btn):disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; filter: none !important; box-shadow: none !important; }
         #reports button.btn-success { background: linear-gradient(135deg, var(--success), #00C853) !important; }
         #reports button.btn-danger { background: linear-gradient(135deg, var(--danger), #D50000) !important; }
 
@@ -361,7 +360,7 @@
         #reports .report-list .rs-item span { font-size: 1.15rem; }
         #reports .report-list .rs-group-title { padding: 10px 6px 2px !important; }
 
-        #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+        #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 8px; }
         .toast { background: var(--card-bg-solid); color: white; padding: 12px 20px; border-radius: 50px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--card-border); animation: slideUp 0.3s forwards; display: flex; align-items: center; gap: 8px; }
         .toast.success { background: linear-gradient(135deg, rgba(0,230,118,0.2), rgba(0,200,83,0.15)); border-color: rgba(0,230,118,0.3); color: var(--success); }
         .toast.error { background: linear-gradient(135deg, rgba(255,82,82,0.2), rgba(213,0,0,0.15)); border-color: rgba(255,82,82,0.3); color: var(--danger); }
@@ -1333,9 +1332,9 @@ body.employee-mode #undoBtn { display: none !important; }
             <div class="flex-between" style="margin-bottom:14px;">
                 <h2 style="margin:0;font-size:1.1rem;">📊 لوحة التحكم الذكية</h2>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <input type="date" id="ccDateFrom" onchange="renderCommandCenter()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
+                    <input type="date" id="ccDateFrom" onchange="applyCommandCenterDate()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
                     <span style="color:var(--text-muted);font-size:0.78rem;">إلى</span>
-                    <input type="date" id="ccDateTo" onchange="renderCommandCenter()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
+                    <input type="date" id="ccDateTo" onchange="applyCommandCenterDate()" style="padding:5px 8px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;background:var(--card-bg);color:var(--text-main);width:auto;">
                 </div>
             </div>
 
@@ -1997,11 +1996,11 @@ body.employee-mode #undoBtn { display: none !important; }
                 <div class="grid-2" style="margin-bottom:16px;">
                     <div class="form-group" style="margin:0;">
                         <label>📅 من تاريخ</label>
-                        <input type="date" id="reportDateFrom" onchange="renderDashboard()">
+                        <input type="date" id="reportDateFrom" onchange="rerenderCurrentReport()">
                     </div>
                     <div class="form-group" style="margin:0;">
                         <label>📅 إلى تاريخ</label>
-                        <input type="date" id="reportDateTo" onchange="renderDashboard()">
+                        <input type="date" id="reportDateTo" onchange="rerenderCurrentReport()">
                     </div>
                 </div>
 
@@ -2029,20 +2028,8 @@ body.employee-mode #undoBtn { display: none !important; }
                     <div class="rs-item" data-tab="tabAuditLog" onclick="openReportDetail('tabAuditLog')"><span>📋</span> سجل التدقيق</div>
                 </div>
 
-                <!-- Report detail overlay (full-screen) -->
-                <div id="reportDetailOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--background);overflow:auto;padding:16px;">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-                        <button onclick="closeReportDetail()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text);cursor:pointer;font-family:inherit;font-size:0.9rem;">← رجوع</button>
-                        <h3 id="reportDetailTitle" style="flex:1;font-size:1.1rem;color:var(--primary);margin:0;"></h3>
-                        <div id="reportDetailActions" style="display:flex;gap:6px;"></div>
-                    </div>
-                    <div id="reportDetailContent" style="width:100%;max-width:900px;margin:0 auto;background:var(--card-bg);border-radius:12px;padding:24px;border:1px solid var(--border);">
-                        <!-- report tab content moved here -->
-                    </div>
-                </div>
-
                 <!-- P&L -->
-                <div id="tabPnl" class="report-tab">
+                <div id="tabPnl" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:12px;">📊 قائمة الدخل</h3>
                     <div style="display:flex;gap:8px;margin-bottom:10px;">
                         <button onclick="exportPnlCSV()" class="btn-outline" style="flex:1;padding:8px 10px;font-size:0.85rem;">📎 تصدير CSV</button>
@@ -2248,7 +2235,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 <!-- شجرة الحسابات وميزان المراجعة -->
                 <div id="tabCoA" class="report-tab" style="display:none;">
                     <h3 style="font-size:1rem;margin-bottom:4px;">📚 شجرة الحسابات وميزان المراجعة</h3>
-                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">ميزان مراجعة تراكمي مبني على نفس محركات التقارير. أي فرق لا تفسره البيانات يظهر صراحةً في سطر «فروق غير مفسرة» بدل إخفائه.</p>
+                    <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:12px;">ميزان مراجعة تراكمي مبني على نفس محركات التقارير. يوضّح سطر «أرصدة افتتاحية / رأس مال غير مسجل» الجزء اللازم لموازنة الميزان، ويظهر فرق تقييم شراء التجار كسطر تذكاري.</p>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="renderChartOfAccounts()">🔄 تحديث</button>
                         <button class="btn-sm btn-outline" style="width:auto;" onclick="printChartOfAccounts()">🖨️ طباعة / PDF</button>
@@ -2297,6 +2284,24 @@ body.employee-mode #undoBtn { display: none !important; }
                     <button id="exportFullReportBtn" class="btn-outline" style="width:100%;">📊 CSV تقرير شامل</button>
                     <button id="exportExcelBtn" class="btn-outline" style="width:100%;">📗 تصدير Excel</button>
                     <button id="printReportBtn" class="btn-outline" style="width:100%;">🖨️ طباعة التقرير</button>
+                </div>
+            </div>
+
+            <!-- Report detail overlay (full-screen) — خارج بطاقة التقارير حتى لا تتأثر بـ contain/transform -->
+            <div id="reportDetailOverlay" role="dialog" aria-modal="true" aria-labelledby="reportDetailTitle" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--background);overflow:auto;-webkit-overflow-scrolling:touch;padding:16px;">
+                <div style="position:sticky;top:-16px;z-index:2;background:var(--background);display:flex;align-items:center;gap:12px;margin:-16px -16px 16px;padding:16px;border-bottom:1px solid var(--border);">
+                    <button onclick="closeReportDetail()" class="report-back-btn" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);cursor:pointer;font-family:inherit;font-size:0.9rem;">← رجوع</button>
+                    <h3 id="reportDetailTitle" style="flex:1;font-size:1.1rem;color:var(--primary);margin:0;"></h3>
+                    <div id="reportDetailActions" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                        <input type="date" id="detailDateFrom" onchange="applyDetailDate()" title="من تاريخ" style="padding:4px 6px;border-radius:8px;border:1px solid var(--border);font-size:0.72rem;background:var(--card-bg);color:var(--text-main);width:auto;">
+                        <span style="color:var(--text-muted);font-size:0.72rem;">إلى</span>
+                        <input type="date" id="detailDateTo" onchange="applyDetailDate()" title="إلى تاريخ" style="padding:4px 6px;border-radius:8px;border:1px solid var(--border);font-size:0.72rem;background:var(--card-bg);color:var(--text-main);width:auto;">
+                        <button type="button" onclick="printCurrentReport()" title="طباعة هذا التقرير" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);cursor:pointer;font-family:inherit;font-size:0.78rem;">🖨️ طباعة</button>
+                        <button type="button" onclick="exportCurrentReportCSV()" title="تصدير هذا التقرير CSV" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card-bg);color:var(--text-main);cursor:pointer;font-family:inherit;font-size:0.78rem;">📎 CSV</button>
+                    </div>
+                </div>
+                <div id="reportDetailContent" tabindex="-1" style="width:100%;max-width:900px;margin:0 auto;background:var(--card-bg);border-radius:12px;padding:24px;border:1px solid var(--border);outline:none;">
+                    <!-- report tab content moved here -->
                 </div>
             </div>
         </div>
@@ -2852,9 +2857,13 @@ body.employee-mode #undoBtn { display: none !important; }
     window._confirmModal = _confirmModal;
     _defaultConfirmModal = window._confirmModal;
 
-    // دعم مفتاح Enter
+    // دعم مفتاح Enter + إغلاق نافذة التقرير بـ Escape
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') _closeModal(null);
+        if (e.key === 'Escape') {
+            const ro = document.getElementById('reportDetailOverlay');
+            if (ro && ro.style.display !== 'none' && typeof window.closeReportDetail === 'function') window.closeReportDetail();
+            else _closeModal(null);
+        }
         if (e.key === 'Enter') {
             const overlay = document.getElementById('modalOverlay');
             if (overlay && overlay.classList.contains('show')) (window._confirmModal || _confirmModal)();
@@ -4057,9 +4066,23 @@ body.employee-mode #undoBtn { display: none !important; }
             const sum = (arr, k) => arr.reduce((s, l) => s + this.toNum(l[k]), 0);
             let totalDebit = sum(leaves, 'debit');
             let totalCredit = sum(leaves, 'credit');
-            let difference = totalDebit - totalCredit;
+            // الفرق قبل الموازنة = حقوق ملكية/أرصدة افتتاحية لم تُسجَّل كقيد
+            // (مثل مخزون أُدخل يدويًا أو رأس مال افتتاحي غير مسجل). نُظهره كسطر مسمّى
+            // ضمن حقوق الملكية بدل تركه «فروقًا غير مفسرة» تجعل الميزان يبدو مكسورًا دائمًا.
+            const openingEquityGap = parseFloat((totalDebit - totalCredit).toFixed(2));
+            if (Math.abs(openingEquityGap) >= 0.01) {
+                push('311', '313-OPEN', 'أرصدة افتتاحية / رأس مال غير مسجل',
+                    openingEquityGap < 0 ? -openingEquityGap : 0,
+                    openingEquityGap > 0 ? openingEquityGap : 0);
+            }
 
-            // 323: فرق تقييم شراء التاجر (مفسَّر) — يُطرح من الفرق ليظهر في 322 ما يحتاج مراجعة فقط
+            totalDebit = sum(leaves, 'debit');
+            totalCredit = sum(leaves, 'credit');
+            // الفرق الحقيقي هو فرق ما قبل سطر الموازنة (313-OPEN):
+            // السطر يوضّح القيد الناقص، ولا يجوز أن يجعل الفرق يبدو صفرًا.
+            let difference = openingEquityGap;
+
+            // 323: فرق تقييم شراء التاجر — سطر تذكاري (memo) لا يؤثر على توازن الميزان
             const explained = this.merchantPurchaseValuationDiff();
             const unexplained = parseFloat((difference - explained).toFixed(2));
 
@@ -4150,7 +4173,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     explained,
                     unexplained,
                     explainedFully: Math.abs(unexplained) < 0.01 && Math.abs(explained) >= 0.01,
-                    balanced: Math.abs(difference) < 0.01
+                    balanced: Math.abs(unexplained) < 0.01
                 },
                 summary: {
                     assets,
@@ -4160,7 +4183,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     difference,
                     explained,
                     unexplained,
-                    balanced: Math.abs(difference) < 0.01
+                    balanced: Math.abs(unexplained) < 0.01
                 },
                 income: {
                     revenue: inc.revenue,
@@ -7782,17 +7805,9 @@ body.employee-mode #undoBtn { display: none !important; }
     }
 
     function drawChart(canvasId) {
-        let canvas;
-        if (canvasId) {
-            canvas = document.getElementById(canvasId);
-        } else {
-            const reportsTab = document.getElementById('tabChart');
-            if (reportsTab && reportsTab.style.display !== 'none' && document.getElementById('reportChartCanvas')) {
-                canvas = document.getElementById('reportChartCanvas');
-            } else {
-                canvas = document.getElementById('chartCanvas');
-            }
-        }
+        // الهدف الافتراضي هو رسم لوحة التحكم؛ تقرير الرسوم يمرّر معرّفه صراحةً
+        // (يمنع أن تُرسم رسوم لوحة التحكم داخل كانفس مخفي فتظهر فارغة).
+        const canvas = document.getElementById(canvasId || 'chartCanvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
@@ -8263,7 +8278,8 @@ body.employee-mode #undoBtn { display: none !important; }
             'renderInstallments', 'renderAccounts', 'renderPartners', 'renderEmployees', 'renderAdminPage',
             'renderMerchantSales', 'renderMerchantPurchases', 'renderMerchantPage', 'renderArabonSales',
             'renderAuditLog', 'renderCommandCenter', 'renderNotifications', 'renderRepairCenter',
-            'updateStorageInfo', 'renderChartOfAccounts', 'renderCashFlow', 'renderAgeingReport'];
+            'updateStorageInfo', 'renderChartOfAccounts', 'renderCashFlow', 'renderAgeingReport',
+            'renderDailySummary', 'renderProductProfit', 'renderCommissions', 'renderStockMovements', 'renderComparison'];
         fns.forEach(n => {
             try { if (typeof window[n] === 'function') window[n](); } catch (e) { /* شاشة غير نشطة */ }
         });
@@ -8464,7 +8480,9 @@ body.employee-mode #undoBtn { display: none !important; }
 
     function inRange(dateStr, range) {
         if (!range.from && !range.to) return true;
+        if (!dateStr) return false;
         const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
         if (range.from && d < range.from) return false;
         if (range.to && d > range.to) return false;
         return true;
@@ -8502,6 +8520,36 @@ body.employee-mode #undoBtn { display: none !important; }
     // مصدر واحد لحساب الإيراد/التكلفة/المصروف/الفائدة/العمولات لأي فترة،
     // حتى تتطابق التقارير والشاشات والرسوم البيانية مع نفس السياسة المحاسبية.
     // ══════════════════════════════════════════════════════════════
+    // ─── توزيع فائدة التقسيط على مدة العقد (استحقاق زمني) ───
+    // الفائدة تُعترف تدريجياً بين تاريخ التعاقد وتاريخ آخر قسط، لا كاملة في شهر التعاقد.
+    function recognizeInstallmentInterest(inst, totalInterest, range) {
+        const interest = BusinessLogic.toNum(totalInterest);
+        if (!(interest > 0)) return 0;
+        const startRaw = inst.date || inst.firstDueDate;
+        const start = startRaw ? new Date(startRaw) : null;
+        if (!start || isNaN(start.getTime())) return interest;
+        let end = null;
+        const sched = inst.schedule || [];
+        if (sched.length) {
+            const last = sched[sched.length - 1];
+            if (last && last.dueDate) {
+                const d = new Date(last.dueDate);
+                if (!isNaN(d.getTime())) end = d;
+            }
+        }
+        if (!end) {
+            end = new Date(start);
+            end.setMonth(end.getMonth() + (BusinessLogic.toNum(inst.numInstallments) || 1));
+        }
+        const span = end - start;
+        if (!(span > 0)) return interest;
+        const frac = d => Math.max(0, Math.min(1, (d - start) / span));
+        const toFrac = range.to ? frac(range.to) : frac(new Date());
+        const fromFrac = range.from ? frac(range.from) : 0;
+        const recognized = interest * (toFrac - fromFrac);
+        return isFinite(recognized) ? Math.max(recognized, 0) : 0;
+    }
+
     function computeIncomeStatement(range) {
         range = range || { from: null, to: null };
         let revenue = 0;
@@ -8534,8 +8582,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 revenue -= t.amount;
                 let mv = stockMovements.find(s => s.sourceType === 'sale_return' && String(s.sourceId) === String(t.sourceId));
                 let qty = mv ? BusinessLogic.toNum(mv.qty) : BusinessLogic.toNum(t.returnQty);
-                let prod = products.find(p => p.id == t.productId);
-                if (prod && qty) cogs -= BusinessLogic.stockUnitCost(prod) * qty;
+                if (qty) cogs -= BusinessLogic.recordUnitCost(t) * qty;
             }
             // شراء المخزون من تاجر ليس مصروفاً (البضاعة تدخل المخزون وتُخصم كتكلفة عند البيع)
             // صرف العمولات يخصم الخزينة فقط — العمولة مُخصومة أصلاً كتكلفة مستحقة عبر totalCommissions
@@ -8571,13 +8618,14 @@ body.employee-mode #undoBtn { display: none !important; }
         filteredInst.forEach(inst => {
             // تخطي الأقساط الناتجة عن تحويل عربون (إيرادها محسوب بالفعل ضمن إيراد العربون)
             if (arabonSales.some(a => a.instId == inst.id)) {
-                interestProfit += (inst.totalAfterInterest - inst.purchasePrice);
+                interestProfit += recognizeInstallmentInterest(inst, inst.totalAfterInterest - inst.purchasePrice, range);
                 return;
             }
-            revenue += inst.purchasePrice;
-            totalDiscounts += inst.discount || 0;
+            // الإيراد صافي خصم العقد (مثل البيع النقدي: amount = sellPrice - discount)
+            revenue += BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
+            totalDiscounts += BusinessLogic.toNum(inst.discount);
             cogs += BusinessLogic.recordUnitCost(inst);
-            interestProfit += (inst.totalAfterInterest - (inst.purchasePrice - (inst.paidUpfront || 0)));
+            interestProfit += recognizeInstallmentInterest(inst, inst.totalAfterInterest - (inst.purchasePrice - (inst.paidUpfront || 0)), range);
         });
 
         const totalCommissions = getTotalCommissions(range);
@@ -8589,6 +8637,74 @@ body.employee-mode #undoBtn { display: none !important; }
             totalCommissions, grossProfit, operatingProfit, netProfit,
             grossMargin: revenue > 0 ? (grossProfit / revenue * 100) : 0,
             netMargin: revenue > 0 ? (netProfit / revenue * 100) : 0
+        };
+    }
+
+    // ─── تصنيف تقادم الديون: مصدر واحد للتقرير ولوحة التحكم والطباعة ───
+    // يعتمد على الأقساط المتأخرة فعليًا وبمبالغها المتبقية الحقيقية (لا قيمة القسط الكاملة)،
+    // والأقساط المستقبلية لا تُعدّ متأخرة.
+    function computeAgeing() {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const bucketOf = days => {
+            if (days <= 30) return '0-30';
+            if (days <= 60) return '31-60';
+            if (days <= 90) return '61-90';
+            return '90+';
+        };
+        const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+        const byCustomer = {};
+        const customerName = id => {
+            const m = merchants.find(x => x.id == id);
+            return m ? m.name : ('عميل #' + id);
+        };
+        const add = (name, bucket, amount) => {
+            if (!(amount > 0.009)) return;
+            if (!byCustomer[name]) byCustomer[name] = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, total: 0 };
+            byCustomer[name][bucket] += amount;
+            byCustomer[name].total += amount;
+            buckets[bucket] += amount;
+        };
+
+        installments.filter(i => !i.isPaid).forEach(inst => {
+            const schedule = inst.schedule || getInstSchedule(inst);
+            if (!schedule || !schedule.length) return;
+            const slots = schedule.map(s => {
+                const slotAmount = BusinessLogic.toNum(s.amount) || BusinessLogic.toNum(inst.monthlyAmount)
+                    || (BusinessLogic.toNum(inst.totalAfterInterest) / schedule.length);
+                return { due: s.dueDate, isPaid: !!s.isPaid, unpaid: Math.max(slotAmount - BusinessLogic.toNum(s.paidAmount), 0) };
+            });
+            const totalUnpaid = slots.reduce((sum, x) => sum + x.unpaid, 0);
+            if (!(totalUnpaid > 0)) return;
+            // معايرة على الرصيد الفعلي للعقد (تمنع تجاوز المتبقي بسبب تقريب الأقساط)
+            const remaining = BusinessLogic.toNum(inst.remainingBalance);
+            const scale = remaining > 0 ? (remaining / totalUnpaid) : 1;
+            const name = customerName(inst.merchantId);
+            slots.forEach(x => {
+                if (x.isPaid || !(x.unpaid > 0.01)) return;
+                const due = new Date(x.due + 'T00:00:00');
+                if (isNaN(due.getTime()) || due > today) return;
+                add(name, bucketOf(Math.floor((today - due) / 86400000)), x.unpaid * scale);
+            });
+        });
+
+        // العربون غير المحوَّل إلى تقسيط: رصيده المتبقي (لا يتأثر بعدم وجود جدول أقساط)
+        arabonSales.forEach(a => {
+            if (!a || a.isPaid) return;
+            if (a.instId || a.remainingPaymentMethod === 'installments') return;
+            const rem = Math.max(BusinessLogic.toNum(a.remainingAmount != null ? a.remainingAmount : a.remainingBalance), 0);
+            if (!(rem > 0.01)) return;
+            const raw = a.dueDate || a.date;
+            const due = raw ? new Date(raw) : null;
+            const days = (due && !isNaN(due.getTime())) ? Math.floor((today - due) / 86400000) : 0;
+            add(customerName(a.merchantId), bucketOf(days), rem);
+        });
+
+        const total = buckets['0-30'] + buckets['31-60'] + buckets['61-90'] + buckets['90+'];
+        return {
+            buckets, byCustomer, total,
+            under30: buckets['0-30'],
+            between30and90: buckets['31-60'] + buckets['61-90'],
+            over90: buckets['90+']
         };
     }
 
@@ -8642,21 +8758,9 @@ body.employee-mode #undoBtn { display: none !important; }
         }, 0);
         let remainingDebt = BusinessLogic.receivablesTotal();
 
-        // تصنيف الديون حسب العمر
-        let now = new Date(); now.setHours(0, 0, 0, 0);
-        let aging = { under30: 0, between30and90: 0, over90: 0 };
-        installments.filter(i => !i.isPaid).forEach(i => {
-            let schedule = i.schedule || getInstSchedule(i);
-            schedule.filter(s => !s.isPaid).forEach(s => {
-                let due = new Date(s.dueDate + 'T00:00:00');
-                if (due > now) return;
-                let days = Math.floor((now - due) / (1000 * 60 * 60 * 24));
-                let slotRemaining = Math.max((i.monthlyAmount || 0) - (s.paidAmount || 0), 0);
-                if (days <= 30) aging.under30 += slotRemaining;
-                else if (days <= 90) aging.between30and90 += slotRemaining;
-                else aging.over90 += slotRemaining;
-            });
-        });
+        // تصنيف الديون حسب العمر — من نفس محرّك تقرير التقادم
+        const aged = computeAgeing();
+        const aging = { under30: aged.under30, between30and90: aged.between30and90, over90: aged.over90 };
 
         return { cash, bank, vodafone, liquid, stockValue, totalDebt, revenue, cogs, expenses, totalCommissions, interestProfit, netProfit, totalDiscounts,
             grossProfit, operatingProfit, grossMargin, netMargin, partnerInvest, merchantDebtTotal,
@@ -9318,7 +9422,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     function renderDashboard() {
         let fin;
-        try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, bank:0, vodafone:0, liquid:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
+        try { fin = getFinancials(); } catch(e) { console.error('getFinancials error:', e); fin = { revenue:0, totalDiscounts:0, cogs:0, grossProfit:0, grossMargin:0, expenses:0, totalCommissions:0, operatingProfit:0, interestProfit:0, netProfit:0, netMargin:0, cash:0, bank:0, vodafone:0, liquid:0, stockValue:0, totalDebt:0, merchantDebtTotal:0, totalAssets:0, partnerInvest:0, totalLiabilities:0, equity:0, collectedAmount:0, remainingDebt:0, aging:{under30:0,between30and90:0,over90:0}, collectionRate:0 }; }
 
         try { renderCommandCenter(); } catch(e) { console.error('CommandCenter error:', e); }
 
@@ -9402,6 +9506,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<div class="flex-between" style="padding:6px 0;"><span>🔴 أكثر من 90 يوم</span><strong style="color:var(--danger);">' + fin.aging.over90.toFixed(2) + ' ج</strong></div>';
         }
 
+        const jsArg = s => String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3c').replace(/&/g, '\\x26').replace(/"/g, '\\x22').replace(/\r?\n/g, '\\n');
         let balances = merchants.map(m => {
             let debtInst = installments.filter(i => i.merchantId == m.id && !i.isPaid).reduce((s, i) => s + (i.remainingBalance || 0), 0);
             let debtArb = arabonSales.filter(a => a.merchantId == m.id && !a.isPaid && !a.instId)
@@ -9409,9 +9514,9 @@ body.employee-mode #undoBtn { display: none !important; }
             let debt = debtInst + debtArb;
             if (debt <= 0) return '';
             return '<div class="flex-between" style="padding:8px 0; border-bottom:1px solid #eee;">' +
-                '<span>' + m.name + '</span>' +
+                '<span>' + esc(m.name || '') + '</span>' +
                 '<strong>' + debt.toFixed(2) + ' ج</strong>' +
-                '<button class="btn-sm whatsapp-btn" onclick="sendWhatsApp(\'' + m.phone + '\',\'تذكير: الرصيد المستحق ' + debt.toFixed(2) + ' ج.م\')">📲 واتساب</button>' +
+                '<button class="btn-sm whatsapp-btn" onclick="sendWhatsApp(\'' + jsArg(m.phone) + '\',\'' + jsArg('تذكير: الرصيد المستحق ' + debt.toFixed(2) + ' ج.م') + '\')">📲 واتساب</button>' +
             '</div>';
         }).join('');
         document.getElementById('merchantBalances').innerHTML = balances || '<div style="color:var(--text-muted); text-align:center; padding:16px;">✅ لا توجد مديونيات مستحقة</div>';
@@ -9456,15 +9561,25 @@ body.employee-mode #undoBtn { display: none !important; }
     // ═══════════════════════════════════════════════════════
     //  لوحة التحكم الذكية — Command Center
     // ═══════════════════════════════════════════════════════
-    function renderCommandCenter() {
+    // تغيير تاريخ لوحة التحكم يمرّ عبر فلتر التقارير (المصدر الوحيد) ثم يعيد الرسم
+    window.applyCommandCenterDate = function () {
         const ccFrom = document.getElementById('ccDateFrom');
         const ccTo = document.getElementById('ccDateTo');
         const rFrom = document.getElementById('reportDateFrom');
         const rTo = document.getElementById('reportDateTo');
-        if (ccFrom && rFrom && ccFrom.value) rFrom.value = ccFrom.value;
-        if (ccTo && rTo && ccTo.value) rTo.value = ccTo.value;
-        if (rFrom && ccFrom && !ccFrom.value && rFrom.value) ccFrom.value = rFrom.value;
-        if (rTo && ccTo && !ccTo.value && rTo.value) ccTo.value = rTo.value;
+        if (ccFrom && rFrom) rFrom.value = ccFrom.value;
+        if (ccTo && rTo) rTo.value = ccTo.value;
+        renderDashboard();
+    };
+
+    function renderCommandCenter() {
+        // فلتر التقارير هو المصدر الوحيد للفترة. حقول لوحة التحكم تعكسه فقط.
+        const ccFrom = document.getElementById('ccDateFrom');
+        const ccTo = document.getElementById('ccDateTo');
+        const rFrom = document.getElementById('reportDateFrom');
+        const rTo = document.getElementById('reportDateTo');
+        if (ccFrom && rFrom) ccFrom.value = rFrom.value;
+        if (ccTo && rTo) ccTo.value = rTo.value;
         const fin = getFinancials();
 
         const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -9516,7 +9631,7 @@ body.employee-mode #undoBtn { display: none !important; }
             setHtml('ccAlerts', alerts.slice(0, 6).map(a =>
                 '<div onclick="switchPage(\'' + a.page + '\');toggleMenu(true);" style="display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;border-radius:10px;cursor:pointer;background:var(--' + a.type + '-light);border:1px solid var(--border);">' +
                 '<span style="font-size:1rem;">' + a.icon + '</span>' +
-                '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + a.text + '</span>' +
+                '<span style="flex:1;font-size:0.82rem;color:var(--text-main);">' + esc(a.text) + '</span>' +
                 '</div>'
             ).join(''));
         }
@@ -9563,16 +9678,16 @@ body.employee-mode #undoBtn { display: none !important; }
                 return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:5px;background:' + bgColor + ';border-radius:10px;">' +
                     '<span style="font-size:1.2rem;">' + icon + '</span>' +
                     '<div style="flex:1;min-width:0;">' +
-                    '<div style="font-size:0.85rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (t.notes || 'حركة مالية') + '</div>' +
+                    '<div style="font-size:0.85rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(t.notes || 'حركة مالية') + '</div>' +
                     '<div style="font-size:0.72rem;color:var(--text-muted);">' + new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn', { month: 'short', day: 'numeric' }) + '</div>' +
                     '</div>' +
-                    '<strong style="color:' + color + ';font-size:0.95rem;white-space:nowrap;">' + sign + t.amount.toFixed(0) + ' ج</strong></div>';
+                    '<strong style="color:' + color + ';font-size:0.95rem;white-space:nowrap;">' + sign + (Number(t.amount) || 0).toFixed(0) + ' ج</strong></div>';
             }).join(''));
         }
 
         // ── الرسم البياني + الإشعارات ──
         renderNotifications();
-        setTimeout(() => drawChart(), 100);
+        setTimeout(() => drawChart('chartCanvas'), 100);
     }
 
     function ccSummaryItem(icon, label, value) {
@@ -9595,23 +9710,14 @@ body.employee-mode #undoBtn { display: none !important; }
         tabRepair: '🛠️ مركز الإصلاح', tabChart: '📈 الرسوم البيانية', tabAuditLog: '📋 سجل التدقيق'
     };
 
-    function openReportDetail(tabId) {
-        const title = REPORT_TITLES[tabId] || tabId;
-        document.getElementById('reportDetailTitle').textContent = title;
-        // hide all report tabs
-        document.querySelectorAll('.report-tab').forEach(el => el.style.display = 'none');
-        const tab = document.getElementById(tabId);
-        if (tab) {
-            tab.style.display = 'block';
-            const content = document.getElementById('reportDetailContent');
-            if (content && tab.parentNode !== content) {
-                content.appendChild(tab);
-            }
-        }
-        document.getElementById('reportDetailOverlay').style.display = 'block';
-        document.body.style.overflow = 'hidden';
-        // render hooks
-        if (tabId === 'tabPnl' || tabId === 'tabBalance') { setTimeout(() => renderDashboard(), 50); }
+    let currentReportTab = null;
+    let __reportPrevOverflow = '';
+    let __reportPrevFocus = null;
+
+    // إعادة رسم التقرير المفتوح (يُستخدم عند تغيير فلتر التاريخ)
+    function renderReportTab(tabId) {
+        if (!tabId) return;
+        if (tabId === 'tabPnl' || tabId === 'tabBalance' || tabId === 'tabDebt') { setTimeout(() => renderDashboard(), 50); }
         if (tabId === 'tabChart') { setTimeout(() => { drawChart('reportChartCanvas'); drawExpensePie(); }, 100); }
         if (tabId === 'tabBalance') { setTimeout(() => drawCashTimeline(), 100); }
         if (tabId === 'tabDaily') { setTimeout(() => renderDailySummary(), 50); }
@@ -9626,60 +9732,202 @@ body.employee-mode #undoBtn { display: none !important; }
         if (tabId === 'tabCashFlow') { setTimeout(() => renderCashFlow(), 50); }
         if (tabId === 'tabAgeing') { setTimeout(() => renderAgeingReport(), 50); }
     }
+    window.rerenderCurrentReport = function () {
+        const overlay = document.getElementById('reportDetailOverlay');
+        if (!overlay || overlay.style.display === 'none') { renderDashboard(); return; }
+        renderReportTab(currentReportTab);
+    };
+
+    window.applyDetailDate = function () {
+        const df = document.getElementById('detailDateFrom');
+        const dt = document.getElementById('detailDateTo');
+        const rf = document.getElementById('reportDateFrom');
+        const rt = document.getElementById('reportDateTo');
+        if (df && rf) rf.value = df.value;
+        if (dt && rt) rt.value = dt.value;
+        rerenderCurrentReport();
+    };
+
+    function openReportDetail(tabId) {
+        const title = REPORT_TITLES[tabId] || tabId;
+        document.getElementById('reportDetailTitle').textContent = title;
+        // مزامنة فلتر الفترة داخل النافذة مع فلتر صفحة التقارير
+        const rf = document.getElementById('reportDateFrom');
+        const rt = document.getElementById('reportDateTo');
+        const df = document.getElementById('detailDateFrom');
+        const dt = document.getElementById('detailDateTo');
+        if (df && rf) df.value = rf.value;
+        if (dt && rt) dt.value = rt.value;
+        // hide all report tabs
+        document.querySelectorAll('.report-tab').forEach(el => el.style.display = 'none');
+        const tab = document.getElementById(tabId);
+        if (tab) {
+            tab.style.display = 'block';
+            const content = document.getElementById('reportDetailContent');
+            if (content && tab.parentNode !== content) {
+                // نحفظ الموضع الأصلي حتى نُعيد التبويب عند الإغلاق
+                if (!tab.__origParent) { tab.__origParent = tab.parentNode; tab.__origNext = tab.nextSibling; }
+                content.appendChild(tab);
+            }
+        }
+        // تحديد التقرير النشط في القائمة
+        document.querySelectorAll('#reports .rs-item').forEach(el => el.classList.toggle('active', el.dataset.tab === tabId));
+        const overlay = document.getElementById('reportDetailOverlay');
+        if (overlay) {
+            __reportPrevOverflow = document.body.style.overflow;
+            overlay.style.display = 'block';
+            overlay.scrollTop = 0;
+        }
+        __reportPrevFocus = document.activeElement;
+        document.body.style.overflow = 'hidden';
+        currentReportTab = tabId;
+        const contentEl = document.getElementById('reportDetailContent');
+        if (contentEl) setTimeout(() => { try { contentEl.focus({ preventScroll: true }); } catch (e) {} }, 30);
+        renderReportTab(tabId);
+    }
     window.openReportDetail = openReportDetail;
 
+    // ─── نافذة طباعة موحّدة لكل التقارير ───
+    function openPrintWindow(title, bodyHtml, subtitle) {
+        const w = window.open('', '_blank', 'width=900,height=700');
+        if (!w) { showToast('المتصفح منع فتح نافذة الطباعة', 'error'); return null; }
+        const vars = ':root{--text-main:#0f172a;--text-muted:#64748b;--border:#e2e8f0;--card-bg:#fff;--background:#fff;' +
+            '--primary:#4f46e5;--primary-light:#eef2ff;--success:#059669;--success-light:#ecfdf5;--danger:#dc2626;' +
+            '--danger-light:#fef2f2;--accent:#d97706;--warning:#d97706;}';
+        w.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>' + esc(title) + '</title><style>' +
+            vars +
+            '*{box-sizing:border-box;}' +
+            'body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:#fff;color:#0f172a;padding:24px;direction:rtl;font-size:14px;}' +
+            'h1{color:#4f46e5;font-size:1.3rem;text-align:center;margin:0 0 4px;}' +
+            '.sub{text-align:center;color:#64748b;font-size:0.82rem;margin-bottom:18px;}' +
+            'table{width:100%;border-collapse:collapse;margin:6px 0 14px;}' +
+            'th,td{padding:7px 9px;text-align:right;border-bottom:1px solid #e2e8f0;font-size:0.86rem;}' +
+            'th{background:#f1f5f9;}' +
+            '.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;}' +
+            'button,input,select,canvas,textarea{display:none!important;}' +
+            '.foot{text-align:center;color:#94a3b8;font-size:0.78rem;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:10px;}' +
+            '.printBtn{position:fixed;top:12px;left:12px;padding:9px 18px;background:#4f46e5;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:0.9rem;display:inline-block!important;}' +
+            '@media print{body{padding:8px;}.printBtn{display:none!important;}}' +
+            '</style></head><body>' +
+            '<button class="printBtn" onclick="window.print()">🖨️ طباعة / حفظ PDF</button>' +
+            '<h1>' + esc(title) + '</h1>' +
+            '<div class="sub">' + esc(subtitle || '') + ' | تاريخ الطباعة: ' +
+            new Date().toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }) + '</div>' +
+            bodyHtml +
+            '<div class="foot">نظام إدارة المبيعات والتقسيط</div>' +
+            '</body></html>');
+        w.document.close();
+        setTimeout(() => { try { w.focus(); w.print(); } catch (e) { } }, 400);
+        return w;
+    }
+
+    function currentReportTabEl() {
+        const content = document.getElementById('reportDetailContent');
+        if (!content) return null;
+        const tabs = content.querySelectorAll('.report-tab');
+        for (let i = 0; i < tabs.length; i++) { if (tabs[i].style.display !== 'none') return tabs[i]; }
+        return tabs.length ? tabs[0] : null;
+    }
+
+    function reportPeriodLabel() {
+        const range = getDateRange();
+        const fmt = d => d.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
+        if (!range.from && !range.to) return 'كل الفترات';
+        return 'الفترة: ' + (range.from ? fmt(range.from) : 'البداية') + ' ← ' + (range.to ? fmt(range.to) : 'الآن');
+    }
+
+    // طباعة أي تقرير مفتوح (نسخة — لا نطبع العقدة نفسها)
+    window.printCurrentReport = function () {
+        try {
+            const tab = currentReportTabEl();
+            if (!tab) { showToast('لا يوجد تقرير مفتوح', 'error'); return; }
+            const title = REPORT_TITLES[currentReportTab] || 'تقرير';
+            const clone = tab.cloneNode(true);
+            clone.querySelectorAll('button,input,select,textarea').forEach(el => el.remove());
+            clone.style.display = 'block';
+            openPrintWindow(title, '<div class="rt">' + clone.innerHTML + '</div>', reportPeriodLabel());
+        } catch (err) {
+            showError('تعذرت الطباعة', err.message);
+        }
+    };
+
+    // تصدير أي تقرير مفتوح إلى CSV (جداول إن وُجدت، وإلا بنود/قيم)
+    window.exportCurrentReportCSV = function () {
+        try {
+            const tab = currentReportTabEl();
+            if (!tab) { showToast('لا يوجد تقرير مفتوح', 'error'); return; }
+            const clean = txt => String(txt == null ? '' : txt).split('\n').join(' ').split('\r').join(' ').trim();
+            const rows = [];
+            const tables = tab.querySelectorAll('table');
+            if (tables.length) {
+                tables.forEach((tbl, ti) => {
+                    if (ti > 0) rows.push([]);
+                    tbl.querySelectorAll('tr').forEach(tr => {
+                        const cells = Array.prototype.map.call(tr.querySelectorAll('th,td'), td => clean(td.textContent));
+                        if (cells.length) rows.push(cells);
+                    });
+                });
+            } else {
+                tab.querySelectorAll('.flex-between').forEach(rowEl => {
+                    const parts = rowEl.querySelectorAll('span,strong');
+                    if (parts.length >= 2) rows.push([clean(parts[0].textContent), clean(parts[1].textContent)]);
+                });
+                tab.querySelectorAll('.stat-card-modern').forEach(card => {
+                    const lbl = card.querySelector('.stat-label'), val = card.querySelector('.stat-value');
+                    if (lbl && val) rows.push([clean(lbl.textContent), clean(val.textContent)]);
+                });
+            }
+            if (!rows.length) {
+                const txt = clean(tab.textContent);
+                if (txt) rows.push([txt]);
+            }
+            downloadCSV('تقرير_' + (currentReportTab || 'report') + '_' + new Date().toISOString().split('T')[0] + '.csv',
+                ['بند', 'القيمة'], rows);
+            showToast('✅ تم تصدير التقرير');
+        } catch (err) {
+            showError('تعذر التصدير', err.message);
+        }
+    };
+
+    // جعل عناصر قائمة التقارير قابلة للوصول بلوحة المفاتيح
+    document.querySelectorAll('#reports .rs-item').forEach(el => {
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+    });
+    document.addEventListener('keydown', (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('rs-item')) {
+            e.preventDefault();
+            e.target.click();
+        }
+    });
+
     function closeReportDetail() {
-        document.getElementById('reportDetailOverlay').style.display = 'none';
-        document.body.style.overflow = '';
-        // move tabs back? They stay in overlay; fine for next open
+        // إعادة كل تبويب إلى مكانه الأصلي حتى لا تبقى صفحة التقارير فارغة
+        document.querySelectorAll('#reportDetailContent > .report-tab').forEach(tab => {
+            if (tab.__origParent) {
+                if (tab.__origNext && tab.__origNext.parentNode === tab.__origParent) {
+                    tab.__origParent.insertBefore(tab, tab.__origNext);
+                } else {
+                    tab.__origParent.appendChild(tab);
+                }
+            }
+            tab.__origParent = null;
+            tab.__origNext = null;
+            tab.style.display = 'none';
+        });
+        const overlay = document.getElementById('reportDetailOverlay');
+        if (overlay) overlay.style.display = 'none';
+        document.body.style.overflow = __reportPrevOverflow || '';
+        document.querySelectorAll('#reports .rs-item.active').forEach(el => el.classList.remove('active'));
+        currentReportTab = null;
+        if (__reportPrevFocus && typeof __reportPrevFocus.focus === 'function') {
+            try { __reportPrevFocus.focus({ preventScroll: true }); } catch (e) {}
+        }
+        __reportPrevFocus = null;
     }
     window.closeReportDetail = closeReportDetail;
 
-    const REPORT_CATEGORIES = {
-        financial: [
-            { id: 'tabPnl', label: '📊 قائمة الدخل' },
-            { id: 'tabBalance', label: '🏦 المركز المالي' },
-            { id: 'tabCashFlow', label: '💸 التدفق النقدي' },
-            { id: 'tabStatement', label: '📋 كشف الحساب العام' }
-        ],
-        sales: [
-            { id: 'tabDaily', label: '📅 التقرير اليومي' },
-            { id: 'tabProdProfit', label: '📦 أرباح الأصناف' },
-            { id: 'tabCompare', label: '📊 مقارنة' },
-            { id: 'tabCommissions', label: '🧑‍💼 العمولات' }
-        ],
-        inventory: [
-            { id: 'tabStockMov', label: '📋 حركة المخزون' },
-            { id: 'tabCoA', label: '📚 شجرة الحسابات' },
-            { id: 'tabRepair', label: '🛠️ مركز الإصلاح' }
-        ],
-        customers: [
-            { id: 'tabDebt', label: '📋 تحليل المديونية' },
-            { id: 'tabAgeing', label: '⏳ تقادم الديون' }
-        ],
-        charts: [
-            { id: 'tabChart', label: '📈 الرسوم البيانية' }
-        ],
-        admin: [
-            { id: 'tabAuditLog', label: '📋 سجل التدقيق' }
-        ]
-    };
-
-    function switchReportCategory(cat) {
-        document.querySelectorAll('.cat-btn').forEach(el => el.classList.remove('active'));
-        const catBtn = document.querySelector(`.cat-btn[data-cat="${cat}"]`);
-        if (catBtn) catBtn.classList.add('active');
-        const subs = REPORT_CATEGORIES[cat] || [];
-        const subContainer = document.querySelector('.report-subtabs');
-        if (subContainer) {
-            subContainer.innerHTML = subs.map(s =>
-                `<button class="subtab-btn" data-tab="${s.id}" onclick="switchReportTab('${s.id}')">${s.label}</button>`
-            ).join('');
-        }
-        // activate first subtab
-        if (subs.length) switchReportTab(subs[0].id);
-    }
-    window.switchReportCategory = switchReportCategory;
+    // (أُزيلت مجموعات التقارير القديمة .cat-btn — قائمة التقارير مصنّفة مباشرة في الصفحة)
     window.switchReportTab = switchReportTab;
 
     // ====== سجل التدقيق (عرض + تصدير) ======
@@ -9697,27 +9945,34 @@ body.employee-mode #undoBtn { display: none !important; }
             return d.toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'short', timeStyle: 'short' });
         } catch (e) { return iso || ''; }
     }
+    // سجل يُعدّ «يتيمًا» فقط إذا لم يعد العنصر موجودًا بالمعرّف أو بالاسم/الكود
+    // (بعض الأحداث القديمة تخزّن الاسم أو كود الحساب بدل المعرّف).
+    function auditEntryIsOrphan(x) {
+        if (!x) return false;
+        const ent = String(x.entity || '');
+        const ref = String(x.ref || '');
+        if (!ref) return false;
+        const match = o => o && (String(o.id) === ref || String(o.code || '') === ref || String(o.name || '') === ref);
+        if (ent === 'صنف' && !products.some(match)) return true;
+        if (ent === 'شريك' && !partners.some(match)) return true;
+        if (ent === 'تاجر' && !merchants.some(match)) return true;
+        if (ent === 'حساب' && !accounts.some(match)) return true;
+        return false;
+    }
+
     window.renderAuditLog = function() {
         const container = document.getElementById('auditLogContent');
         if (!container) return;
         const term = (document.getElementById('auditLogSearch')?.value || '').trim().toLowerCase();
         const filter = document.getElementById('auditLogFilter')?.value || 'all';
-        let items = [...auditLog].sort((a, b) => b.ts.localeCompare(a.ts));
+        let items = [...auditLog]
+            .filter(x => x && typeof x === 'object')
+            .sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')));
         if (filter !== 'all') items = items.filter(x => (x.action || '').startsWith(filter));
         if (term) {
-            items = items.filter(x => (x.entity + ' ' + x.ref + ' ' + x.detail).toLowerCase().includes(term));
+            items = items.filter(x => ((x.entity || '') + ' ' + (x.ref || '') + ' ' + (x.detail || '')).toLowerCase().includes(term));
         }
-        // detect orphaned references (item no longer exists)
-        const isOrphan = (x) => {
-            const ent = String(x.entity || '');
-            const ref = String(x.ref || '');
-            if (!ref) return false;
-            if (ent === 'صنف' && !products.find(p => String(p.id) === ref)) return true;
-            if (ent === 'شريك' && !partners.find(p => String(p.id) === ref)) return true;
-            if (ent === 'تاجر' && !merchants.find(m => String(m.id) === ref)) return true;
-            if (ent === 'حساب' && !accounts.find(a => String(a.id) === ref)) return true;
-            return false;
-        };
+        const isOrphan = auditEntryIsOrphan;
         if (!items.length) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد أحداث مسجلة بعد.</p>';
             return;
@@ -9745,24 +10000,15 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.cleanOrphanAuditEntries = function () {
         const before = auditLog.length;
-        const isOrphan = (x) => {
-            const ent = String(x.entity || '');
-            const ref = String(x.ref || '');
-            if (!ref) return false;
-            if (ent === 'صنف' && !products.find(p => String(p.id) === ref)) return true;
-            if (ent === 'شريك' && !partners.find(p => String(p.id) === ref)) return true;
-            if (ent === 'تاجر' && !merchants.find(m => String(m.id) === ref)) return true;
-            if (ent === 'حساب' && !accounts.find(a => String(a.id) === ref)) return true;
-            return false;
-        };
+        const isOrphan = auditEntryIsOrphan;
         const orphans = auditLog.filter(isOrphan);
         if (orphans.length === 0) { showToast('لا توجد سجلات يتيمة', 'info'); return; }
         if (!confirm('سيتم حذف ' + orphans.length + ' سجل تدقيق لعناصر محذوفة. هل تريد المتابعة؟ (يؤثر على سجل التدقيق)')) return;
         auditLog = auditLog.filter(x => !isOrphan(x));
         const removed = before - auditLog.length;
-        logAudit('repair', 'تنظيف سجل التدقيق', '', 'تم حذف ' + removed + ' سجل يتيت');
+        logAudit('repair', 'تنظيف سجل التدقيق', '', 'تم حذف ' + removed + ' سجل يتيم');
         saveData(); renderAuditLog();
-        showToast('🧹 تم حذف ' + removed + ' سجل يتيت');
+        showToast('🧹 تم حذف ' + removed + ' سجل يتيم');
     };
 
     window.exportAuditLogCSV = function() {
@@ -9770,7 +10016,7 @@ body.employee-mode #undoBtn { display: none !important; }
         const BOM = '\uFEFF';
         const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
         const rows = [['التاريخ', 'الإجراء', 'الكيان', 'المرجع', 'التفاصيل']];
-        auditLog.slice().sort((a, b) => b.ts.localeCompare(a.ts)).forEach(x => {
+        auditLog.slice().filter(x => x && typeof x === 'object').sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || ''))).forEach(x => {
             rows.push([formatAuditTime(x.ts), auditActionLabel(x.action), x.entity, x.ref, x.detail]);
         });
         const blob = new Blob([BOM + rows.map(r => r.map(esc).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -10332,17 +10578,19 @@ body.employee-mode #undoBtn { display: none !important; }
     window.renderCashFlow = function () {
         const container = document.getElementById('cashFlowContent');
         if (!container) return;
+        const range = getDateRange();
         const money = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
         const type = t => t.type || '';
-        const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(type(t));
+        const isIn = t => ['sell_cash', 'sell', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(type(t));
         const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(type(t));
+        const inPeriod = t => inRange(t.date, range);
 
-        const operatingIn = transactions.filter(t => isIn(t) && !['partner_deposit', 'transfer_in'].includes(type(t)));
-        const operatingOut = transactions.filter(t => isOut(t) && !['partner_withdrawal', 'transfer_out'].includes(type(t)));
-        const financingIn = transactions.filter(t => type(t) === 'partner_deposit');
-        const financingOut = transactions.filter(t => type(t) === 'partner_withdrawal');
-        const investingIn = transactions.filter(t => type(t) === 'transfer_in');
-        const investingOut = transactions.filter(t => type(t) === 'transfer_out');
+        const operatingIn = transactions.filter(t => inPeriod(t) && isIn(t) && !['partner_deposit', 'transfer_in'].includes(type(t)));
+        const operatingOut = transactions.filter(t => inPeriod(t) && isOut(t) && !['partner_withdrawal', 'transfer_out'].includes(type(t)));
+        const financingIn = transactions.filter(t => inPeriod(t) && type(t) === 'partner_deposit');
+        const financingOut = transactions.filter(t => inPeriod(t) && type(t) === 'partner_withdrawal');
+        const investingIn = transactions.filter(t => inPeriod(t) && type(t) === 'transfer_in');
+        const investingOut = transactions.filter(t => inPeriod(t) && type(t) === 'transfer_out');
 
         const sum = arr => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
         const opIn = sum(operatingIn), opOut = sum(operatingOut);
@@ -10368,6 +10616,9 @@ body.employee-mode #undoBtn { display: none !important; }
         };
 
         let html = '';
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : 'الآن';
+        html += '<div class="card" style="padding:8px 10px;margin-bottom:10px;font-size:0.82rem;color:var(--text-muted);">📅 الفترة: ' + fromLbl + ' ← ' + toLbl + '</div>';
         html += section('📥 التدفقات التشغيلية (قبض)', '#059669', operatingIn, opIn, 1);
         html += section('📤 التدفقات التشغيلية (دفع)', '#dc2626', operatingOut, opOut, -1);
         html += '<div class="card" style="padding:8px 10px;margin-bottom:10px;background:var(--background);"><strong>صافي التشغيل: ' + money(opIn - opOut) + '</strong></div>';
@@ -10383,8 +10634,9 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.exportCashFlowExcel = function () {
         try {
+            const range = getDateRange();
             const fmt = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const isIn = t => ['sell_cash', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
+            const isIn = t => ['sell_cash', 'sell', 'payment_in', 'income', 'partner_deposit', 'merchant_sale', 'transfer_in', 'arabon_paid', 'installment_paid', 'purchase_return'].includes(t.type);
             const isOut = t => ['purchase', 'expense', 'partner_withdrawal', 'merchant_purchase', 'payment_out', 'transfer_out', 'sale_return'].includes(t.type);
             const sectionOf = t => {
                 if (t.type === 'partner_deposit') return '\u062a\u0645\u0648\u064a\u0644 (\u0625\u064a\u062f\u0627\u0639)';
@@ -10396,7 +10648,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 return '\u0623\u062e\u0631\u0649';
             };
             const groups = {};
-            (transactions || []).forEach(t => { const s = sectionOf(t); (groups[s] = groups[s] || []).push(t); });
+            (transactions || []).filter(t => inRange(t.date, range)).forEach(t => { const s = sectionOf(t); (groups[s] = groups[s] || []).push(t); });
             const sum = arr => arr.reduce((s, t) => s + (Number(t.amount) || 0), 0);
             const opIn = sum(groups['\u062a\u0634\u063a\u064a\u0644\u064a (\u0642\u0628\u0636)'] || []);
             const opOut = sum(groups['\u062a\u0634\u063a\u064a\u0644\u064a (\u062f\u0641\u0639)'] || []);
@@ -10411,7 +10663,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let html = '<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>Cash Flow</title>';
             html += '<style>body{font-family:Tahoma,Arial,sans-serif;font-size:12px;} table{border-collapse:collapse;width:100%;margin-bottom:16px;} th,td{border:1px solid #999;padding:6px 8px;} th{background:#1e3a5f;color:#fff;font-weight:700;} .title{font-size:16px;font-weight:800;margin:8px 0;} .sec{background:#e8eef5;font-weight:700;} .total{background:#dbeafe;font-weight:800;} .net{background:#dcfce7;font-weight:800;font-size:14px;} .num{text-align:left;direction:ltr;}</style></head><body>';
             html += '<div class="title">\ud83d\udcb8 \u0627\u0644\u062a\u062f\u0641\u0642 \u0627\u0644\u0646\u0642\u062f\u064a (Cash Flow)</div>';
-            html += '<div style="color:#555;font-size:11px;margin-bottom:12px;">\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0635\u062f\u064a\u0631: ' + escHtml(new Date().toLocaleString('ar-EG-u-nu-latn')) + '</div>';
+            html += '<div style="color:#555;font-size:11px;margin-bottom:12px;">\u0627\u0644\u0641\u062a\u0631\u0629: ' + escHtml(range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : '\u0627\u0644\u0628\u062f\u0627\u064a\u0629') + ' \u2190 ' + escHtml(range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : '\u0627\u0644\u0622\u0646') + ' | \u062a\u0627\u0631\u064a\u062e \u0627\u0644\u062a\u0635\u062f\u064a\u0631: ' + escHtml(new Date().toLocaleString('ar-EG-u-nu-latn')) + '</div>';
 
             html += '<table><thead><tr><th>\u0627\u0644\u0642\u0633\u0645</th><th>\u0642\u0628\u0636</th><th>\u062f\u0641\u0639</th><th>\u0635\u0627\u0641\u064a</th></tr></thead><tbody>';
             html += '<tr><td>\u062a\u0634\u063a\u064a\u0644\u064a</td><td class="num">' + fmt(opIn) + '</td><td class="num">' + fmt(opOut) + '</td><td class="num">' + fmt(opIn - opOut) + '</td></tr>';
@@ -10625,56 +10877,12 @@ body.employee-mode #undoBtn { display: none !important; }
         if (!container) return;
         // أرقام لاتينية (123) في كل التطبيق بدل الأرقام الهندية
         const money = v => (Number(v) || 0).toLocaleString('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ج';
-        const today = new Date();
-        const bucketOf = (dueDate) => {
-            const d = new Date(dueDate);
-            const days = Math.floor((today - d) / 86400000);
-            if (days <= 30) return '0-30';
-            if (days <= 60) return '31-60';
-            if (days <= 90) return '61-90';
-            return '90+';
-        };
-        const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
-        const byMerchant = {};
-        (installments || []).forEach(inst => {
-            if (inst.isPaid) return;
-            const rem = Number(inst.remainingBalance) || 0;
-            if (rem <= 0.01) return;
-            const m = merchants.find(x => x.id == inst.merchantId);
-            const name = m ? m.name : ('عميل #' + inst.merchantId);
-            if (!byMerchant[name]) byMerchant[name] = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, total: 0 };
-            // distribute remaining across unpaid slots by due date
-            const sched = (inst.schedule || []).filter(s => !s.isPaid);
-            if (!sched.length) {
-                const b = bucketOf(inst.firstDueDate || inst.date);
-                byMerchant[name][b] += rem;
-                byMerchant[name].total += rem;
-                buckets[b] += rem;
-                return;
-            }
-            const slotAmt = rem / sched.length;
-            sched.forEach(s => {
-                const b = bucketOf(s.dueDate);
-                byMerchant[name][b] += slotAmt;
-                byMerchant[name].total += slotAmt;
-                buckets[b] += slotAmt;
-            });
-        });
-        // Arabon
-        (arabonSales || []).forEach(a => {
-            if (a.isPaid) return;
-            const rem = Number(a.remainingAmount || a.remainingBalance) || 0;
-            if (rem <= 0.01) return;
-            const m = merchants.find(x => x.id == a.merchantId);
-            const name = m ? m.name : ('عميل #' + a.merchantId);
-            if (!byMerchant[name]) byMerchant[name] = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0, total: 0 };
-            const b = bucketOf(a.dueDate || a.date);
-            byMerchant[name][b] += rem;
-            byMerchant[name].total += rem;
-            buckets[b] += rem;
-        });
+        // نفس محرّك التقادم المستخدم في لوحة التحكم والتقرير المطبوع
+        const age = computeAgeing();
+        const buckets = age.buckets;
+        const byMerchant = age.byCustomer;
+        const total = age.total;
 
-        const total = buckets['0-30'] + buckets['31-60'] + buckets['61-90'] + buckets['90+'];
         let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">';
         ['0-30', '31-60', '61-90', '90+'].forEach(b => {
             html += '<div class="stat-card-modern" style="flex:1;min-width:100px;"><div class="stat-label">' + b + ' يوم</div><div class="stat-value" style="font-size:0.9rem;">' + money(buckets[b]) + '</div></div>';
@@ -10735,7 +10943,7 @@ body.employee-mode #undoBtn { display: none !important; }
         const statusHtml = '<div style="background:' + statusBg + ';border:1px solid ' + statusBorder + ';border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<strong style="color:' + statusColor + ';">' + statusTitle + '</strong>' +
             '<span class="text-sm text-muted">إجمالي المدين ' + coaMoney(tb.totals.debit) + ' | إجمالي الدائن ' + coaMoney(tb.totals.credit) + '</span>' +
-            (Math.abs(explained) >= 0.01 ? '<span class="text-sm" style="color:#b45309;font-weight:700;">فرق مفسَّر (شراء تاجر): ' + coaMoney(explained) + '</span>' : '') +
+            (Math.abs(explained) >= 0.01 ? '<span class="text-sm" style="color:#b45309;font-weight:700;">تذكير — فرق تقييم مخزون (شراء تاجر): ' + coaMoney(explained) + '</span>' : '') +
             (Math.abs(unexplained) >= 0.01 ? '<span class="text-sm" style="color:#dc2626;font-weight:700;">غير المفسر: ' + coaMoney(unexplained) + ' — راجع سطر «فروق غير مفسرة»</span>' : '') +
             '</div>';
 
@@ -11234,131 +11442,113 @@ body.employee-mode #undoBtn { display: none !important; }
     };
 
     // ====== 📅 التقرير اليومي ======
-    function renderDailySummary() {
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(startOfDay.getTime() + 86400000);
-        const todayTrans = transactions.filter(t => {
+    // مصدر واحد لأرقام التقرير اليومي (العرض + الطباعة + التصدير)
+    // يطبّق فلتر التاريخ في صفحة التقارير، وإلا فاليوم الحالي.
+    function getDailySummaryData(range) {
+        range = range || (typeof getDateRange === 'function' ? getDateRange() : { from: null, to: null });
+        const fmt = d => d.toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' });
+        let from, to, label;
+        if (range.from || range.to) {
+            from = range.from || new Date(0);
+            to = range.to || new Date();
+            label = (range.from ? fmt(range.from) : 'البداية') + ' ← ' + (range.to ? fmt(range.to) : 'الآن');
+        } else {
+            const t = new Date();
+            from = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+            to = new Date(from.getTime() + 86400000 - 1);
+            label = t.toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        const periodTrans = transactions.filter(t => {
             const d = new Date(t.date);
-            return d >= startOfDay && d < endOfDay;
+            return !isNaN(d.getTime()) && d >= from && d <= to;
         });
-        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
-        todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
-            else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
-            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
+        let cashSales = 0, collections = 0, merchantNet = 0, returns = 0,
+            purchases = 0, expenses = 0, otherIn = 0, otherOut = 0;
+        periodTrans.forEach(t => {
+            const amt = BusinessLogic.toNum(t.amount);
+            if (t.type === 'sell_cash' || t.type === 'sell') cashSales += amt;
+            else if (t.type === 'payment_in') collections += amt;
+            else if (t.type === 'merchant_sale') merchantNet += amt;
+            else if (t.type === 'merchant_payment_out') merchantNet += amt;
+            else if (t.type === 'merchant_payment') merchantNet -= amt;
+            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += amt;
+            else if (t.type === 'sale_return') returns += amt;
+            else if (t.type === 'purchase_return') returns -= amt;
+            else if (t.type === 'expense') { if (t.sourceType !== 'commission_payout') expenses += amt; }
+            else if (t.type === 'payment_out' || t.type === 'partner_withdrawal') otherOut += amt;
+            else if (t.type === 'income' || t.type === 'partner_deposit') otherIn += amt;
+            // التحويلات بين الحسابات لا أثر صافياً لها على إجمالي السيولة
         });
-        const netFlow = cashSales + collections - expenses - purchases;
+        const netFlow = cashSales + collections + merchantNet + otherIn - returns - purchases - expenses - otherOut;
         let cash = BusinessLogic.openingLiquid();
         transactions.forEach(t => {
-            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
-            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
+            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += BusinessLogic.toNum(t.amount);
+            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= BusinessLogic.toNum(t.amount);
         });
+        return { from, to, label, count: periodTrans.length, cashSales, collections, merchantNet,
+            returns, purchases, expenses, otherIn, otherOut, netFlow, cash };
+    }
+
+    function renderDailySummary() {
         const container = document.getElementById('dailySummaryContent');
+        if (!container) return;
+        const d = getDailySummaryData();
+        const line = (label, value, color) => '<div class="flex-between" style="padding:6px 0;"><span>' + label + '</span><strong style="color:' + color + ';">' + value.toFixed(2) + ' ج</strong></div>';
         container.innerHTML = '' +
             '<div style="border-bottom:2px solid var(--border);padding-bottom:10px;margin-bottom:10px;">' +
-                '<div style="text-align:center;margin-bottom:12px;">' +
-                    '<strong style="font-size:1.1rem;">📅 ' + today.toLocaleDateString('ar-EG-u-nu-latn', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + '</strong>' +
-                '</div>' +
-                '<div class="flex-between" style="padding:6px 0;"><span>💵 مبيعات نقدية</span><strong style="color:var(--success)">' + cashSales.toFixed(2) + ' ج</strong></div>' +
-                '<div class="flex-between" style="padding:6px 0;"><span>💰 تحصيل أقساط</span><strong style="color:var(--primary)">' + collections.toFixed(2) + ' ج</strong></div>' +
-                '<div class="flex-between" style="padding:6px 0;"><span>📉 مصروفات</span><strong style="color:var(--danger)">' + expenses.toFixed(2) + ' ج</strong></div>' +
-                '<div class="flex-between" style="padding:6px 0;"><span>📦 مشتريات</span><strong style="color:var(--accent)">' + purchases.toFixed(2) + ' ج</strong></div>' +
-                '<div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:' + (netFlow >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
-                    '<span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق النقدي</span><strong>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</strong></div>' +
+                '<div style="text-align:center;margin-bottom:12px;"><strong style="font-size:1.05rem;">📅 ' + esc(d.label) + '</strong></div>' +
+                line('💵 مبيعات نقدية', d.cashSales, 'var(--success)') +
+                line('💰 تحصيلات أقساط/عربون/عملاء', d.collections, 'var(--primary)') +
+                line('🏪 صافي حركة التجار', d.merchantNet, d.merchantNet >= 0 ? 'var(--success)' : 'var(--danger)') +
+                (Math.abs(d.otherIn) > 0.009 ? line('➕ إيرادات أخرى', d.otherIn, 'var(--success)') : '') +
+                line('↩️ مرتجعات (خصم)', -d.returns, 'var(--danger)') +
+                line('📦 مشتريات', -d.purchases, 'var(--accent)') +
+                line('📉 مصروفات تشغيلية', -d.expenses, 'var(--danger)') +
+                (Math.abs(d.otherOut) > 0.009 ? line('💳 مدفوعات أخرى', -d.otherOut, 'var(--danger)') : '') +
+                '<div class="flex-between" style="padding:8px 0;font-weight:700;border-top:1px solid var(--border);color:' + (d.netFlow >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' +
+                    '<span>' + (d.netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق النقدي</span><strong>' + (d.netFlow >= 0 ? '+' : '') + d.netFlow.toFixed(2) + ' ج</strong></div>' +
                 '<div class="flex-between" style="padding:6px 0;font-weight:800;font-size:1.05rem;border-top:2px solid var(--primary);margin-top:4px;">' +
-                    '<span>🏦 إجمالي السيولة (خزينة + بنوك + محافظ)</span><strong style="color:var(--primary)">' + cash.toFixed(2) + ' ج</strong></div>' +
+                    '<span>🏦 إجمالي السيولة (خزينة + بنوك + محافظ)</span><strong style="color:var(--primary);">' + d.cash.toFixed(2) + ' ج</strong></div>' +
             '</div>' +
-            '<div style="font-size:0.85rem;color:var(--text-muted);">عدد الحركات اليوم: ' + todayTrans.length + '</div>';
+            '<div style="font-size:0.85rem;color:var(--text-muted);">عدد الحركات في الفترة: ' + d.count + '</div>';
     }
 
     function printDailySummary() {
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(startOfDay.getTime() + 86400000);
-        const todayTrans = transactions.filter(t => {
-            const d = new Date(t.date);
-            return d >= startOfDay && d < endOfDay;
-        });
-        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
-        todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
-            else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
-            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
-        });
-        const netFlow = cashSales + collections - expenses - purchases;
-        let cash = BusinessLogic.openingLiquid();
-        transactions.forEach(t => {
-            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
-            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
-        });
-        const dateLabel = today.toLocaleDateString('ar-EG-u-nu-latn', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-        const w = window.open('', '', 'width=400,height=600');
-        w.document.write('<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>تقرير يومي</title>' +
-            '<style>body{font-family:sans-serif;padding:30px;}h1{font-size:1.3rem;text-align:center;color:#4f46e5;}' +
-            '.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;}' +
-            '.total{border-top:2px solid #000;font-weight:700;font-size:1.1rem;}' +
-            '.footer{text-align:center;margin-top:20px;color:#94a3b8;font-size:0.8rem;}</style></head><body>' +
-            '<h1>📅 التقرير اليومي</h1>' +
-            '<p style="text-align:center;color:#666;margin-bottom:16px;">' + dateLabel + '</p>' +
-            '<div class="row"><span>💵 مبيعات نقدية</span><span>' + cashSales.toFixed(2) + ' ج</span></div>' +
-            '<div class="row"><span>💰 تحصيل أقساط</span><span>' + collections.toFixed(2) + ' ج</span></div>' +
-            '<div class="row"><span>📉 مصروفات</span><span>' + expenses.toFixed(2) + ' ج</span></div>' +
-            '<div class="row"><span>📦 مشتريات</span><span>' + purchases.toFixed(2) + ' ج</span></div>' +
-            '<div class="row total"><span>' + (netFlow >= 0 ? '📈' : '📉') + ' صافي التدفق</span><span>' + (netFlow >= 0 ? '+' : '') + netFlow.toFixed(2) + ' ج</span></div>' +
-            '<div class="row" style="font-size:1.15rem;border-top:2px solid #4f46e5;margin-top:8px;color:#4f46e5;font-weight:800;"><span>🏦 إجمالي السيولة</span><span>' + cash.toFixed(2) + ' ج</span></div>' +
-            '<div class="footer">نظام إدارة المبيعات والتقسيط</div>' +
-            '<script>window.onafterprint=()=>window.close();<' + '/script></body></html>');
-            w.document.close();
-            setTimeout(() => w.print(), 300);
+        const d = getDailySummaryData();
+        const row = (label, value) => '<div class="row"><span>' + label + '</span><span>' + value.toFixed(2) + ' ج</span></div>';
+        openPrintWindow('📅 التقرير اليومي',
+            row('💵 مبيعات نقدية', d.cashSales) +
+            row('💰 تحصيلات أقساط/عربون/عملاء', d.collections) +
+            row('🏪 صافي حركة التجار', d.merchantNet) +
+            (Math.abs(d.otherIn) > 0.009 ? row('➕ إيرادات أخرى', d.otherIn) : '') +
+            row('↩️ مرتجعات (خصم)', -d.returns) +
+            row('📦 مشتريات', -d.purchases) +
+            row('📉 مصروفات تشغيلية', -d.expenses) +
+            (Math.abs(d.otherOut) > 0.009 ? row('💳 مدفوعات أخرى', -d.otherOut) : '') +
+            '<div class="row" style="border-top:2px solid #000;font-weight:700;"><span>صافي التدفق النقدي</span><span>' + d.netFlow.toFixed(2) + ' ج</span></div>' +
+            '<div class="row" style="font-weight:800;color:#4f46e5;"><span>🏦 إجمالي السيولة</span><span>' + d.cash.toFixed(2) + ' ج</span></div>',
+            esc(d.label));
     }
 
     // تصدير التقرير اليومي CSV
-    window.exportDailySummaryCSV = function() {
-        const today = new Date();
-        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endOfDay = new Date(startOfDay.getTime() + 86400000);
-        const todayTrans = transactions.filter(t => {
-            const d = new Date(t.date);
-            return d >= startOfDay && d < endOfDay;
-        });
-        let cashSales = 0, collections = 0, expenses = 0, purchases = 0;
-        todayTrans.forEach(t => {
-            if (t.type === 'sell_cash' || t.type === 'sell' || t.type === 'merchant_sale') cashSales += t.amount;
-            else if (t.type === 'payment_in') collections += t.amount;
-            else if (t.type === 'expense' || t.type === 'payment_out') expenses += t.amount;
-            else if (t.type === 'purchase' || t.type === 'merchant_purchase') purchases += t.amount;
-        });
-        const netFlow = cashSales + collections - expenses - purchases;
-        let cash = BusinessLogic.openingLiquid();
-        transactions.forEach(t => {
-            if (INCOME_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_in') cash += t.amount;
-            if (EXPENSE_TRANS_TYPES.includes(t.type) && t.type !== 'transfer_out') cash -= t.amount;
-        });
-        const BOM = '\uFEFF';
-        const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const dateLabel = today.toLocaleDateString('ar-EG-u-nu-latn', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    window.exportDailySummaryCSV = function () {
+        const d = getDailySummaryData();
         const rows = [
-            ['التقرير اليومي — ' + dateLabel],
+            ['التقرير اليومي — ' + d.label],
             [],
-            ['بند', 'القيمة (ج.م)'],
-            ['مبيعات نقدية', cashSales.toFixed(2)],
-            ['تحصيل أقساط', collections.toFixed(2)],
-            ['مصروفات', expenses.toFixed(2)],
-            ['مشتريات', purchases.toFixed(2)],
-            ['صافي التدفق النقدي', netFlow.toFixed(2)],
-            ['إجمالي السيولة (خزينة + بنوك + محافظ)', cash.toFixed(2)],
-            ['عدد الحركات اليوم', todayTrans.length]
+            ['مبيعات نقدية', d.cashSales.toFixed(2)],
+            ['تحصيلات أقساط/عربون/عملاء', d.collections.toFixed(2)],
+            ['صافي حركة التجار', d.merchantNet.toFixed(2)],
+            ['إيرادات أخرى', d.otherIn.toFixed(2)],
+            ['مرتجعات (خصم)', (-d.returns).toFixed(2)],
+            ['مشتريات', (-d.purchases).toFixed(2)],
+            ['مصروفات تشغيلية', (-d.expenses).toFixed(2)],
+            ['مدفوعات أخرى', (-d.otherOut).toFixed(2)],
+            ['صافي التدفق النقدي', d.netFlow.toFixed(2)],
+            ['إجمالي السيولة (خزينة + بنوك + محافظ)', d.cash.toFixed(2)],
+            ['عدد الحركات في الفترة', d.count]
         ];
-        const blob = new Blob([BOM + rows.map(r => r.map(escCsv).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'تقرير_يومي_' + new Date().toISOString().split('T')[0] + '.csv';
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadCSV('تقرير_يومي_' + new Date().toISOString().split('T')[0] + '.csv', ['بند', 'القيمة (ج.م)'], rows);
         showToast('✅ تم تصدير التقرير اليومي');
     };
 
@@ -11597,7 +11787,7 @@ body.employee-mode #undoBtn { display: none !important; }
             running += (r.credit || 0) - (r.debit || 0);
             let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? '#059669' : '#ef4444';
-            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + escapeHtml(r.desc) + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
         }).join('');
         let finalBal = opening + totalCredit - totalDebit;
         let liquidity = getCashLiquidity();
@@ -11685,15 +11875,16 @@ body.employee-mode #undoBtn { display: none !important; }
     function renderProductProfit() {
         const range = getDateRange();
         const prodMap = {};
-        function addSale(productId, name, qty, revenue, unitCost) {
+        function addSale(productId, name, qty, revenue, unitCost, countUnit) {
             let p = productId ? products.find(x => x.id == productId) : null;
             if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
             if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), costTotal: 0, qty: 0, revenue: 0 };
-            prodMap[key].qty += qty || 1;
-            prodMap[key].revenue += revenue;
+            const units = countUnit === false ? 0 : (qty || 1);
+            prodMap[key].qty += units;
+            prodMap[key].revenue += Number(revenue) || 0;
             const uc = (unitCost != null && isFinite(unitCost)) ? unitCost : (p ? (p.costPrice + (p.expenses || 0)) : 0);
-            prodMap[key].costTotal += uc * (qty || 1);
+            prodMap[key].costTotal += (Number(uc) || 0) * units;
         }
 
         // 1) مبيعات نقدية
@@ -11704,30 +11895,30 @@ body.employee-mode #undoBtn { display: none !important; }
                 let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
                 if (mv && mv.qty) qty = mv.qty;
             }
-            addSale(t.productId, null, qty, t.amount);
+            addSale(t.productId, null, qty, t.amount, BusinessLogic.recordUnitCost(t));
         });
 
         // 2) عقود التقسيط (تشمل ربح الفوائد)
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) {
-                // محوّل من عربون: الإيراد محسوب ضمن العربون، تضاف الفائدة فقط
-                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
+                // محوّل من عربون: الوحدة والتكلفة حُسبتا ضمن العربون، تضاف الفائدة فقط
+                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
                 // ربح التقسيط الكامل = سعر البيع + الفائدة (مع إضافة المقدم)
-                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0), BusinessLogic.recordUnitCost(inst));
             }
         });
 
         // 3) مبيعات العربون
         arabonSales.filter(a => inRange(a.date, range)).forEach(a => {
-            if (a.productId) addSale(a.productId, null, 1, a.sellPrice);
+            if (a.productId) addSale(a.productId, null, 1, a.sellPrice, BusinessLogic.recordUnitCost(a));
         });
 
         // 4) مبيعات التجار — الإيراد الكامل من سجل البيع (وليس حركة نقدية مجزأة)
         merchantSales.filter(s => inRange(s.date, range)).forEach(s => {
             let qty = s.quantity || 1;
-            addSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty);
+            addSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty, BusinessLogic.recordUnitCost(s));
         });
 
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
@@ -11743,7 +11934,7 @@ body.employee-mode #undoBtn { display: none !important; }
             const profit = d.revenue - d.costTotal;
             const margin = d.revenue ? (profit / d.revenue * 100).toFixed(1) : 0;
             html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
-                '<div class="flex-between"><strong>📱 ' + d.name + '</strong><span class="badge badge-primary">' + d.qty + ' قطعة</span></div>' +
+                '<div class="flex-between"><strong>📱 ' + esc(d.name) + '</strong><span class="badge badge-primary">' + d.qty + ' قطعة</span></div>' +
                 '<div style="display:flex;gap:16px;font-size:0.85rem;margin-top:4px;color:var(--text-muted);">' +
                     '<span>💰 إيرادات: ' + d.revenue.toFixed(2) + ' ج</span>' +
                     '<span>📦 تكلفة: ' + d.costTotal.toFixed(2) + ' ج</span>' +
@@ -11758,15 +11949,16 @@ body.employee-mode #undoBtn { display: none !important; }
     window.exportProductProfitCSV = function() {
         const range = getDateRange();
         const prodMap = {};
-        function addSale(productId, name, qty, revenue, unitCost) {
+        function addSale(productId, name, qty, revenue, unitCost, countUnit) {
             let p = productId ? products.find(x => x.id == productId) : null;
             if (!p && name) p = uniqueProductByName(name);
             const key = p ? p.id : 'n:' + (name || 'حذف');
             if (!prodMap[key]) prodMap[key] = { name: p ? p.name : (name || 'حذف'), costTotal: 0, qty: 0, revenue: 0 };
-            prodMap[key].qty += qty || 1;
-            prodMap[key].revenue += revenue;
+            const units = countUnit === false ? 0 : (qty || 1);
+            prodMap[key].qty += units;
+            prodMap[key].revenue += Number(revenue) || 0;
             const uc = (unitCost != null && isFinite(unitCost)) ? unitCost : (p ? (p.costPrice + (p.expenses || 0)) : 0);
-            prodMap[key].costTotal += uc * (qty || 1);
+            prodMap[key].costTotal += (Number(uc) || 0) * units;
         }
         transactions.filter(t => inRange(t.date, range) && (t.type === 'sell_cash' || t.type === 'sell')).forEach(t => {
             if (!t.productId) return;
@@ -11775,22 +11967,22 @@ body.employee-mode #undoBtn { display: none !important; }
                 let mv = stockMovements.find(s => s.sourceType == t.sourceType && s.sourceId == t.sourceId);
                 if (mv && mv.qty) qty = mv.qty;
             }
-            addSale(t.productId, null, qty, t.amount);
+            addSale(t.productId, null, qty, t.amount, BusinessLogic.recordUnitCost(t));
         });
         installments.filter(i => inRange(i.date || i.firstDueDate, range)).forEach(inst => {
             if (!inst.productId) return;
             if (arabonSales.some(a => a.instId == inst.id)) {
-                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0);
+                addSale(inst.productId, null, 0, (inst.totalAfterInterest - inst.purchasePrice) || 0, null, false);
             } else {
-                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0));
+                addSale(inst.productId, null, 1, (inst.purchasePrice || 0) + ((inst.totalAfterInterest - inst.purchasePrice + (inst.paidUpfront || 0)) || 0), BusinessLogic.recordUnitCost(inst));
             }
         });
         arabonSales.filter(a => inRange(a.date, range)).forEach(a => {
-            if (a.productId) addSale(a.productId, null, 1, a.sellPrice);
+            if (a.productId) addSale(a.productId, null, 1, a.sellPrice, BusinessLogic.recordUnitCost(a));
         });
         merchantSales.filter(s => inRange(s.date, range)).forEach(s => {
             let qty = s.quantity || 1;
-            addSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty);
+            addSale(s.productId || null, s.deviceName, qty, (s.sellPrice || 0) * qty, BusinessLogic.recordUnitCost(s));
         });
         const sorted = Object.entries(prodMap).sort((a, b) => b[1].revenue - a[1].revenue);
         const BOM = '\uFEFF';
@@ -11872,9 +12064,16 @@ body.employee-mode #undoBtn { display: none !important; }
         const d2 = getMonthData(v2);
         const label1 = document.getElementById('compareMonth1').selectedOptions[0].text;
         const label2 = document.getElementById('compareMonth2').selectedOptions[0].text;
-        const pctRevenue = d1.revenue ? (((d2.revenue - d1.revenue) / d1.revenue) * 100).toFixed(1) : 0;
-        const pctExpenses = d1.expenses ? (((d2.expenses - d1.expenses) / d1.expenses) * 100).toFixed(1) : 0;
-        const pctNet = d1.net ? (((d2.net - d1.net) / d1.net) * 100).toFixed(1) : 0;
+        const pctOf = (a, b) => (Number(a) === 0 ? null : (((Number(b) - Number(a)) / Math.abs(Number(a))) * 100));
+        const pctRevenue = pctOf(d1.revenue, d2.revenue);
+        const pctExpenses = pctOf(d1.expenses, d2.expenses);
+        const pctNet = pctOf(d1.net, d2.net);
+        const pctCell = (p, colorWhenUp) => {
+            if (p === null) return '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:var(--text-muted);">— (لا أساس للمقارنة)</td>';
+            const good = colorWhenUp ? p >= 0 : p <= 0;
+            const color = Math.abs(p) < 0.05 ? 'var(--text-muted)' : (good ? 'var(--success)' : 'var(--danger)');
+            return '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + color + ';">' + (p >= 0 ? '+' : '') + p.toFixed(1) + '%</td>';
+        };
         document.getElementById('compareContent').innerHTML = '' +
             '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">' +
                 '<tr><th style="text-align:right;padding:8px;border-bottom:2px solid var(--border);">البيان</th>' +
@@ -11884,15 +12083,18 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<tr><td style="padding:8px;border-bottom:1px solid var(--border);">💵 الإيرادات</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d1.revenue.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d2.revenue.toFixed(2) + ' ج</td>' +
-                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + (pctRevenue >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctRevenue >= 0 ? '+' : '') + pctRevenue + '%</td></tr>' +
+                pctCell(pctRevenue, true) + '</tr>' +
                 '<tr><td style="padding:8px;border-bottom:1px solid var(--border);">📉 المصروفات</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d1.expenses.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);">' + d2.expenses.toFixed(2) + ' ج</td>' +
-                '<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border);color:' + (pctExpenses <= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctExpenses >= 0 ? '+' : '') + pctExpenses + '%</td></tr>' +
+                pctCell(pctExpenses, false) + '</tr>' +
                 '<tr><td style="padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + ((d1.net >= 0 && d2.net >= 0) ? '🎯 صافي الربح' : (d1.net < 0 && d2.net < 0 ? '🎯 صافي الخسارة' : '🎯 صافي الربح/الخسارة')) + '</td>' +
                 '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d1.net.toFixed(2) + ' ج</td>' +
                 '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);">' + d2.net.toFixed(2) + ' ج</td>' +
-                '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);color:' + (pctNet >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (pctNet >= 0 ? '+' : '') + pctNet + '%</td></tr>' +
+                (pctNet === null
+                    ? '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);color:var(--text-muted);">— (لا أساس للمقارنة)</td>'
+                    : '<td style="text-align:center;padding:8px;font-weight:700;border-top:2px solid var(--primary);color:' + (Math.abs(pctNet) < 0.05 ? 'var(--text-muted)' : (d2.net >= d1.net ? 'var(--success)' : 'var(--danger)')) + ';">' + (pctNet >= 0 ? '+' : '') + pctNet.toFixed(1) + '%</td>') +
+                '</tr>' +
             '</table>';
         drawCompareChart(d1, d2, label1, label2);
     }
@@ -11948,13 +12150,24 @@ body.employee-mode #undoBtn { display: none !important; }
     // ====== 📋 حركة المخزون ======
     function renderStockMovements() {
         const container = document.getElementById('stockMovContent');
-        if (stockMovements.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">لا توجد حركات مخزون</div><div class="empty-sub">سيتم تسجيل الحركات عند البيع أو الشراء</div></div>';
+        if (!container) return;
+        const range = getDateRange();
+        const safeTime = d => { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; };
+        const sorted = stockMovements.filter(m => inRange(m.date, range))
+            .slice().sort((a, b) => safeTime(b.date) - safeTime(a.date));
+        if (sorted.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">لا توجد حركات مخزون في هذه الفترة</div><div class="empty-sub">جرّب توسيع نطاق التاريخ أو أزل الفلتر</div></div>';
             return;
         }
-        const sorted = [...stockMovements].sort((a, b) => new Date(b.date) - new Date(a.date));
-        const orphanCount = stockMovements.filter(m => m.productId && !products.find(p => p.id == m.productId)).length;
-        let html = '<div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">إجمالي الحركات: ' + sorted.length + (orphanCount ? ' | <span style=\"color:var(--danger);font-weight:700;\">⚠️ ' + orphanCount + ' حركة لاصناف محذوفة</span>' : '') + '</div>';
+        const labelOf = m => {
+            if (m.sourceType === 'sale_return') return 'مرتجع بيع';
+            if (m.sourceType === 'purchase_return') return 'مرتجع شراء';
+            return m.type === 'in' ? 'شراء' : 'بيع';
+        };
+        const orphanCount = sorted.filter(m => m.productId && !products.find(p => p.id == m.productId)).length;
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : 'الآن';
+        let html = '<div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">📅 الفترة: ' + fromLbl + ' ← ' + toLbl + ' | إجمالي الحركات: ' + sorted.length + (orphanCount ? ' | <span style=\"color:var(--danger);font-weight:700;\">⚠️ ' + orphanCount + ' حركة لاصناف محذوفة</span>' : '') + '</div>';
         if (orphanCount > 0) {
             html += '<div style="margin-bottom:10px;padding:8px 12px;border-radius:8px;background:var(--danger-light);border:1px solid var(--danger);font-size:0.82rem;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
                 '<span>⚠️ توجد حركات لاصناف محذوفة (لا تظهر في المخزون). يمكنك تنظيفها.</span>' +
@@ -11966,7 +12179,7 @@ body.employee-mode #undoBtn { display: none !important; }
             const icon = isIn ? '📥' : '📤';
             const color = isIn ? 'var(--success)' : 'var(--danger)';
             const bgColor = isIn ? 'var(--success-light)' : 'var(--danger-light)';
-            const label = isIn ? 'شراء' : 'بيع';
+            const label = labelOf(m);
             const prod = products.find(p => p.id == m.productId);
             const prodName = m.productName || (prod ? prod.name : '');
             const isOrphan = !prod && m.productId;
@@ -11976,9 +12189,9 @@ body.employee-mode #undoBtn { display: none !important; }
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin:4px 0;background:' + bgColor + ';border-radius:8px;border-right:3px solid ' + color + ';">' +
                 '<span style="font-size:1.2rem;">' + icon + '</span>' +
                 '<div style="flex:1;">' +
-                    '<div><strong>' + displayName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span>' + (isOrphan ? ' <span class="badge" style="background:var(--danger);color:#fff;font-size:0.65rem;">يتم</span>' : '') + '</div>' +
-                    '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + m.qty + ' | ' + new Date(m.date).toLocaleString('ar-EG-u-nu-latn') + '</div>' +
-                    (m.notes ? '<div style="font-size:0.8rem;color:var(--text-muted);direction:ltr;text-align:right;font-family:monospace;">' + m.notes + '</div>' : '') +
+                    '<div><strong>' + displayName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span>' + (isOrphan ? ' <span class="badge" style="background:var(--danger);color:#fff;font-size:0.65rem;">يتيم</span>' : '') + '</div>' +
+                    '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + esc(String(m.qty == null ? '' : m.qty)) + ' | ' + new Date(m.date).toLocaleString('ar-EG-u-nu-latn') + '</div>' +
+                    (m.notes ? '<div style="font-size:0.8rem;color:var(--text-muted);direction:ltr;text-align:right;font-family:monospace;">' + esc(m.notes) + '</div>' : '') +
                 '</div>' +
             '</div>';
         });
@@ -11999,11 +12212,21 @@ body.employee-mode #undoBtn { display: none !important; }
 
     // تصدير حركة المخزون CSV
     window.exportStockMovementsCSV = function() {
+        const range = getDateRange();
         const BOM = '\uFEFF';
         const escCsv = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-        const sorted = [...stockMovements].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const safeTime = d => { const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; };
+        const sorted = stockMovements.filter(m => inRange(m.date, range))
+            .slice().sort((a, b) => safeTime(b.date) - safeTime(a.date));
+        const labelOf = m => {
+            if (m.sourceType === 'sale_return') return 'مرتجع بيع';
+            if (m.sourceType === 'purchase_return') return 'مرتجع شراء';
+            return m.type === 'in' ? 'شراء' : 'بيع';
+        };
+        const fromLbl = range.from ? new Date(range.from).toLocaleDateString('ar-EG-u-nu-latn') : 'البداية';
+        const toLbl = range.to ? new Date(range.to).toLocaleDateString('ar-EG-u-nu-latn') : 'الآن';
         const rows = [
-            ['حركة المخزون'],
+            ['حركة المخزون — الفترة ' + fromLbl + ' → ' + toLbl],
             [],
             ['التاريخ', 'الصنف', 'النوع', 'الكمية', 'ملاحظات']
         ];
@@ -12011,7 +12234,7 @@ body.employee-mode #undoBtn { display: none !important; }
             rows.push([
                 new Date(m.date).toLocaleString('ar-EG-u-nu-latn'),
                 m.productName || '',
-                (m.type === 'in' ? 'شراء' : 'بيع'),
+                labelOf(m),
                 m.qty,
                 m.notes || ''
             ]);
@@ -14913,7 +15136,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '
         let rowsHtml = rows.length > 0
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>' +
-                rows.map(r => '<tr><td>' + (r.date || '').slice(0,10) + '</td><td>' + r.desc + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>').join('') +
+                rows.map(r => '<tr><td>' + (r.date || '').slice(0,10) + '</td><td>' + escapeHtml(r.desc) + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>').join('') +
                 '<tr style="font-weight:700;border-top:2px solid var(--border);"><td colspan="2">الإجمالي</td><td class="positive">' + totalDebit.toFixed(2) + ' ج</td><td class="negative">' + totalCredit.toFixed(2) + ' ج</td></tr>' +
                 '<tr style="font-weight:700;background:rgba(79,70,229,0.06);"><td colspan="2">الرصيد المتبقي</td><td colspan="2" style="color:var(--danger);">' + balance.toFixed(2) + ' ج</td></tr>' +
                 '</tbody></table>'
@@ -14971,7 +15194,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '
             '<h2>🤝 كشف حساب عقد العربون</h2>' +
             '<div class="info">' + mName + (mPhone ? ' | 📱 ' + mPhone : '') + ' — ' + new Date().toLocaleString('ar-EG-u-nu-latn') + '</div>' +
             '<table><thead><tr><th>التاريخ</th><th>البيان</th><th>عليه</th><th>له</th></tr></thead><tbody>' +
-            rows.map(r => '<tr><td>' + (r.date || '').slice(0,10) + '</td><td>' + r.desc + '</td><td class="pos">' + (r.debit ? r.debit.toFixed(2) : '-') + '</td><td class="neg">' + (r.credit ? r.credit.toFixed(2) : '-') + '</td></tr>').join('') +
+            rows.map(r => '<tr><td>' + (r.date || '').slice(0,10) + '</td><td>' + escapeHtml(r.desc) + '</td><td class="pos">' + (r.debit ? r.debit.toFixed(2) : '-') + '</td><td class="neg">' + (r.credit ? r.credit.toFixed(2) : '-') + '</td></tr>').join('') +
             '<tr class="total-row"><td colspan="2">الإجمالي</td><td class="pos">' + totalDebit.toFixed(2) + '</td><td class="neg">' + totalCredit.toFixed(2) + '</td></tr>' +
             '<tr class="bal-row"><td colspan="2">المتبقي</td><td colspan="2" class="neg">' + balance.toFixed(2) + ' ج</td></tr>' +
             '</tbody></table>' +
@@ -15360,7 +15583,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '
             running += (r.debit || 0) - (r.credit || 0);
             let d = new Date(r.date).toLocaleDateString('ar-EG-u-nu-latn');
             let balColor = running >= 0 ? '#ef4444' : '#059669';
-            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
+            return '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + d + '</td><td style="padding:8px 6px;">' + escapeHtml(r.desc) + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:' + balColor + ';font-weight:700;">' + running.toFixed(2) + ' ج</td></tr>';
         }).join('');
         let finalBal = opening + totalDebit - totalCredit;
 
@@ -15495,7 +15718,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '
         let rowsHtml = rows.length > 0
             ? '<table class="merchant-statement-table" style="font-size:0.85rem;">' +
                 '<thead><tr><th>التاريخ</th><th>البيان</th><th>مدين (عليه)</th><th>دائن (له)</th></tr></thead><tbody>' +
-                rows.map(r => '<tr><td>' + r.date.slice(0,10) + '</td><td>' + r.desc + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>').join('') +
+                rows.map(r => '<tr><td>' + r.date.slice(0,10) + '</td><td>' + escapeHtml(r.desc) + '</td><td class="positive">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '-') + '</td><td class="negative">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '-') + '</td></tr>').join('') +
                 '</tbody></table>'
             : '<div style="text-align:center;padding:20px;color:var(--text-muted);">لا توجد مبيعات</div>';
 
@@ -15567,7 +15790,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '
             doc: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
         };
 
-        let rowsHtml = rows.map(r => '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + r.date.slice(0,10) + '</td><td style="padding:8px 6px;">' + r.desc + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>').join('');
+        let rowsHtml = rows.map(r => '<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:8px 6px;">' + r.date.slice(0,10) + '</td><td style="padding:8px 6px;">' + escapeHtml(r.desc) + '</td><td style="padding:8px 6px;color:#059669;font-weight:700;">' + (r.debit ? r.debit.toFixed(2) + ' ج' : '—') + '</td><td style="padding:8px 6px;color:#ef4444;font-weight:700;">' + (r.credit ? r.credit.toFixed(2) + ' ج' : '—') + '</td></tr>').join('');
 
         let htmlContent = '' +
         '<div style="font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;direction:rtl;padding:24px;background:#f8fafc;color:#0f172a;max-width:900px;margin:auto;box-sizing:border-box;">' +
@@ -18793,12 +19016,24 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
         return sheets;
     }
 
+    // اتجاه أثر الحركة على التدفق النقدي — مصدر واحد لتصنيف التصدير
+    function txnFlowDir(t) {
+        if (!t) return 0;
+        if (t.type === 'transfer_in' || t.type === 'transfer_out') return 0;
+        if (INCOME_TRANS_TYPES.includes(t.type)) return 1;
+        if (EXPENSE_TRANS_TYPES.includes(t.type)) return -1;
+        return 0;
+    }
+
     document.getElementById('exportReportBtn').addEventListener('click', () => {
         try {
-            let header = ['النوع', 'البيان', 'المبلغ', 'الخصم', 'التاريخ'];
-            let rows = transactions.map(t => {
-                let type = t.type === 'expense' || t.type === 'purchase' ? 'خارج (-)' : 'داخل (+)';
-                return [type, t.notes || t.type, t.amount, t.discount || 0, new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn')];
+            const header = ['النوع', 'الحركة', 'البيان', 'المبلغ', 'الخصم', 'التاريخ'];
+            const rows = transactions.map(t => {
+                const dir = txnFlowDir(t);
+                const kind = dir > 0 ? 'داخل (+)' : (dir < 0 ? 'خارج (-)' : 'تحويل (بدون أثر)');
+                const dt = new Date(t.date);
+                return [kind, t.type, t.notes || '', BusinessLogic.toNum(t.amount), BusinessLogic.toNum(t.discount),
+                    isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('ar-EG-u-nu-latn')];
             });
             downloadCSV('تقرير_الحركات_' + Date.now() + '.csv', header, rows);
             showToast('تم تصدير CSV');
@@ -18856,6 +19091,8 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
             const range = getDateRange();
             const dateLabel = (range.from ? range.from.toLocaleDateString('ar-EG-u-nu-latn') : '---') + ' إلى ' + (range.to ? range.to.toLocaleDateString('ar-EG-u-nu-latn') : '---');
             const now = new Date().toLocaleDateString('ar-EG-u-nu-latn', { year:'numeric', month:'long', day:'numeric' });
+            // المركز المالي يُقرأ «كما في تاريخ» ولا يتأثر بفلتر الفترة
+            const asOfLabel = range.to ? range.to.toLocaleDateString('ar-EG-u-nu-latn') : now;
             const partnerInvest = partners.reduce((s, p) => s + p.balance, 0);
 
             let html = '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير مالي</title>' +
@@ -18875,9 +19112,9 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
                 '.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:0.82rem;}' +
                 '@media print{body{padding:15px;}}' +
                 '</style></head><body>' +
-                '<div class="header"><h1>📈 التقرير المالي</h1><p>الفترة: ' + dateLabel + ' | تاريخ التقرير: ' + now + '</p></div>' +
+                '<div class="header"><h1>📈 التقرير المالي</h1><p>قائمة الدخل للفترة: ' + dateLabel + ' | المركز المالي كما في: ' + asOfLabel + ' | تاريخ الطباعة: ' + now + '</p></div>' +
 
-                '<div class="section-title">📊 قائمة الدخل</div>' +
+                '<div class="section-title">📊 قائمة الدخل (للفترة المحددة)</div>' +
                 '<table><tr><td>💵 إجمالي المبيعات</td><td style="font-weight:700;">' + fin.revenue.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>🔻 خصومات البيوع</td><td>' + fin.totalDiscounts.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>🏭 تكلفة البضاعة المباعة</td><td>' + fin.cogs.toFixed(2) + ' ج</td></tr>' +
@@ -18888,7 +19125,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
                 '<tr><td>💰 أرباح فوائد التقسيط</td><td class="profit">' + fin.interestProfit.toFixed(2) + ' ج</td></tr>' +
                 '<tr class="total-row"><td>' + (fin.netProfit >= 0 ? '🎯 صافي الربح الفعلي' : '🎯 صافي الخسارة الفعلية') + '</td><td class="' + (fin.netProfit >= 0 ? 'profit' : 'loss') + '" style="font-size:1.1rem;">' + fin.netProfit.toFixed(2) + ' ج (' + fin.netMargin.toFixed(1) + '%)</td></tr></table>' +
 
-                '<div class="section-title">🏦 المركز المالي</div>' +
+                '<div class="section-title">🏦 المركز المالي (كما في ' + asOfLabel + ' — لا يتأثر بفلتر الفترة)</div>' +
                 '<table><tr><td>💰 الخزينة النقدية</td><td>' + fin.cash.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>📦 قيمة المخزون</td><td>' + fin.stockValue.toFixed(2) + ' ج</td></tr>' +
                 '<tr><td>📋 مديونية العملاء</td><td>' + fin.totalDebt.toFixed(2) + ' ج</td></tr>' +
@@ -19749,6 +19986,11 @@ const backup = {
         if (!isAdminSession() && adminOnlyPages.includes(pageId)) {
             showToast('هذه الصفحة متاحة للمدير فقط', 'error');
             pageId = 'dashboard';
+        }
+        // إغلاق نافذة التقرير المفتوحة دائمًا عند تغيير الصفحة (يمنع بقاء قفل التمرير)
+        const reportOverlay = document.getElementById('reportDetailOverlay');
+        if (reportOverlay && reportOverlay.style.display !== 'none' && typeof window.closeReportDetail === 'function') {
+            window.closeReportDetail();
         }
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
         document.getElementById(pageId).classList.add('active-page');

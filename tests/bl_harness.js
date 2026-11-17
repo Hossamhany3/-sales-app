@@ -1575,7 +1575,7 @@ test('إصلاح: المشكلات غير الآمنة لا تُعرض كإصل�
 
 test('ربط الواجهة: زر التراجع وتبويب الإصلاح والتفصيل وحذف بالسبب موصولة', () => {
   ok(html.includes('id="undoBtn"'), 'زر التراجع في الترويسة');
-  ok(html.includes("tabRepair") && html.includes("switchReportCategory"), 'تبويب مركز الإصلاح (مجمّع)');
+  ok(html.includes("tabRepair") && html.includes("openReportDetail"), 'تبويب مركز الإصلاح وقائمة التقارير المفتوحة');
   ok(html.includes('window.renderRepairCenter'), 'دالة عرض المركز');
   ok(html.includes('window.coaDrillDown'), 'دالة تفصيل بند الميزان');
   ok(html.includes('window.confirmDelete') && html.includes('window.askDeleteReason'), 'الحذف يطلب سببًا');
