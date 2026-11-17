@@ -300,6 +300,34 @@
         .subtab-btn:hover:not(.active) { border-color:var(--primary); }
         .grid-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px; }
 
+        /* ===== أزرار التقارير الداخلية: نفس شكل أزرار البرنامج (Rounded) ===== */
+        #reports button {
+            border-radius: 12px !important;
+            border: none !important;
+            background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
+            color: #fff !important;
+            font-weight: 600 !important;
+            font-size: 0.88rem !important;
+            min-height: 38px !important;
+            padding: 8px 16px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            transition: all 0.15s ease !important;
+        }
+        #reports button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(99,102,241,0.3) !important;
+            filter: brightness(1.05) !important;
+        }
+        #reports button:active {
+            transform: translateY(0) !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+            filter: brightness(0.95) !important;
+        }
+        #reports button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        #reports button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; filter: none !important; box-shadow: none !important; }
+        #reports button.btn-success { background: linear-gradient(135deg, var(--success), #00C853) !important; }
+        #reports button.btn-danger { background: linear-gradient(135deg, var(--danger), #D50000) !important; }
+
         #toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
         .toast { background: var(--card-bg-solid); color: white; padding: 12px 20px; border-radius: 50px; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--card-border); animation: slideUp 0.3s forwards; display: flex; align-items: center; gap: 8px; }
         .toast.success { background: linear-gradient(135deg, rgba(0,230,118,0.2), rgba(0,200,83,0.15)); border-color: rgba(0,230,118,0.3); color: var(--success); }
