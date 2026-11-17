@@ -1588,6 +1588,8 @@ body.employee-mode #undoBtn { display: none !important; }
                     <option value="partner_capital_out">📤 نقل حصة رأس مال (صادر)</option>
                     <option value="partner_goodwill">💎 شهرة/إعادة تقييم</option>
                     <option value="partner_revaluation_loss">🔻 تخفيض إعادة تقييم</option>
+                    <option value="partner_goodwill_amortization">🩹 إطفاء شهرة</option>
+                    <option value="partner_asset_in">📦 أصل عيني من شريك</option>
                     <option value="merchant_sale">🏪 بيع لتاجر</option>
                     <option value="merchant_purchase">📥 شراء من تاجر</option>
                     <option value="payment_out">💸 دفعة لتاجر</option>
@@ -1845,6 +1847,8 @@ body.employee-mode #undoBtn { display: none !important; }
             <button class="btn-sm wide" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:1px solid rgba(124,58,237,0.35);" onclick="openProfitDistribution()">📊 توزيع الأرباح / الخسائر</button>
             <button class="btn-sm wide" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#0f766e,#0891b2);color:#fff;border:1px solid rgba(8,145,178,0.35);" onclick="openPartnerAdmission()">👥 دخول شريك جديد / تعديل رأس المال والنسب</button>
             <button class="btn-sm wide" style="width:100%;margin-bottom:12px;background:var(--card-bg);color:var(--primary);border:1px solid var(--border);" onclick="openPartnerAdmissionHistory()">📜 سجل دخول الشركاء والقيود</button>
+            <button class="btn-sm wide" style="width:100%;margin-bottom:12px;background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff;border:1px solid rgba(20,184,166,0.35);" onclick="openOwnershipDashboard()">📊 هيكل الملكية والنسب</button>
+            <button class="btn-sm wide" style="width:100%;margin-bottom:12px;background:var(--card-bg);color:#b45309;border:1px solid var(--border);" onclick="openGoodwillRegister()">💎 سجل الشهرة وإعادة التقييم</button>
             <div id="partnersList"></div>
         </div>
 
@@ -2389,6 +2393,12 @@ body.employee-mode #undoBtn { display: none !important; }
                     <button class="btn-sm btn-outline" style="width:auto;" onclick="setPeriodLock(null); document.getElementById('periodLockInput').value=''; updatePeriodLockStatus();">🔓 إلغاء</button>
                 </div>
                 <div id="periodLockStatus" style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 10px 0; font-size:1rem;">👥 صلاحيات الموظفين</h3>
+                <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">حدّد ما يستطيع الموظف (غير المدير) القيام به. المدير يملك كل الصلاحيات دائماً.</p>
+                <div id="permissionSettings" style="font-size:0.85rem;"></div>
             </div>
 
             <div class="card" style="border:2px dashed var(--danger); background:#fef2f2;">
@@ -3335,6 +3345,27 @@ body.employee-mode #undoBtn { display: none !important; }
             return isFinite(n) && n > 0;
         },
 
+        // ─── قفل الفترة: يمنع أي أثر مالي قبل تاريخ القفل ───
+        lockDate() {
+            return periodLockDate ? String(periodLockDate).slice(0, 10) : null;
+        },
+
+        isDateLocked(dateStr) {
+            const lock = this.lockDate();
+            if (!lock) return false;
+            const d = String(dateStr || new Date().toISOString()).slice(0, 10);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+            return d < lock;
+        },
+
+        periodLockMessage(dateStr) {
+            const lock = this.lockDate();
+            if (!lock) return '';
+            const d = String(dateStr || '').slice(0, 10);
+            return '🔒 الفترة مقفولة حتى ' + lock
+                + (d ? ' — لا يمكن تسجيل أو تعديل حركة بتاريخ ' + d : '');
+        },
+
         // التحقق من أن مجموع الكاش + البنك يساوي الإجمالي (عند استخدام التقسيم)
         splitSumValid(total, cash, bank) {
             const c = this.toNum(cash);
@@ -3558,6 +3589,14 @@ body.employee-mode #undoBtn { display: none !important; }
                   notes, category, discount, sourceType, sourceId, operationType,
                   date, instId, arabonId, partnerId, toAccountId, fromAccountId,
                   paymentSeq, slotIndex, unitCost } = opts;
+            // قفل الفترة — لا يُسمح بأي قيد مالي في فترة مغلقة
+            if (this.isDateLocked(date)) {
+                console.warn('postTransaction: الفترة مقفولة', { type, date, lock: this.lockDate() });
+                if (typeof window !== 'undefined' && typeof window.__onLockedAttempt === 'function') {
+                    try { window.__onLockedAttempt(date, type); } catch (e) { /* تجاهل */ }
+                }
+                return null;
+            }
             let amt = parseFloat(amount);
             if (!isFinite(amt) || amt <= 0) {
                 console.warn('postTransaction: مبلغ غير صالح', { type, amount, sourceType, sourceId });
@@ -3869,11 +3908,17 @@ body.employee-mode #undoBtn { display: none !important; }
             push('115', '115-AR', 'ذمم العملاء (أقساط/عربون)', custRecv > 0 ? custRecv : 0, custRecv < 0 ? -custRecv : 0);
             push('116', '116-MAR', 'ذمم التجار (مدينة)', mRecv > 0 ? mRecv : 0, mRecv < 0 ? -mRecv : 0);
 
-            // 117: شهرة محل / احتياطي إعادة تقييم (فرق التقييم عند دخول شريك)
-            const goodwillAsset = transactions.filter(t => t.type === 'partner_goodwill').reduce((s, t) => s + this.toNum(t.amount), 0)
-                - transactions.filter(t => t.type === 'partner_revaluation_loss').reduce((s, t) => s + this.toNum(t.amount), 0);
+            // 117: شهرة محل / احتياطي إعادة تقييم (فرق التقييم عند دخول شريك) بعد الإطفاء
+            const goodwillAsset = this.goodwillBalance();
             if (Math.abs(goodwillAsset) >= 0.01) {
                 push('117', '117-GW', 'شهرة محل / احتياطي إعادة تقييم', goodwillAsset > 0 ? goodwillAsset : 0, goodwillAsset < 0 ? -goodwillAsset : 0);
+            }
+
+            // 118: أصول عينية مضافة من شركاء (دخول بأصل غير نقدي)
+            const assetIn = transactions.filter(t => t.type === 'partner_asset_in')
+                .reduce((s, t) => s + this.toNum(t.amount), 0);
+            if (Math.abs(assetIn) >= 0.01) {
+                push('118', '118-ASSET', 'أصول عينية مضافة من شركاء', assetIn > 0 ? assetIn : 0, assetIn < 0 ? -assetIn : 0);
             }
 
             // 211/212: التزامات
@@ -3924,6 +3969,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 ['115', 'ذمم العملاء', '11'],
                 ['116', 'ذمم التجار المدينة', '11'],
                 ['117', 'الشهرة وإعادة التقييم', '11'],
+                ['118', 'أصول عينية مضافة', '11'],
                 ['2', 'الالتزامات', null],
                 ['21', 'الالتزامات المتداولة', '2'],
                 ['211', 'ذمم التجار الدائنة', '21'],
@@ -6046,7 +6092,8 @@ body.employee-mode #undoBtn { display: none !important; }
         partnerBalanceDelta(type, amount) {
             const amt = this.toNum(amount);
             if (type === 'partner_deposit' || type === 'partner_profit' ||
-                type === 'partner_capital_in' || type === 'partner_goodwill') return amt;
+                type === 'partner_capital_in' || type === 'partner_goodwill' ||
+                type === 'partner_asset_in') return amt;
             if (type === 'partner_withdrawal' || type === 'partner_loss' ||
                 type === 'partner_capital_out' || type === 'partner_revaluation_loss') return -amt;
             return 0;
@@ -6055,6 +6102,36 @@ body.employee-mode #undoBtn { display: none !important; }
         // ─── رأس المال الدفتري المسجل = مجموع أرصدة الشركاء ───
         partnerBookEquity() {
             return parseFloat(partners.reduce((s, p) => s + this.toNum(p.balance), 0).toFixed(2));
+        },
+
+        // ─── رصيد الشهرة المتبقي (بعد أي إطفاء) ───
+        goodwillBalance() {
+            const sum = (type) => transactions.filter(t => t.type === type)
+                .reduce((s, t) => s + this.toNum(t.amount), 0);
+            return parseFloat((sum('partner_goodwill') - sum('partner_revaluation_loss') - sum('partner_goodwill_amortization')).toFixed(2));
+        },
+
+        // ─── إطفاء الشهرة: مصروف يخصم من أصل الشهرة (بلا أثر نقدي) ───
+        amortizeGoodwill(opts) {
+            opts = opts || {};
+            const amt = this.toNum(opts.amount);
+            if (!(amt > 0)) return { success: false, reason: 'invalid_amount' };
+            const remaining = this.goodwillBalance();
+            if (remaining <= 0.009) return { success: false, reason: 'no_goodwill', remaining };
+            if (amt > remaining + 0.01) return { success: false, reason: 'exceeds_goodwill', remaining };
+            const txnDate = opts.date || new Date().toISOString();
+            if (this.isDateLocked(txnDate)) return { success: false, reason: 'period_locked' };
+            const t = this.postTransaction({
+                type: 'partner_goodwill_amortization', amount: amt,
+                notes: opts.notes || '💎 إطفاء شهرة المحل / إعادة التقييم',
+                sourceType: 'goodwill_amortization', sourceId: 'GA-' + this.genId(),
+                date: txnDate
+            });
+            if (!t) return { success: false, reason: 'transaction_failed' };
+            logAudit('update', 'إطفاء شهرة', t.id,
+                amt.toFixed(2) + ' ج | الرصيد المتبقي ' + parseFloat((remaining - amt).toFixed(2)) + ' ج');
+            saveData();
+            return { success: true, id: t.id, remaining: parseFloat((remaining - amt).toFixed(2)) };
         },
 
         // ─── توزيع مبلغ على الشركاء حسب النسبة (ثم رأس المال كبديل) ───
@@ -6088,10 +6165,13 @@ body.employee-mode #undoBtn { display: none !important; }
         // method: cash_injection (ضخ أموال في الخزينة) | stake_purchase (شراء حصة من شريك)
         admitPartner(opts) {
             opts = opts || {};
-            const method = opts.method === 'stake_purchase' ? 'stake_purchase' : 'cash_injection';
+            const method = opts.method === 'stake_purchase'
+                ? 'stake_purchase'
+                : (opts.method === 'asset_contribution' ? 'asset_contribution' : 'cash_injection');
             const amount = this.toNum(opts.amount);
             const valuation = this.toNum(opts.valuation);
             const txnDate = opts.date || new Date().toISOString();
+            if (this.isDateLocked(txnDate)) return { success: false, reason: 'period_locked' };
             if (!(amount > 0)) return { success: false, reason: 'invalid_amount' };
             if (!(valuation > 0)) return { success: false, reason: 'invalid_valuation' };
 
@@ -6106,6 +6186,10 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!entrant && !newName) return { success: false, reason: 'name_required' };
             if (!entrant && partners.some(p => String(p.name || '').trim() === newName)) {
                 return { success: false, reason: 'duplicate_name' };
+            }
+            const assetLabel = String(opts.assetName || '').trim();
+            if (method === 'asset_contribution' && !assetLabel) {
+                return { success: false, reason: 'asset_name_required' };
             }
 
             let accountId = opts.accountId ? parseInt(opts.accountId) : null;
@@ -6210,16 +6294,18 @@ body.employee-mode #undoBtn { display: none !important; }
             const journal = [];
             const goodLabel = 'شهرة محل / احتياطي إعادة تقييم';
 
-            if (method === 'cash_injection') {
-                // القيمة بعد التوسعة = التقييم الحالي + المبلغ المدفوع
+            if (method !== 'stake_purchase') {
+                // القيمة بعد التوسعة = التقييم الحالي + المبلغ المدفوع (نقداً أو أصلاً عينياً)
+                const isAsset = method === 'asset_contribution';
                 const deposit = this.postTransaction({
-                    type: 'partner_deposit', amount: amount,
-                    accountId: accountId || undefined,
+                    type: isAsset ? 'partner_asset_in' : 'partner_deposit', amount: amount,
+                    accountId: isAsset ? undefined : (accountId || undefined),
                     partnerId: entrantRecord.id,
-                    notes: '💵 ضخ أموال لتوسيع النشاط — دخول ' + entrantRecord.name
+                    notes: (isAsset ? '📦 أصل عيني مقدم — ' + assetLabel + ' — دخول ' : '💵 ضخ أموال لتوسيع النشاط — دخول ')
+                        + entrantRecord.name
                         + ' | تقييم قبل الدخول ' + valuation.toFixed(2) + ' ج',
                     sourceType: 'partner_admission', sourceId: admissionId,
-                    operationType: 'cash_injection',
+                    operationType: isAsset ? 'asset_contribution' : 'cash_injection',
                     date: txnDate
                 });
                 if (!deposit) { rollback(); return { success: false, reason: 'transaction_failed' }; }
@@ -6227,7 +6313,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 entrantRecord.balance = parseFloat((this.toNum(entrantRecord.balance) + amount).toFixed(2));
 
                 const account = accountId ? accounts.find(a => a.id == accountId) : null;
-                journal.push({ side: 'debit', label: 'ح/ ' + (account ? account.name : 'الخزينة / البنك'), amount });
+                journal.push({ side: 'debit', label: isAsset ? 'ح/ ' + assetLabel : 'ح/ ' + (account ? account.name : 'الخزينة / البنك'), amount });
                 if (recordGoodwill && goodwill > 0) {
                     journal.push({ side: 'debit', label: 'ح/ ' + goodLabel, amount: goodwill });
                     journal.push({ side: 'credit', label: 'ح/ رأس مال الشريك الجديد — ' + entrantRecord.name, amount });
@@ -6279,7 +6365,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
 
             // تحديث النسب
-            if (method === 'cash_injection') {
+            if (method !== 'stake_purchase') {
                 const dilution = valuation / (valuation + amount);
                 oldPartners.forEach(p => {
                     p.profitPercent = parseFloat((this.toNum(p.profitPercent) * dilution).toFixed(4));
@@ -6299,7 +6385,9 @@ body.employee-mode #undoBtn { display: none !important; }
 
             const anchor = method === 'cash_injection'
                 ? createdTxns.find(t => t.type === 'partner_deposit')
-                : createdTxns.find(t => t.type === 'partner_capital_in');
+                : method === 'asset_contribution'
+                    ? createdTxns.find(t => t.type === 'partner_asset_in')
+                    : createdTxns.find(t => t.type === 'partner_capital_in');
             createdTxns.forEach(t => { t.admissionId = admissionId; });
 
             const record = {
@@ -6312,7 +6400,8 @@ body.employee-mode #undoBtn { display: none !important; }
                 sellerName: seller ? seller.name : '',
                 amountPaid: amount,
                 valuation,
-                postValuation: method === 'cash_injection' ? valuation + amount : valuation,
+                assetName: assetLabel || null,
+                postValuation: method !== 'stake_purchase' ? valuation + amount : valuation,
                 bookEquityBefore,
                 bookEquityAfter: this.partnerBookEquity(),
                 newPercent,
@@ -6338,7 +6427,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
 
             logAudit('create', 'دخول شريك جديد', admissionId,
-                entrantRecord.name + ' | ' + (method === 'cash_injection' ? 'ضخ أموال' : 'شراء حصة')
+                entrantRecord.name + ' | ' + (method === 'cash_injection' ? 'ضخ أموال' : method === 'asset_contribution' ? 'أصل عيني: ' + assetLabel : 'شراء حصة')
                 + ' | مبلغ ' + amount.toFixed(2) + ' ج | تقييم ' + valuation.toFixed(2) + ' ج'
                 + ' | نسبة ' + newPercent.toFixed(2) + '%'
                 + (recordGoodwill ? ' | شهرة/تقييم ' + goodwill.toFixed(2) + ' ج' : ''));
@@ -6365,6 +6454,74 @@ body.employee-mode #undoBtn { display: none !important; }
             return out.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
         },
 
+        // ─── عكس/إلغاء عملية دخول شريك: استرجاع النسب والأرصدة وحذف القيود ───
+        reversePartnerAdmission(admissionId) {
+            const id = String(admissionId || '');
+            if (!id) return { success: false, reason: 'not_found' };
+            const anchor = transactions.find(t => t && t.admission && String(t.admission.id) === id);
+            const rec = anchor ? anchor.admission : null;
+            if (!rec) return { success: false, reason: 'not_found' };
+            const txns = transactions.filter(t => String(t.admissionId) === id);
+            if (!txns.length) return { success: false, reason: 'not_found' };
+            if (txns.some(t => this.isDateLocked(t.date))) return { success: false, reason: 'period_locked' };
+
+            // لا يمكن عكس عملية قديمة توجد بعدها عمليات دخول أخرى (نسب لاحقة مبنية عليها)
+            const later = this.listPartnerAdmissions().find(d =>
+                String(d.id) !== id && String(d.date || '') > String(rec.date || ''));
+            if (later) return { success: false, reason: 'has_later_admissions', laterId: later.id, laterDate: later.date };
+
+            // 1) استرجاع أرصدة رأس المال (عكس أثر كل قيد)
+            const affected = new Set();
+            txns.forEach(t => {
+                const pid = String(t.partnerId);
+                const p = partners.find(x => String(x.id) === pid);
+                if (!p) return;
+                affected.add(pid);
+                const delta = this.partnerBalanceDelta(t.type, t.amount);
+                p.balance = parseFloat((this.toNum(p.balance) - delta).toFixed(2));
+            });
+
+            // 2) استرجاع النسب كما كانت قبل الدخول
+            if (Array.isArray(rec.oldPercents)) {
+                rec.oldPercents.forEach(o => {
+                    const p = partners.find(x => String(x.id) === String(o.partnerId));
+                    if (p) p.profitPercent = parseFloat(this.toNum(o.percent).toFixed(4));
+                });
+                affected.add(String(rec.newPartnerId));
+            }
+            // من لم يكن موجوداً قبل الدخول (الشريك الجديد) تُصفَّر نسبته
+            const entrant = partners.find(p => String(p.id) === String(rec.newPartnerId));
+            let removedPartner = false;
+            if (entrant) {
+                const knownBefore = Array.isArray(rec.oldPercents)
+                    && rec.oldPercents.some(o => String(o.partnerId) === String(entrant.id));
+                const otherTxns = transactions.some(t =>
+                    String(t.partnerId) === String(entrant.id) && String(t.admissionId) !== id);
+                if (!knownBefore && !otherTxns && Math.abs(this.toNum(entrant.balance)) < 0.01) {
+                    partners = partners.filter(p => String(p.id) !== String(entrant.id));
+                    removedPartner = true;
+                } else if (!knownBefore) {
+                    entrant.profitPercent = 0;
+                }
+            }
+
+            // 3) حذف القيود المرتبطة بالعملية
+            const ids = new Set(txns.map(t => String(t.id)));
+            transactions = transactions.filter(t => !ids.has(String(t.id)));
+
+            const totalAfter = parseFloat(partners.reduce((s, p) => s + this.toNum(p.profitPercent), 0).toFixed(4));
+            logAudit('delete', 'عكس دخول شريك', id,
+                'عكس ' + txns.length + ' قيد | ' + (rec.newPartnerName || '')
+                + ' | نسبة كانت ' + (this.toNum(rec.newPercent).toFixed(2)) + '%'
+                + (removedPartner ? ' | حُذف الشريك الجديد (لم يكن مسجلاً قبل الدخول)' : '')
+                + ' | مجموع النسب بعد العكس ' + totalAfter + '%');
+            saveData();
+            return {
+                success: true, reversed: txns.length, removedPartner,
+                totalPercentAfter: totalAfter, record: rec
+            };
+        },
+
         // ─── صافي الربح/الخسارة لفترة (أساس توزيع نسب الشركاء) ───
         netProfitForPeriod(fromStr, toStr) {
             const from = fromStr ? new Date(fromStr + 'T00:00:00') : null;
@@ -6389,7 +6546,55 @@ body.employee-mode #undoBtn { display: none !important; }
             return { profit: parseFloat(profit.toFixed(2)), loss: parseFloat(loss.toFixed(2)) };
         },
 
+        // ─── النسب الفعّالة في تاريخ معيّن (مشتقة من سجل دخول الشركاء) ───
+        partnerPercentsAt(dateStr) {
+            const current = {};
+            partners.forEach(p => { current[String(p.id)] = this.toNum(p.profitPercent); });
+            const admissions = this.listPartnerAdmissions()
+                .filter(a => String(a.date || '').slice(0, 10))
+                .slice()
+                .sort((a, b) => String(a.date).slice(0, 10).localeCompare(String(b.date).slice(0, 10)));
+            if (!admissions.length) return current;
+            const d = String(dateStr || '').slice(0, 10);
+            const lastDate = String(admissions[admissions.length - 1].date).slice(0, 10);
+            // الآن أو بعد آخر عملية دخول: النسب الحالية (تشمل أي تعديل يدوي)
+            if (!d || d >= lastDate) return current;
+            let chosen = null;
+            for (const a of admissions) {
+                if (String(a.date).slice(0, 10) <= d) chosen = a; else break;
+            }
+            const map = {};
+            const src = chosen && Array.isArray(chosen.newPercents)
+                ? chosen.newPercents
+                : (Array.isArray(admissions[0].oldPercents) ? admissions[0].oldPercents : []);
+            src.forEach(x => { map[String(x.partnerId)] = this.toNum(x.percent); });
+            return map;
+        },
+
+        // ─── شرائح الفترة: تتغير عند أي عملية دخول شريك داخل الفترة ───
+        distributionSegments(fromStr, toStr) {
+            const from = String(fromStr || '').slice(0, 10);
+            const to = String(toStr || '').slice(0, 10);
+            if (!from || !to) return [];
+            const points = [from];
+            this.listPartnerAdmissions().forEach(a => {
+                const d = String(a.date || '').slice(0, 10);
+                if (d > from && d <= to && !points.includes(d)) points.push(d);
+            });
+            points.sort();
+            return points.map((p, i) => {
+                let segTo = to;
+                if (i + 1 < points.length) {
+                    const next = new Date(points[i + 1] + 'T00:00:00');
+                    next.setDate(next.getDate() - 1);
+                    segTo = next.getFullYear() + '-' + String(next.getMonth() + 1).padStart(2, '0') + '-' + String(next.getDate()).padStart(2, '0');
+                }
+                return { from: p, to: segTo };
+            });
+        },
+
         // ─── توزيع صافي الربح/الخسارة على الشركاء حسب النسبة ───
+        // النسب تُطبَّق زمنياً: كل شريحة بين عمليتي دخول تُوزَّع بنسبها وقتها (بلا أثر رجعي).
         distributePartnerProfits(opts) {
             let { from, to, date } = opts || {};
             const fromStr = String(from || '').slice(0, 10);
@@ -6401,9 +6606,8 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             if (fromD > toD) return { success: false, reason: 'invalid_period' };
 
-            const participants = partners.filter(p => this.toNum(p.profitPercent) > 0);
-            if (!participants.length) return { success: false, reason: 'no_percent' };
-            const totalPct = parseFloat(participants.reduce((s, p) => s + this.toNum(p.profitPercent), 0).toFixed(4));
+            if (!partners.some(p => this.toNum(p.profitPercent) > 0)) return { success: false, reason: 'no_percent' };
+            const totalPct = parseFloat(partners.reduce((s, p) => s + this.toNum(p.profitPercent), 0).toFixed(4));
             if (totalPct > 100.01) return { success: false, reason: 'percent_over_100', totalPercent: totalPct };
 
             // منع توزيع نفس الفترة مرتين (تداخل الفترات)
@@ -6417,11 +6621,36 @@ body.employee-mode #undoBtn { display: none !important; }
             });
             if (overlap) return { success: false, reason: 'period_overlap', existingFrom: overlap.periodFrom, existingTo: overlap.periodTo };
 
-            const net = this.netProfitForPeriod(fromStr, toStr);
+            // تقسيم الفترة إلى شرائح حسب تغيّر النسب
+            const segments = this.distributionSegments(fromStr, toStr);
+            const shares = new Map();
+            let net = 0;
+            for (const seg of segments) {
+                const segNet = this.netProfitForPeriod(seg.from, seg.to);
+                net = parseFloat((net + segNet).toFixed(2));
+                if (Math.abs(segNet) < 0.01) continue;
+                const pcts = this.partnerPercentsAt(seg.from);
+                const ids = Object.keys(pcts).filter(k => this.toNum(pcts[k]) > 0);
+                const segTotal = parseFloat(ids.reduce((s, k) => s + this.toNum(pcts[k]), 0).toFixed(4));
+                if (segTotal > 100.01) {
+                    return { success: false, reason: 'percent_over_100', totalPercent: segTotal, segmentFrom: seg.from };
+                }
+                ids.forEach(k => {
+                    const pct = this.toNum(pcts[k]);
+                    const share = parseFloat((segNet * pct / 100).toFixed(2));
+                    if (Math.abs(share) < 0.01) return;
+                    const cur = shares.get(k) || { share: 0, segments: [] };
+                    cur.share = parseFloat((cur.share + share).toFixed(2));
+                    cur.segments.push({ from: seg.from, to: seg.to, percent: pct, net: segNet, share });
+                    shares.set(k, cur);
+                });
+            }
             if (Math.abs(net) < 0.01) return { success: false, reason: 'zero_amount', netProfit: net };
+            if (!shares.size) return { success: false, reason: 'no_percent' };
 
             const distId = 'PD-' + this.genId();
             const txnDate = date || new Date().toISOString();
+            if (this.isDateLocked(txnDate)) return { success: false, reason: 'period_locked' };
             const created = [];
             const lines = [];
             const rollback = () => {
@@ -6433,16 +6662,21 @@ body.employee-mode #undoBtn { display: none !important; }
                 });
             };
 
-            for (const p of participants) {
-                const pct = this.toNum(p.profitPercent);
-                const share = parseFloat((net * pct / 100).toFixed(2));
-                if (Math.abs(share) < 0.01) continue;
-                const isProfit = share > 0;
+            for (const [pid, agg] of shares) {
+                if (Math.abs(agg.share) < 0.01) continue;
+                const p = partners.find(x => String(x.id) === String(pid));
+                if (!p) continue;
+                const isProfit = agg.share > 0;
+                const effectivePct = net !== 0 ? parseFloat((agg.share / net * 100).toFixed(4)) : 0;
+                const segNote = agg.segments.length > 1
+                    ? ' | شرائح: ' + agg.segments.map(s => s.from + '→' + s.to + ' (' + s.percent + '%)').join(' ، ')
+                    : '';
                 const t = this.postTransaction({
                     type: isProfit ? 'partner_profit' : 'partner_loss',
-                    amount: Math.abs(share),
+                    amount: Math.abs(agg.share),
                     partnerId: p.id,
-                    notes: (isProfit ? '📈 أرباح ' : '📉 خسارة ') + 'فترة ' + fromStr + ' — ' + toStr + ' | نسبة ' + pct + '%',
+                    notes: (isProfit ? '📈 أرباح ' : '📉 خسارة ') + 'فترة ' + fromStr + ' — ' + toStr
+                        + ' | نسبة فعلية ' + effectivePct + '%' + segNote,
                     sourceType: 'partner_profit_distribution',
                     sourceId: distId,
                     operationType: String(p.id),
@@ -6451,20 +6685,22 @@ body.employee-mode #undoBtn { display: none !important; }
                 if (!t) { rollback(); return { success: false, reason: 'transaction_failed' }; }
                 t.periodFrom = fromStr;
                 t.periodTo = toStr;
-                t.profitPercent = pct;
+                t.profitPercent = effectivePct;
                 t.distributionId = distId;
                 t.netProfitForPeriod = net;
-                p.balance = parseFloat((this.toNum(p.balance) + share).toFixed(2));
-                created.push({ txnId: t.id, partnerId: p.id, share });
-                lines.push({ partnerId: p.id, name: p.name, percent: pct, share });
+                t.shareSegments = agg.segments;
+                p.balance = parseFloat((this.toNum(p.balance) + agg.share).toFixed(2));
+                created.push({ txnId: t.id, partnerId: p.id, share: agg.share });
+                lines.push({ partnerId: p.id, name: p.name, percent: effectivePct, share: agg.share, segments: agg.segments });
             }
 
             if (!created.length) return { success: false, reason: 'zero_amount', netProfit: net };
 
             logAudit('update', 'توزيع أرباح الشركاء', distId,
-                'صافي الفترة ' + fromStr + ' → ' + toStr + ': ' + net.toFixed(2) + ' ج | ' + created.length + ' شريك');
+                'صافي الفترة ' + fromStr + ' → ' + toStr + ': ' + net.toFixed(2) + ' ج | ' + created.length + ' شريك'
+                + (segments.length > 1 ? ' | ' + segments.length + ' شريحة زمنية' : ''));
             saveData();
-            return { success: true, distributionId: distId, netProfit: net, lines, totalPercent: totalPct };
+            return { success: true, distributionId: distId, netProfit: net, lines, totalPercent: totalPct, segments };
         },
 
         // ─── عكس/إلغاء توزيع أرباح سابق (استرجاع الأرصدة وحذف القيود) ───
@@ -6569,6 +6805,10 @@ body.employee-mode #undoBtn { display: none !important; }
             let t = transactions.find(x => x.id == id);
             if (!t) return { success: false, reason: 'not_found' };
             if (!this.isManualTransaction(t)) return { success: false, reason: 'linked_operation' };
+            // قفل الفترة: لا تعديل لحركة قديمة ولا ترحيل إلى تاريخ مقفول
+            if (this.isDateLocked(t.date) || this.isDateLocked(updates.date)) {
+                return { success: false, reason: 'period_locked' };
+            }
             let amt = this.toNum(updates.amount);
             if (!(amt > 0)) return { success: false, reason: 'invalid_amount' };
             if (updates.type && updates.type !== 'income' && updates.type !== 'expense') {
@@ -7067,16 +7307,77 @@ body.employee-mode #undoBtn { display: none !important; }
         }
         return true;
     }
+    // ─── صلاحيات قابلة للضبط: المدير كل شيء، والموظف حسب ما يمنحه المدير ───
+    const PERMISSION_CATALOG = [
+        { key: 'view', label: '👁️ عرض الشاشات والتقارير' },
+        { key: 'export', label: '📎 تصدير CSV والطباعة' },
+        { key: 'collect_payment', label: '💰 تحصيل الأقساط والعربون' },
+        { key: 'sell', label: '💵 البيع النقدي' },
+        { key: 'purchase', label: '📦 شراء المخزون' },
+        { key: 'expense_create', label: '📉 تسجيل المصروفات' },
+        { key: 'installment_create', label: '📝 إنشاء عقود التقسيط' },
+        { key: 'arabon_create', label: '🤝 عقود العربون' },
+        { key: 'merchant_create', label: '🏪 مبيعات ومشتريات التجار' }
+    ];
+    const DEFAULT_EMPLOYEE_PERMISSIONS = ['view', 'export', 'collect_payment'];
     const PERMISSIONS = {
         admin: ['*'],
-        employee: ['collect_payment', 'view', 'export']
+        employee: (function () {
+            try {
+                const saved = JSON.parse(localStorage.getItem('employeePermissions') || 'null');
+                if (Array.isArray(saved)) {
+                    return saved.filter(k => PERMISSION_CATALOG.some(c => c.key === k));
+                }
+            } catch (e) { /* تجاهل */ }
+            return DEFAULT_EMPLOYEE_PERMISSIONS.slice();
+        })()
     };
     function currentRole() { return isAdminSession() ? 'admin' : 'employee'; }
     function hasPermission(action) {
         const perms = PERMISSIONS[currentRole()] || [];
-        return perms.includes('*') || perms.includes(action);
+        if (perms.includes('*')) return true;
+        if (perms.includes(action)) return true;
+        return perms.some(p => String(p).endsWith('.*') && String(action).startsWith(String(p).slice(0, -1)));
     }
     window.hasPermission = hasPermission;
+    function requirePermission(action, label) {
+        if (hasPermission(action)) return true;
+        const cat = PERMISSION_CATALOG.find(c => c.key === action);
+        showToast('🔒 لا تملك صلاحية ' + (label || (cat ? cat.label : action)) + ' — راجع المدير', 'error');
+        return false;
+    }
+    window.requirePermission = requirePermission;
+
+    window.renderPermissionSettings = function () {
+        const el = document.getElementById('permissionSettings');
+        if (!el) return;
+        const canEdit = isAdminSession();
+        const current = PERMISSIONS.employee || [];
+        el.innerHTML = PERMISSION_CATALOG.map(c => {
+            const on = current.includes(c.key);
+            return '<label style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);' + (canEdit ? 'cursor:pointer;' : 'opacity:0.7;') + '">' +
+                '<input type="checkbox" data-perm="' + c.key + '" ' + (on ? 'checked' : '') + ' ' + (canEdit ? '' : 'disabled') +
+                ' style="width:auto;accent-color:var(--primary);" onchange="toggleEmployeePermission(this)">' +
+                '<span>' + c.label + '</span>' +
+                (isAdminSession() ? '' : '<span style="margin-inline-start:auto;font-size:0.75rem;color:var(--text-muted);">مدير فقط</span>') +
+            '</label>';
+        }).join('') +
+        '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">' +
+            'الحالي: ' + (current.length ? current.map(k => (PERMISSION_CATALOG.find(c => c.key === k) || {}).label || k).join(' • ') : 'لا شيء') +
+        '</div>';
+    };
+
+    window.toggleEmployeePermission = function (checkbox) {
+        if (!requireAdmin()) { try { checkbox.checked = !checkbox.checked; } catch (e) { /* تجاهل */ } return; }
+        const key = checkbox.getAttribute('data-perm');
+        const set = new Set(PERMISSIONS.employee || []);
+        if (checkbox.checked) set.add(key); else set.delete(key);
+        PERMISSIONS.employee = PERMISSION_CATALOG.filter(c => set.has(c.key)).map(c => c.key);
+        try { lsSet('employeePermissions', JSON.stringify(PERMISSIONS.employee)); } catch (e) { /* تجاهل */ }
+        logAudit('security', 'صلاحيات الموظفين', key, checkbox.checked ? 'منح' : 'سحب');
+        window.renderPermissionSettings();
+        showToast(checkbox.checked ? '✅ تم منح الصلاحية' : 'تم سحب الصلاحية');
+    };
     function isPeriodLocked(dateStr) {
         if (!periodLockDate) return false;
         const d = String(dateStr || '').slice(0, 10);
@@ -7085,9 +7386,17 @@ body.employee-mode #undoBtn { display: none !important; }
     }
     function periodLockGuard(dateStr, label) {
         if (!isPeriodLocked(dateStr)) return true;
-        showToast('الفترة مغلقة حتى ' + periodLockDate + ' — لا يمكن ' + (label || 'التعديل') + ' لسجل في فترة مغلقة', 'error');
+        showToast(BusinessLogic.periodLockMessage(dateStr) + (label ? ' — ' + label : ''), 'error');
         return false;
     }
+    // تنبيه موحّد عند محاولة أي قيد في فترة مقفولة (يُنادى من BusinessLogic.postTransaction)
+    let __lockToastAt = 0;
+    window.__onLockedAttempt = function (dateStr) {
+        const now = Date.now();
+        if (now - __lockToastAt < 1500) return;
+        __lockToastAt = now;
+        showToast(BusinessLogic.periodLockMessage(dateStr) + ' — العملية لم تُسجل', 'error');
+    };
     window.setPeriodLock = function (dateStr) {
         periodLockDate = dateStr ? String(dateStr).slice(0, 10) : null;
         lsSet('periodLockDate', periodLockDate || '');
@@ -8083,6 +8392,8 @@ body.employee-mode #undoBtn { display: none !important; }
             // شراء المخزون من تاجر ليس مصروفاً (البضاعة تدخل المخزون وتُخصم كتكلفة عند البيع)
             // صرف العمولات يخصم الخزينة فقط — العمولة مُخصومة أصلاً كتكلفة مستحقة عبر totalCommissions
             if (t.type === 'expense' && t.sourceType !== 'commission_payout') expenses += t.amount;
+            // إطفاء الشهرة مصروف غير نقدي (يخصم من أصل الشهرة)
+            if (t.type === 'partner_goodwill_amortization') expenses += t.amount;
         });
 
         // مبيعات التجار: إيراد بالاستحقاق من سجلات البيع نفسها (يشمل البيع النقدي والآجل)
@@ -8214,7 +8525,7 @@ body.employee-mode #undoBtn { display: none !important; }
         _sevWeights: { critical: 25, high: 10, medium: 3, low: 1 },
         _moduleLabels: { database:'📦 قاعدة البيانات', transactions:'💰 المعاملات', inventory:'📦 المخزون', installments:'📅 التقسيط', accounts:'🏦 الحسابات', arabon:'🤝 العربون', merchants:'🏪 التجار', partners:'🤝 الشركاء', employees:'🧑‍💼 الموظفون', audit:'📋 التدقيق', backup:'💾 النسخة الاحتياطية' },
         _moduleIcons: { database:'📦', transactions:'💰', inventory:'📦', installments:'📅', accounts:'🏦', arabon:'🤝', merchants:'🏪', partners:'🤝', employees:'🧑‍💼', audit:'📋', backup:'💾' },
-        _VALID_TYPES: ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_paid','arabon_paid','partner_deposit','partner_withdrawal','partner_profit','partner_loss','partner_capital_in','partner_capital_out','partner_goodwill','partner_revaluation_loss','opening_balance','sell_cash','sell','merchant_sale','merchant_purchase','payment_in','payment_out'],
+        _VALID_TYPES: ['sale','sale_return','purchase','purchase_return','expense','income','transfer_in','transfer_out','installment_paid','arabon_paid','partner_deposit','partner_withdrawal','partner_profit','partner_loss','partner_capital_in','partner_capital_out','partner_goodwill','partner_revaluation_loss','partner_goodwill_amortization','partner_asset_in','opening_balance','sell_cash','sell','merchant_sale','merchant_purchase','payment_in','payment_out'],
         addIssue(mod, sev, title, desc, recId, field, expected, actual, checkId) {
             let rootCause = '';
             if (recId && this._rootMap[recId]) rootCause = this._rootMap[recId];
@@ -12083,6 +12394,7 @@ body.employee-mode #undoBtn { display: none !important; }
             let newResolve = null;
             _modalResolve = (value) => {
                 if (value === null) { newResolve(false); oldResolve?.(null); return; }
+                if (!requirePermission('sell', 'البيع النقدي')) return;
                 let qty = parseInt(qtyInput.value) || 0;
                 if (qty < 1 || qty > p.stock) { showToast('الكمية غير صحيحة (1 - ' + p.stock + ')', 'error'); return; }
                 let accId = document.getElementById('sellAccount').value;
@@ -12111,6 +12423,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.purchaseProduct = (id) => {
         try {
+            if (!requirePermission('purchase', 'شراء المخزون')) return;
             let p = products.find(x => x.id == id);
             if (!p) { showToast('الصنف غير موجود', 'error'); return; }
 
@@ -12331,6 +12644,7 @@ body.employee-mode #undoBtn { display: none !important; }
     document.getElementById('expenseForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
+            if (!requirePermission('expense_create', 'تسجيل المصروفات')) return;
             let name = document.getElementById('expenseName').value.trim();
             let amount = parseFloat(document.getElementById('expenseAmount').value);
             let notes = document.getElementById('expenseNotes').value.trim();
@@ -12870,7 +13184,7 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window._openTransDet = window._openTransDet || new Set();
 
-    const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'income':'إيراد', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'partner_profit':'أرباح شريك', 'partner_loss':'خسارة شريك', 'partner_capital_in':'نقل حصة رأس مال (وارد)', 'partner_capital_out':'نقل حصة رأس مال (صادر)', 'partner_goodwill':'شهرة/إعادة تقييم (دائن)', 'partner_revaluation_loss':'تخفيض إعادة تقييم (مدين)', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر', 'sale_return':'مرتجع بيع', 'purchase_return':'مرتجع شراء' };
+    const transTypeMap = { 'sell_cash':'بيع نقدي', 'purchase':'شراء مخزون', 'expense':'مصروفات', 'payment_in':'تحصيل', 'sell':'بيع (نظام قديم)', 'income':'إيراد', 'partner_deposit':'استثمار شريك', 'partner_withdrawal':'سحب شريك', 'partner_profit':'أرباح شريك', 'partner_loss':'خسارة شريك', 'partner_capital_in':'نقل حصة رأس مال (وارد)', 'partner_capital_out':'نقل حصة رأس مال (صادر)', 'partner_goodwill':'شهرة/إعادة تقييم (دائن)', 'partner_revaluation_loss':'تخفيض إعادة تقييم (مدين)', 'partner_goodwill_amortization':'إطفاء شهرة (مصروف)', 'partner_asset_in':'أصل عيني مقدم من شريك', 'merchant_sale':'بيع لتاجر', 'merchant_purchase':'شراء من تاجر', 'payment_out':'دفعة لتاجر', 'transfer_in':'تحويل وارد', 'transfer_out':'تحويل صادر', 'sale_return':'مرتجع بيع', 'purchase_return':'مرتجع شراء' };
     const isIncomeTransType = (type) => INCOME_TRANS_TYPES.includes(type);
 
     window.toggleTransDetails = (id) => {
@@ -12975,7 +13289,7 @@ body.employee-mode #undoBtn { display: none !important; }
     window.renderTransactions = function() {
         const container = document.getElementById('transactionsLog');
         const typeMap = transTypeMap;
-        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'partner_profit':'📈', 'partner_loss':'📉', 'partner_capital_in':'📥', 'partner_capital_out':'📤', 'partner_goodwill':'💎', 'partner_revaluation_loss':'🔻', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸', 'transfer_in':'🔄', 'transfer_out':'🔄', 'sale_return':'↩️', 'purchase_return':'↩️' };
+        const typeIcons = { 'sell_cash':'💵', 'purchase':'📦', 'expense':'📉', 'payment_in':'💰', 'sell':'💵', 'partner_deposit':'🤝', 'partner_withdrawal':'🏦', 'partner_profit':'📈', 'partner_loss':'📉', 'partner_capital_in':'📥', 'partner_capital_out':'📤', 'partner_goodwill':'💎', 'partner_revaluation_loss':'🔻', 'partner_goodwill_amortization':'🩹', 'partner_asset_in':'📦', 'merchant_sale':'🏪', 'merchant_purchase':'📥', 'payment_out':'💸', 'transfer_in':'🔄', 'transfer_out':'🔄', 'sale_return':'↩️', 'purchase_return':'↩️' };
 
         const isIncomeType = isIncomeTransType;
 
@@ -13102,6 +13416,7 @@ body.employee-mode #undoBtn { display: none !important; }
     document.getElementById('installmentForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
+            if (!requirePermission('installment_create', 'إنشاء عقود التقسيط')) return;
             let name = document.getElementById('instName').value.trim();
             let phone = document.getElementById('instPhone').value.trim();
             if (!name) { showToast('أدخل اسم العميل', 'error'); return; }
@@ -13997,6 +14312,7 @@ body.employee-mode #undoBtn { display: none !important; }
     document.getElementById('arabonForm').addEventListener('submit', (e) => {
         e.preventDefault();
         try {
+            if (!requirePermission('arabon_create', 'عقود العربون')) return;
             let name = document.getElementById('arabonName').value.trim();
             let phone = document.getElementById('arabonPhone').value.trim();
             let pId = document.getElementById('arabonProductId').value;
@@ -15126,6 +15442,7 @@ body.employee-mode #undoBtn { display: none !important; }
     };
 
     window.recordMerchantPurchase = async (merchantId) => {
+        if (!requirePermission('merchant_create', 'مشتريات التجار')) return;
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
         let result = await showNumberPromptModal('شراء من ' + m.name + '\nأدخل سعر الشراء الإجمالي', '', '📥 شراء من تاجر');
@@ -15352,6 +15669,7 @@ body.employee-mode #undoBtn { display: none !important; }
     };
 
     window.recordMerchantSaleOnPage = async (merchantId) => {
+        if (!requirePermission('merchant_create', 'مبيعات التجار')) return;
         // Simple sale form inline on the merchant page
         let m = merchants.find(x => x.id == merchantId);
         if (!m) { showToast('التاجر غير موجود', 'error'); return; }
@@ -15802,9 +16120,36 @@ body.employee-mode #undoBtn { display: none !important; }
     window.updateProfitDistributionPreview = function() {
         const from = document.getElementById('pdFrom').value;
         const to = document.getElementById('pdTo').value;
-        const net = BusinessLogic.netProfitForPeriod(from, to);
-        const participants = partners.filter(p => (parseFloat(p.profitPercent) || 0) > 0);
-        const totalPct = participants.reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0);
+        const segments = (from && to) ? BusinessLogic.distributionSegments(from, to) : [];
+        let net = 0;
+        const shareMap = new Map();
+        const segRows = [];
+        segments.forEach(seg => {
+            const segNet = BusinessLogic.netProfitForPeriod(seg.from, seg.to);
+            net = parseFloat((net + segNet).toFixed(2));
+            const pcts = BusinessLogic.partnerPercentsAt(seg.from);
+            const ids = Object.keys(pcts).filter(k => (parseFloat(pcts[k]) || 0) > 0);
+            const segTotal = ids.reduce((s, k) => s + (parseFloat(pcts[k]) || 0), 0);
+            segRows.push({ from: seg.from, to: seg.to, net: segNet, totalPercent: parseFloat(segTotal.toFixed(4)), count: ids.length });
+            ids.forEach(k => {
+                const share = parseFloat((segNet * (parseFloat(pcts[k]) || 0) / 100).toFixed(2));
+                if (Math.abs(share) < 0.01) return;
+                const cur = shareMap.get(k) || { share: 0, segments: [] };
+                cur.share = parseFloat((cur.share + share).toFixed(2));
+                cur.segments.push({ from: seg.from, to: seg.to, percent: parseFloat(pcts[k]) || 0, share });
+                shareMap.set(k, cur);
+            });
+        });
+        const participants = Array.from(shareMap.entries()).map(([pid, v]) => {
+            const p = partners.find(x => String(x.id) === String(pid)) || { name: '#' + pid };
+            return {
+                id: pid, name: p.name,
+                profitPercent: net !== 0 ? parseFloat((v.share / net * 100).toFixed(4)) : 0,
+                share: v.share, segments: v.segments
+            };
+        }).sort((a, b) => b.share - a.share);
+        const totalPct = parseFloat(partners.reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0).toFixed(4));
+        const segOver = segRows.find(s => s.totalPercent > 100.01);
         const preview = document.getElementById('pdPreview');
         const history = document.getElementById('pdHistory');
         const confirmBtn = document.getElementById('pdConfirmBtn');
@@ -15828,34 +16173,42 @@ body.employee-mode #undoBtn { display: none !important; }
         } else if (Math.abs(net) < 0.01) {
             html += '<div style="text-align:center;padding:12px;color:var(--text-muted);">لا يوجد ربح أو خسارة في هذه الفترة — لا توزيع.</div>';
         } else {
-            html += '<table class="merchant-statement-table" style="font-size:0.85rem;"><thead><tr><th>الشريك</th><th>النسبة</th><th>الحصة</th></tr></thead><tbody>';
+            if (segRows.length > 1) {
+                html += '<h4 style="font-size:0.85rem;margin:10px 0 6px;">🕒 شرائح الفترة (النسب تتغير عند دخول شريك)</h4>' +
+                    '<table class="merchant-statement-table" style="font-size:0.82rem;"><thead><tr><th>الشريحة</th><th>صافي الشريحة</th><th>مجموع النسب</th><th>عدد الشركاء</th></tr></thead><tbody>' +
+                    segRows.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td style="font-weight:700;color:' + (s.net >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + s.net.toFixed(2) + ' ج</td><td>' + s.totalPercent.toFixed(2) + '%</td><td>' + s.count + '</td></tr>').join('') +
+                    '</tbody></table>';
+            }
+            html += '<table class="merchant-statement-table" style="font-size:0.85rem;"><thead><tr><th>الشريك</th><th>النسبة الفعلية</th><th>الحصة</th></tr></thead><tbody>';
             participants.forEach(p => {
                 const pct = parseFloat(p.profitPercent) || 0;
-                const share = parseFloat((net * pct / 100).toFixed(2));
+                const share = parseFloat(p.share) || 0;
                 const color = share >= 0 ? 'var(--success)' : 'var(--danger)';
-                html += '<tr><td>' + esc(p.name) + '</td><td>' + pct + '%</td><td style="color:' + color + ';font-weight:700;">' + (share >= 0 ? '+' : '') + share.toFixed(2) + ' ج</td></tr>';
+                const multi = p.segments && p.segments.length > 1
+                    ? ' <span style="font-size:0.72rem;color:var(--text-muted);">(' + p.segments.map(s => s.percent + '%').join(' ← ') + ')</span>' : '';
+                html += '<tr><td>' + esc(p.name) + multi + '</td><td>' + pct.toFixed(4) + '%</td><td style="color:' + color + ';font-weight:700;">' + (share >= 0 ? '+' : '') + share.toFixed(2) + ' ج</td></tr>';
             });
-            const totalDistributed = participants.reduce((s, p) => s + parseFloat((net * (parseFloat(p.profitPercent) || 0) / 100).toFixed(2)), 0);
+            const totalDistributed = participants.reduce((s, p) => s + (parseFloat(p.share) || 0), 0);
             html += '<tr style="font-weight:700;"><td>المجموع</td><td>' + totalPct.toFixed(1) + '%</td><td style="color:' + (totalDistributed >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + totalDistributed.toFixed(2) + ' ج</td></tr>';
             html += '</tbody></table>';
             if (totalPct < 99.99) {
                 html += '<div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;">الباقي ' + (100 - totalPct).toFixed(1) + '% (لصاحب المحل) — غير موزع.</div>';
             }
-            if (totalPct > 100.01) {
-                html += '<div style="color:var(--danger);font-size:0.85rem;margin-top:6px;">⚠️ مجموع النسب تجاوز 100% — عدّل النسب.</div>';
+            if (totalPct > 100.01 || segOver) {
+                html += '<div style="color:var(--danger);font-size:0.85rem;margin-top:6px;">⚠️ مجموع النسب تجاوز 100%' + (segOver ? ' في الشريحة ' + esc(segOver.from) + ' → ' + esc(segOver.to) : '') + ' — عدّل النسب.</div>';
             }
             if (overlap) {
                 html += '<div style="color:var(--danger);font-size:0.85rem;margin-top:6px;">⚠️ يوجد توزيع سابق لفترة متداخلة (' + overlap.from + ' — ' + overlap.to + ').</div>';
             }
         }
-        if (totalPct > 100.01 || overlap) {
+        if (totalPct > 100.01 || overlap || segOver) {
             confirmBtn.disabled = true;
             confirmBtn.style.opacity = '0.5';
         } else {
             confirmBtn.disabled = false;
             confirmBtn.style.opacity = '1';
         }
-        html += '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">ملاحظة: صافي الربح محسوب على أساس الاستحقاق (يشمل قيمة عقود التقسيط/العربون عند التعاقد، وليس المحصّل نقدًا). التوزيع يضيف/يخصم من رصيد الشريك (التزام على المحل) ولا يُعدّ مصروفًا أو إيرادًا جديدًا.</div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">ملاحظة: صافي الربح محسوب على أساس الاستحقاق (يشمل قيمة عقود التقسيط/العربون عند التعاقد، وليس المحصّل نقدًا). التوزيع يضيف/يخصم من رصيد الشريك (التزام على المحل) ولا يُعدّ مصروفًا أو إيرادًا جديدًا. النسب تُطبَّق زمنياً حسب تاريخ دخول كل شريك.</div>';
         preview.innerHTML = html;
 
         const dists = BusinessLogic.listPartnerDistributions();
@@ -15934,6 +16287,7 @@ body.employee-mode #undoBtn { display: none !important; }
                         '<select id="paMethod" onchange="togglePartnerAdmissionFields()">' +
                             '<option value="cash_injection">(أ) ضخ أموال لتوسيع النشاط — تدخل الخزينة</option>' +
                             '<option value="stake_purchase">(ب) شراء حصة مباشرة من شريك قديم</option>' +
+                            '<option value="asset_contribution">(ج) تقديم أصل عيني (سيارة/مخزون/معدات)</option>' +
                         '</select></div>' +
                     '<div class="form-group"><label>الشريك الجديد</label>' +
                         '<select id="paEntrant" onchange="togglePartnerAdmissionFields()">' +
@@ -15948,6 +16302,14 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<div class="grid-2">' +
                     '<div class="form-group"><label>المبلغ المدفوع من الشريك الجديد (ج.م)</label><input type="number" id="paAmount" step="any" min="0" placeholder="0.00" oninput="updatePartnerAdmissionPreview()"></div>' +
                     '<div class="form-group"><label>التقييم الحالي للمشروع قبل الدخول (ج.م)</label><input type="number" id="paValuation" step="any" min="0" placeholder="0.00" oninput="updatePartnerAdmissionPreview()"></div>' +
+                '</div>' +
+                '<div class="grid-2" id="paAssetRow" style="display:none;">' +
+                    '<div class="form-group"><label>اسم الأصل المقدم (سيارة/مخزون/etc)</label><input type="text" id="paAssetName" placeholder="مثال: سيارة Hilux 2020" oninput="updatePartnerAdmissionPreview()"></div>' +
+                    '<div class="form-group" style="display:flex;align-items:flex-end;"><div style="font-size:0.78rem;color:var(--text-muted);">💡 الأصل يُضاف كأصل (118) ويُستعمل في تقييم المشروع — بلا أثر نقدي.</div></div>' +
+                '</div>' +
+                '<div class="grid-2">' +
+                    '<div class="form-group"><label>تاريخ العملية</label><input type="date" id="paDate" value="' + new Date().toISOString().slice(0,10) + '" oninput="updatePartnerAdmissionPreview()"></div>' +
+                    '<div class="form-group"><label>ملاحظات</label><input type="text" id="paNotes" placeholder="اختياري"></div>' +
                 '</div>' +
                 '<div class="grid-2" id="paSellerRow" style="display:none;">' +
                     '<div class="form-group"><label>الشريك البائع</label><select id="paSeller" onchange="updatePartnerAdmissionPreview()">' +
@@ -15966,6 +16328,9 @@ body.employee-mode #undoBtn { display: none !important; }
                     '<input type="checkbox" id="paRecordGoodwill" checked onchange="updatePartnerAdmissionPreview()" style="width:auto;"> تسجيل شهرة محل / احتياطي إعادة تقييم للشركاء القدامى قبل دخول الشريك' +
                 '</label></div>' +
                 '<div id="paPreview" style="margin-top:10px;"></div>' +
+                '<details style="margin-top:12px;"><summary style="cursor:pointer;font-weight:700;font-size:0.9rem;">🧪 محاكي السيناريوهات (3 عروض تقييم)</summary>' +
+                    '<div id="paScenarios" style="margin-top:8px;"></div>' +
+                '</details>' +
                 '<div style="display:flex;gap:8px;margin-top:12px;">' +
                     '<button class="btn-sm btn-success" style="flex:1;" id="paConfirmBtn" onclick="confirmPartnerAdmission()">✅ اعتماد العملية وإنشاء القيد</button>' +
                     '<button class="btn-sm btn-outline" style="flex:1;" onclick="document.getElementById(\'partnerAdmissionOverlay\').remove()">إلغاء</button>' +
@@ -15976,22 +16341,56 @@ body.employee-mode #undoBtn { display: none !important; }
         document.body.appendChild(overlay);
         overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
         window.togglePartnerAdmissionFields();
+        window.renderPartnerAdmissionScenarios();
     };
 
     window.togglePartnerAdmissionFields = function() {
         const methodEl = document.getElementById('paMethod');
         if (!methodEl) return;
-        const isCash = methodEl.value === 'cash_injection';
+        const method = methodEl.value;
+        const isCash = method === 'cash_injection';
+        const isAsset = method === 'asset_contribution';
+        const isExpand = isCash || isAsset;
         const entrantId = document.getElementById('paEntrant') ? document.getElementById('paEntrant').value : '';
         const sellerRow = document.getElementById('paSellerRow');
         const cashRow = document.getElementById('paCashRow');
+        const assetRow = document.getElementById('paAssetRow');
         const newFields = document.getElementById('paNewPartnerFields');
-        if (sellerRow) sellerRow.style.display = isCash ? 'none' : '';
+        if (sellerRow) sellerRow.style.display = (method === 'stake_purchase') ? '' : 'none';
         if (cashRow) cashRow.style.display = isCash ? '' : 'none';
+        if (assetRow) assetRow.style.display = isAsset ? '' : 'none';
         if (newFields) newFields.style.display = entrantId ? 'none' : '';
         window.updatePartnerAdmissionPreview();
     };
 
+    window.renderPartnerAdmissionScenarios = function() {
+        const box = document.getElementById('paScenarios');
+        if (!box) return;
+        const oldPctSum = partners.filter(p => (parseFloat(p.profitPercent) || 0) > 0).reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0);
+        if (!box.dataset.initialized) {
+            box.dataset.initialized = '1';
+            box.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">' +
+                [1, 2, 3].map(i => '<div class="card" style="padding:10px;"><div style="font-weight:700;font-size:0.85rem;margin-bottom:6px;">سيناريو ' + i + '</div>' +
+                    '<div class="form-group" style="margin:0 0 6px 0;"><label style="font-size:0.78rem;">المبلغ (ج.م)</label><input type="number" id="scnAmt' + i + '" step="any" min="0" placeholder="0.00" oninput="renderPartnerAdmissionScenarios()"></div>' +
+                    '<div class="form-group" style="margin:0 0 6px 0;"><label style="font-size:0.78rem;">التقييم (ج.م)</label><input type="number" id="scnVal' + i + '" step="any" min="0" placeholder="0.00" oninput="renderPartnerAdmissionScenarios()"></div>' +
+                    '<div id="scnRes' + i + '" style="font-size:0.8rem;margin-top:6px;"></div>' +
+                '</div>').join('') + '</div>';
+        }
+        [1, 2, 3].forEach(i => {
+            const amt = parseFloat((document.getElementById('scnAmt' + i) || {}).value) || 0;
+            const val = parseFloat((document.getElementById('scnVal' + i) || {}).value) || 0;
+            const res = document.getElementById('scnRes' + i);
+            if (!res) return;
+            if (!(amt > 0) || !(val > 0)) { res.innerHTML = '<span style="color:var(--text-muted);">أدخل المبلغ والتقييم</span>'; return; }
+            const np = amt / (val + amt) * 100;
+            const dil = val / (val + amt);
+            const proj = oldPctSum * dil + np;
+            const color = proj > 100.05 ? 'var(--danger)' : 'var(--success)';
+            res.innerHTML = 'نسبة Nuevo: <strong>' + np.toFixed(4) + '%</strong><br>' +
+                'مجموع بعد: <strong style="color:' + color + ';">' + proj.toFixed(2) + '%</strong>' +
+                (proj > 100.05 ? '<br><span style="color:var(--danger);">⚠️ تجاوز 100%</span>' : '');
+        });
+    };
     window.updatePartnerAdmissionPreview = function() {
         const preview = document.getElementById('paPreview');
         const confirmBtn = document.getElementById('paConfirmBtn');
@@ -15999,6 +16398,8 @@ body.employee-mode #undoBtn { display: none !important; }
         const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
         const method = val('paMethod') || 'cash_injection';
         const isCash = method === 'cash_injection';
+        const isAsset = method === 'asset_contribution';
+        const isExpand = isCash || isAsset;
         const amount = parseFloat(val('paAmount')) || 0;
         const valuation = parseFloat(val('paValuation')) || 0;
         const entrantId = val('paEntrant');
@@ -16013,9 +16414,9 @@ body.employee-mode #undoBtn { display: none !important; }
         const seller = sellerId ? partners.find(p => p.id == sellerId) : null;
         const sellerPct = seller ? (parseFloat(seller.profitPercent) || 0) : 0;
         const newPercent = (amount > 0 && valuation > 0)
-            ? parseFloat(((isCash ? amount / (valuation + amount) : amount / valuation) * 100).toFixed(4))
+            ? parseFloat(((isExpand ? amount / (valuation + amount) : amount / valuation) * 100).toFixed(4))
             : 0;
-        const dilution = isCash && valuation > 0 ? valuation / (valuation + amount) : 1;
+        const dilution = isExpand && valuation > 0 ? valuation / (valuation + amount) : 1;
         const oldPctSum = oldPartners.reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0);
         const goodwillShareOf = (p) => {
             if (!recordGoodwill || Math.abs(goodwill) < 0.01 || !oldPartners.length) return 0;
@@ -16031,43 +16432,46 @@ body.employee-mode #undoBtn { display: none !important; }
         const transferPreview = (seller && sellerPct > 0 && newPercent > 0)
             ? parseFloat(Math.min(sellerBalanceAfterReval, sellerBalanceAfterReval * (newPercent / sellerPct)).toFixed(2))
             : 0;
-        const projectedTotal = isCash ? (oldPctSum * dilution + newPercent) : oldPctSum;
+        const projectedTotal = isExpand ? (oldPctSum * dilution + newPercent) : oldPctSum;
 
         // الأخطاء
         let error = '';
         if (!(amount > 0)) error = 'أدخل المبلغ المدفوع من الشريك الجديد.';
         else if (!(valuation > 0)) error = 'أدخل التقييم الحالي للمشروع قبل الدخول.';
-        else if (!isCash && !seller) error = 'اختر الشريك البائع.';
-        else if (!isCash && seller && newPercent > sellerPct + 0.0001) error = 'نسبة الشريك الجديد (' + newPercent.toFixed(2) + '%) تتجاوز حصة الشريك البائع (' + sellerPct.toFixed(2) + '%).';
+        else if (!isExpand && !seller) error = 'اختر الشريك البائع.';
+        else if (!isExpand && seller && newPercent > sellerPct + 0.0001) error = 'نسبة الشريك الجديد (' + newPercent.toFixed(2) + '%) تتجاوز حصة الشريك البائع (' + sellerPct.toFixed(2) + '%).';
         else if (!entrant && !name) error = 'أدخل اسم الشريك الجديد.';
-        else if (isCash && accounts.length > 0 && !accountId) error = 'اختر حساب استلام المبلغ.';
+        else if (isAsset && !val('paAssetName').trim()) error = 'أدخل اسم الأصل المقدم.';
         else if (projectedTotal > 100.05) error = 'مجموع النسب بعد الدخول (' + projectedTotal.toFixed(2) + '%) سيتجاوز 100%.';
 
         let html = '';
         html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
             '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">رأس المال الدفتري الحالي</div><div class="stat-value primary">' + bookEquity.toFixed(2) + ' ج</div></div>' +
             '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">التقييم قبل الدخول</div><div class="stat-value">' + valuation.toFixed(2) + ' ج</div></div>' +
-            '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">' + (isCash ? 'قيمة المشروع بعد التوسعة' : 'نسبة الشريك الجديد') + '</div><div class="stat-value success">' + (isCash ? (valuation + amount).toFixed(2) + ' ج' : newPercent.toFixed(4) + '%') + '</div></div>' +
-            '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">' + (isCash ? 'نسبة الشريك الجديد' : 'قيمة الحصة المنقولة') + '</div><div class="stat-value accent">' + (isCash ? newPercent.toFixed(4) + '%' : transferPreview.toFixed(2) + ' ج') + '</div></div>' +
+            '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">' + (isExpand ? 'قيمة المشروع بعد التوسعة' : 'نسبة الشريك الجديد') + '</div><div class="stat-value success">' + (isExpand ? (valuation + amount).toFixed(2) + ' ج' : newPercent.toFixed(4) + '%') + '</div></div>' +
+            '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">' + (isExpand ? 'نسبة الشريك الجديد' : 'قيمة الحصة المنقولة') + '</div><div class="stat-value accent">' + (isExpand ? newPercent.toFixed(4) + '%' : transferPreview.toFixed(2) + ' ج') + '</div></div>' +
         '</div>';
         html += '<div style="padding:8px 12px;border-radius:8px;background:' + (Math.abs(goodwill) < 0.01 ? 'var(--bg-muted)' : goodwill > 0 ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)') + ';margin-bottom:10px;font-size:0.85rem;">' +
             '💎 فرق التقييم عن رأس المال الدفتري: <strong>' + (goodwill > 0 ? '+' : '') + goodwill.toFixed(2) + ' ج</strong> — ' +
             (Math.abs(goodwill) < 0.01 ? 'لا يوجد فرق.' : (recordGoodwill ? (goodwill > 0 ? 'سيُسجل كشهرة/احتياطي إعادة تقييم لصالح الشركاء القدامى.' : 'سيُخصم كتخفيض إعادة تقييم من الشركاء القدامى.') : 'لن يُسجل في الدفاتر (يبقى خارج القيد).')) +
         '</div>';
 
-        if (amount > 0 && valuation > 0 && (isCash || seller)) {
+        if (oldPctSum < 99.99 && oldPctSum > 0) {
+            html += '<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">ℹ️ مجموع نسب الشركاء القدامى ' + oldPctSum.toFixed(2) + '% — الباقي ' + (100 - oldPctSum).toFixed(2) + '% لصاحب النشاط (غير مسند). الدخول (أ) سيوزّع الفرق على الجميع.</div>';
+        }
+        if (amount > 0 && valuation > 0 && (isExpand || seller)) {
             html += '<table class="merchant-statement-table" style="font-size:0.83rem;"><thead><tr><th>الشريك</th><th>النسبة قبل</th><th>النسبة بعد</th><th>رصيد رأس المال بعد</th></tr></thead><tbody>';
             oldPartners.forEach(p => {
                 const before = parseFloat(p.profitPercent) || 0;
-                const after = isCash ? before * dilution : (seller && p.id == seller.id ? Math.max(0, before - newPercent) : before);
+                const after = isExpand ? before * dilution : (seller && p.id == seller.id ? Math.max(0, before - newPercent) : before);
                 let balAfter = (parseFloat(p.balance) || 0) + goodwillShareOf(p);
                 if (!isCash && seller && p.id == seller.id) balAfter -= transferPreview;
                 html += '<tr><td>' + esc(p.name) + (seller && p.id == seller.id && !isCash ? ' <span style="color:var(--danger);font-size:0.75rem;">(بائع)</span>' : '') + '</td>' +
                     '<td>' + before.toFixed(4) + '%</td><td style="font-weight:700;">' + after.toFixed(4) + '%</td><td>' + balAfter.toFixed(2) + ' ج</td></tr>';
             });
-            const entrantAfterBal = isCash ? amount : transferPreview;
+            const entrantAfterBal = isExpand ? amount : transferPreview;
             html += '<tr style="background:var(--success-light);"><td>➕ ' + esc(entrant ? entrant.name : (name || 'الشريك الجديد')) + '</td><td>0.0000%</td><td style="font-weight:700;">' + newPercent.toFixed(4) + '%</td><td>' + entrantAfterBal.toFixed(2) + ' ج</td></tr>';
-            html += '<tr style="font-weight:700;"><td>المجموع</td><td>' + oldPctSum.toFixed(2) + '%</td><td>' + (isCash ? projectedTotal.toFixed(4) : oldPctSum.toFixed(4)) + '%</td><td>' + (bookEquity + (isCash ? amount : 0) + (recordGoodwill ? goodwill : 0)).toFixed(2) + ' ج</td></tr>';
+            html += '<tr style="font-weight:700;"><td>المجموع</td><td>' + oldPctSum.toFixed(2) + '%</td><td>' + (isExpand ? projectedTotal.toFixed(4) : oldPctSum.toFixed(4)) + '%</td><td>' + (bookEquity + (isExpand ? amount : 0) + (recordGoodwill ? goodwill : 0)).toFixed(2) + ' ج</td></tr>';
             html += '</tbody></table>';
             if (!isCash && Math.abs(amount - transferPreview) >= 0.01) {
                 html += '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;">ℹ️ الفرق ' + Math.abs(amount - transferPreview).toFixed(2) + ' ج بين المبلغ المدفوع (' + amount.toFixed(2) + ' ج) وقيمة الحصة الدفترية (' + transferPreview.toFixed(2) + ' ج) يُدفع للشريك البائع شخصياً ولا يخص المشروع' + (recordGoodwill ? '.' : ' (لم تُسجل شهرة).') + '</div>';
@@ -16076,9 +16480,14 @@ body.employee-mode #undoBtn { display: none !important; }
 
         // القيد المقترح
         const journal = [];
-        if (isCash && amount > 0) {
+        if (isExpand && amount > 0) {
             const acc = accounts.find(a => a.id == accountId);
-            journal.push({ side: 'debit', label: 'ح/ ' + (acc ? acc.name : 'الخزينة / البنك'), amount });
+            const assetName = val('paAssetName').trim();
+            if (isAsset) {
+                journal.push({ side: 'debit', label: 'ح/ ' + (assetName || 'أصل عيني'), amount });
+            } else {
+                journal.push({ side: 'debit', label: 'ح/ ' + (acc ? acc.name : 'الخزينة / البنك'), amount });
+            }
             if (recordGoodwill && goodwill > 0) journal.push({ side: 'debit', label: 'ح/ شهرة محل / احتياطي إعادة تقييم', amount: goodwill });
             if (recordGoodwill && goodwill < 0) journal.push({ side: 'debit', label: 'ح/ رأس مال الشركاء القدامى (تخفيض إعادة تقييم)', amount: -goodwill });
             journal.push({ side: 'credit', label: 'ح/ رأس مال الشريك الجديد — ' + (entrant ? entrant.name : (name || 'الشريك الجديد')), amount });
@@ -16123,7 +16532,7 @@ body.employee-mode #undoBtn { display: none !important; }
             const dists = BusinessLogic.listPartnerAdmissions().slice(0, 4);
             history.innerHTML = dists.length
                 ? dists.map(d => '<div class="card" style="padding:8px 10px;margin-bottom:6px;font-size:0.82rem;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">' +
-                    '<span>' + (d.method === 'cash_injection' ? '💵 ضخ أموال' : '🔁 شراء حصة') + ' — <strong>' + esc(d.newPartnerName) + '</strong></span>' +
+                    '<span>' + (d.method === 'cash_injection' ? '💵 ضخ أموال' : d.method === 'asset_contribution' ? '📦 أصل عيني' : '🔁 شراء حصة') + ' — <strong>' + esc(d.newPartnerName) + '</strong></span>' +
                     '<span>' + (d.newPercent || 0).toFixed(2) + '%</span>' +
                     '<span style="color:var(--text-muted);">' + new Date(d.date).toLocaleDateString('ar-EG-u-nu-latn') + '</span>' +
                     '<button class="btn-sm btn-outline" onclick="showPartnerAdmissionDetails(\'' + esc(d.id) + '\')">عرض القيد</button>' +
@@ -16145,8 +16554,9 @@ body.employee-mode #undoBtn { display: none !important; }
             valuation: parseFloat(val('paValuation')) || 0,
             sellerId: val('paSeller') || null,
             accountId: val('paAccount') || null,
+            assetName: (val('paAssetName') || '').trim(),
             recordGoodwill: !!(document.getElementById('paRecordGoodwill') && document.getElementById('paRecordGoodwill').checked),
-            date: new Date().toISOString()
+            date: (val('paDate') || new Date().toISOString().slice(0,10))
         });
         if (!res || !res.success) {
             const msgs = {
@@ -16166,6 +16576,7 @@ body.employee-mode #undoBtn { display: none !important; }
                 percent_over_100: 'مجموع النسب سيتجاوز 100%',
                 account_required: 'اختر حساب استلام المبلغ',
                 account_not_found: 'حساب الاستلام غير موجود',
+                asset_name_required: 'أدخل اسم الأصل المقدم',
                 capital_transfer_failed: 'تعذر حساب الحصة المنقولة',
                 transaction_failed: 'تعذر إنشاء القيود المحاسبية'
             };
@@ -16185,6 +16596,8 @@ body.employee-mode #undoBtn { display: none !important; }
         const old = document.getElementById('partnerAdmissionDetailOverlay');
         if (old) old.remove();
         const isCash = rec.method === 'cash_injection';
+        const isAsset = rec.method === 'asset_contribution';
+        const isExpand = isCash || isAsset;
         const journal = Array.isArray(rec.journal) ? rec.journal : [];
         const debitTotal = journal.filter(l => l.side === 'debit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
         const creditTotal = journal.filter(l => l.side === 'credit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
@@ -16196,11 +16609,15 @@ body.employee-mode #undoBtn { display: none !important; }
             '<div class="customer-statement-header">' +
                 '<div><h2 style="display:flex;align-items:center;gap:8px;">🧾 قيد دخول شريك — ' + esc(rec.newPartnerName) + '</h2>' +
                 '<div style="font-size:0.82rem;opacity:0.9;margin-top:2px;">' + new Date(rec.date).toLocaleString('ar-EG-u-nu-latn') + ' | ' + esc(rec.id) + '</div></div>' +
-                '<div class="header-actions"><button onclick="document.getElementById(\'partnerAdmissionDetailOverlay\').remove()">✖ إغلاق</button></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printPartnerAdmission(\'' + esc(rec.id) + '\')" style="background:rgba(255,255,255,0.2);">🖨️ طباعة المحضر</button>' +
+                    (isAdminSession() ? '<button onclick="reversePartnerAdmission(\'' + esc(rec.id) + '\')" style="background:rgba(239,68,68,0.9);">↩️ عكس العملية</button>' : '') +
+                    '<button onclick="document.getElementById(\'partnerAdmissionDetailOverlay\').remove()">✖ إغلاق</button>' +
+                '</div>' +
             '</div>' +
             '<div class="customer-statement-body">' +
                 '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
-                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">الطريقة</div><div class="stat-value" style="font-size:1rem;">' + (isCash ? '💵 ضخ أموال' : '🔁 شراء حصة') + '</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">الطريقة</div><div class="stat-value" style="font-size:1rem;">' + (isCash ? '💵 ضخ أموال' : isAsset ? '📦 أصل عيني' : '🔁 شراء حصة') + '</div></div>' +
                     '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">المبلغ المدفوع</div><div class="stat-value primary">' + (rec.amountPaid || 0).toFixed(2) + ' ج</div></div>' +
                     '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">التقييم قبل الدخول</div><div class="stat-value">' + (rec.valuation || 0).toFixed(2) + ' ج</div></div>' +
                     '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">نسبة الشريك الجديد</div><div class="stat-value success">' + (rec.newPercent || 0).toFixed(4) + '%</div></div>' +
@@ -16210,6 +16627,7 @@ body.employee-mode #undoBtn { display: none !important; }
                     (isCash ? 'قيمة المشروع بعد التوسعة: <strong>' + (rec.postValuation || 0).toFixed(2) + ' ج</strong> | ' : 'الحصة المنقولة من رأس المال: <strong>' + (rec.capitalTransferred || 0).toFixed(2) + ' ج</strong> | ' ) +
                     'رأس المال الدفتري: <strong>' + (rec.bookEquityBefore || 0).toFixed(2) + ' → ' + (rec.bookEquityAfter || 0).toFixed(2) + ' ج</strong>' +
                     (!isCash && rec.sellerName ? ' | البائع: <strong>' + esc(rec.sellerName) + '</strong>' : '') +
+                    (isAsset && rec.assetName ? ' | الأصل: <strong>' + esc(rec.assetName) + '</strong>' : '') +
                 '</div>' +
                 '<h4 style="font-size:0.9rem;margin:10px 0 6px;">📊 النسب قبل وبعد</h4>' +
                 '<table class="merchant-statement-table" style="font-size:0.83rem;"><thead><tr><th>الشريك</th><th>قبل</th><th>بعد</th></tr></thead><tbody>' +
@@ -16231,6 +16649,267 @@ body.employee-mode #undoBtn { display: none !important; }
         overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
     };
 
+    window.reversePartnerAdmission = async function (admissionId) {
+        if (!requireAdmin()) return;
+        const rec = BusinessLogic.listPartnerAdmissions().find(d => String(d.id) === String(admissionId));
+        if (!rec) { showToast('لم يتم العثور على العملية', 'error'); return; }
+        const ok = await showConfirmModal(
+            'سيتم عكس عملية دخول «' + rec.newPartnerName + '» بالكامل:\n' +
+            '• حذف كل قيود العملية (' + (Array.isArray(rec.journal) ? rec.journal.length : 0) + ' بند)\n' +
+            '• استرجاع أرصدة رأس المال إلى ما قبل الدخول\n' +
+            '• استرجاع النسب السابقة (' + (rec.oldPercents || []).map(p => p.name + ' ' + (parseFloat(p.percent) || 0).toFixed(2) + '%').join(' | ') + ')\n\n' +
+            'لا يمكن التراجع عن هذا الإجراء إلا بالتراجع العام. هل تريد المتابعة؟',
+            '⚠️ تأكيد عكس العملية');
+        if (!ok) return;
+        const res = BusinessLogic.reversePartnerAdmission(admissionId);
+        if (!res || !res.success) {
+            const msgs = {
+                not_found: 'العملية غير موجودة',
+                period_locked: 'الفترة مقفولة — لا يمكن عكس العملية',
+                has_later_admissions: 'توجد عمليات دخول لاحقة مبنية على هذه النسب — اعكس الأحدث أولاً'
+            };
+            showToast(msgs[res && res.reason] || ('تعذر العكس: ' + (res && res.reason)), 'error');
+            return;
+        }
+        const detail = document.getElementById('partnerAdmissionDetailOverlay');
+        if (detail) detail.remove();
+        const hist = document.getElementById('partnerAdmissionHistoryOverlay');
+        if (hist) hist.remove();
+        renderPartners(); renderTransactions(); renderDashboard();
+        showToast('↩️ تم عكس عملية دخول ' + res.record.newPartnerName + ' — ' + res.reversed + ' قيد'
+            + (res.removedPartner ? ' | حُذف الشريك الجديد' : ''));
+        window.openPartnerAdmissionHistory();
+    };
+
+    // ====== لوحة هيكل الملكية (Cap Table) ======
+    window.openOwnershipDashboard = function () {
+        if (!requireAdmin()) return;
+        const old = document.getElementById('ownershipOverlay');
+        if (old) old.remove();
+        const list = partners.slice().sort((a, b) =>
+            (parseFloat(b.profitPercent) || 0) - (parseFloat(a.profitPercent) || 0) || b.balance - a.balance);
+        const totalPct = parseFloat(list.reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0).toFixed(4));
+        const remainder = parseFloat((100 - totalPct).toFixed(4));
+        const totalCapital = BusinessLogic.partnerBookEquity();
+        const admissions = BusinessLogic.listPartnerAdmissions();
+        const lastValuation = admissions.length
+            ? (admissions[0].postValuation || admissions[0].valuation || 0) : 0;
+
+        const rows = list.map(p => {
+            const pct = parseFloat(p.profitPercent) || 0;
+            const t = BusinessLogic.partnerDistributionTotals(p.id);
+            const net = parseFloat((t.profit - t.loss).toFixed(2));
+            const roi = p.balance > 0 ? parseFloat((net / p.balance * 100).toFixed(2)) : 0;
+            const valued = lastValuation > 0 ? parseFloat((lastValuation * pct / 100).toFixed(2)) : null;
+            return { p, pct, profit: t.profit, loss: t.loss, net, roi, valued };
+        });
+
+        const rowsHtml = rows.length ? rows.map(r =>
+            '<tr>' +
+            '<td><strong>' + esc(r.p.name) + '</strong>' + (r.p.phone ? '<div style="font-size:0.75rem;color:var(--text-muted);">' + esc(r.p.phone) + '</div>' : '') + '</td>' +
+            '<td style="font-weight:800;color:var(--primary);">' + r.pct.toFixed(4) + '%</td>' +
+            '<td>' + (parseFloat(r.p.balance) || 0).toFixed(2) + ' ج</td>' +
+            '<td style="color:' + (r.net >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">' + (r.net >= 0 ? '+' : '') + r.net.toFixed(2) + ' ج</td>' +
+            '<td style="color:' + (r.roi >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + r.roi.toFixed(2) + '%</td>' +
+            '<td>' + (r.valued === null ? '—' : r.valued.toFixed(2) + ' ج') + '</td>' +
+            '</tr>').join('')
+            : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">لا يوجد شركاء مسجلون</td></tr>';
+
+        const timeline = admissions.length
+            ? admissions.slice(0, 12).map(d =>
+                '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">' +
+                '<span>' + new Date(d.date).toLocaleDateString('ar-EG-u-nu-latn') + '</span>' +
+                '<span>' + (d.method === 'cash_injection' ? '💵 ضخ أموال' : d.method === 'asset_contribution' ? '📦 أصل عيني' : '🔁 شراء حصة') + '</span>' +
+                '<strong>' + esc(d.newPartnerName) + '</strong>' +
+                '<span style="color:var(--success);font-weight:700;">' + (parseFloat(d.newPercent) || 0).toFixed(2) + '%</span>' +
+                '<span style="color:var(--text-muted);">' + (parseFloat(d.amountPaid) || 0).toFixed(2) + ' ج</span>' +
+                '</div>').join('')
+            : '<div style="text-align:center;color:var(--text-muted);font-size:0.82rem;padding:8px;">لا توجد عمليات دخول مسجلة</div>';
+
+        const warnings = [];
+        if (totalPct > 100.01) warnings.push('⚠️ مجموع النسب يتجاوز 100% (' + totalPct.toFixed(2) + '%)');
+        if (remainder > 0.01) warnings.push('ℹ️ ' + remainder.toFixed(2) + '% غير مسندة (لصاحب النشاط)');
+        if (rows.some(r => r.p.balance < 0)) warnings.push('⚠️ يوجد شريك برصيد سالب — راجع حركاته');
+
+        const overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'ownershipOverlay';
+        overlay.innerHTML =
+            '<div class="customer-statement-modal" style="max-width:1020px;">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">📊 هيكل الملكية والنسب</h2>' +
+                '<div style="font-size:0.82rem;opacity:0.9;margin-top:2px;">من يملك ماذا الآن + العائد على رأس المال + تاريخ التغيرات</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printOwnershipDashboard()" style="background:rgba(255,255,255,0.2);">🖨️ طباعة</button>' +
+                    '<button onclick="document.getElementById(\'ownershipOverlay\').remove()">✖ إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+                    '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">إجمالي رأس المال</div><div class="stat-value primary">' + totalCapital.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">مجموع النسب المسجلة</div><div class="stat-value ' + (totalPct > 100.01 ? 'danger' : 'success') + '">' + totalPct.toFixed(2) + '%</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">حصة صاحب النشاط</div><div class="stat-value">' + Math.max(0, remainder).toFixed(2) + '%</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">آخر تقييم للمشروع</div><div class="stat-value">' + (lastValuation > 0 ? lastValuation.toFixed(2) + ' ج' : '—') + '</div></div>' +
+                '</div>' +
+                (warnings.length ? '<div style="font-size:0.82rem;margin-bottom:10px;color:var(--text-muted);">' + warnings.join('<br>') + '</div>' : '') +
+                '<table class="merchant-statement-table" style="font-size:0.84rem;"><thead><tr><th>الشريك</th><th>النسبة</th><th>رأس المال</th><th>صافي الموزع</th><th>العائد ROI</th><th>قيمة الحصة بالتقييم</th></tr></thead><tbody>' + rowsHtml +
+                '<tr style="font-weight:800;border-top:2px solid var(--border);"><td>صاحب النشاط (غير مسند)</td><td>' + Math.max(0, remainder).toFixed(2) + '%</td><td>—</td><td>—</td><td>—</td><td>' + (lastValuation > 0 ? (lastValuation * Math.max(0, remainder) / 100).toFixed(2) + ' ج' : '—') + '</td></tr>' +
+                '</tbody></table>' +
+                '<h4 style="font-size:0.9rem;margin:16px 0 6px;">🕒 تاريخ تغيرات الملكية</h4>' + timeline +
+                '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:10px;">ROI = صافي الأرباح/الخسائر الموزعة ÷ رأس المال الحالي. قيمة الحصة = النسبة × آخر تقييم مسجل عند دخول شريك.</div>' +
+            '</div></div>';
+        const openedAt = Date.now();
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
+    };
+
+    window.printOwnershipDashboard = function () {
+        const list = partners.slice().sort((a, b) => (parseFloat(b.profitPercent) || 0) - (parseFloat(a.profitPercent) || 0));
+        const totalPct = parseFloat(list.reduce((s, p) => s + (parseFloat(p.profitPercent) || 0), 0).toFixed(4));
+        const totalCapital = BusinessLogic.partnerBookEquity();
+        const admissions = BusinessLogic.listPartnerAdmissions();
+        const lastValuation = admissions.length ? (admissions[0].postValuation || admissions[0].valuation || 0) : 0;
+        const rows = list.map(p => {
+            const pct = parseFloat(p.profitPercent) || 0;
+            const t = BusinessLogic.partnerDistributionTotals(p.id);
+            const net = parseFloat((t.profit - t.loss).toFixed(2));
+            return '<tr><td>' + esc(p.name) + '</td><td style="font-weight:700;">' + pct.toFixed(4) + '%</td>' +
+                '<td>' + (parseFloat(p.balance) || 0).toFixed(2) + ' ج</td>' +
+                '<td>' + (net >= 0 ? '+' : '') + net.toFixed(2) + ' ج</td>' +
+                '<td>' + (lastValuation > 0 ? (lastValuation * pct / 100).toFixed(2) + ' ج' : '—') + '</td></tr>';
+        }).join('');
+        const body =
+            '<div class="doc">' +
+            '<h1>📊 هيكل الملكية</h1>' +
+            '<div class="sub">' + new Date().toLocaleString('ar-EG-u-nu-latn') + '</div>' +
+            '<div class="stat">' +
+                '<div><div class="lbl">إجمالي رأس المال</div><div class="val">' + totalCapital.toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">النسب المسجلة</div><div class="val">' + totalPct.toFixed(2) + '%</div></div>' +
+                '<div><div class="lbl">حصة صاحب النشاط</div><div class="val">' + Math.max(0, 100 - totalPct).toFixed(2) + '%</div></div>' +
+            '</div>' +
+            '<table><thead><tr><th>الشريك</th><th>النسبة</th><th>رأس المال</th><th>صافي الموزع</th><th>قيمة الحصة</th></tr></thead><tbody>' + rows +
+            '<tr style="font-weight:800;"><td>صاحب النشاط (غير مسند)</td><td>' + Math.max(0, 100 - totalPct).toFixed(2) + '%</td><td>—</td><td>—</td><td>' +
+            (lastValuation > 0 ? (lastValuation * Math.max(0, 100 - totalPct) / 100).toFixed(2) + ' ج' : '—') + '</td></tr></tbody></table>' +
+            '</div>';
+        printHtmlDoc('هيكل الملكية', body);
+    };
+
+    // ====== سجل الشهرة / إعادة التقييم ======
+    function renderGoodwillRegisterBody() {
+        const box = document.getElementById('goodwillBody');
+        if (!box) return;
+        const balance = BusinessLogic.goodwillBalance();
+        const admissions = BusinessLogic.listPartnerAdmissions()
+            .filter(d => d.goodwillRecorded && Math.abs(parseFloat(d.goodwill) || 0) >= 0.01);
+        const amortTxns = transactions.filter(t => t.type === 'partner_goodwill_amortization')
+            .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+        const totalAmort = parseFloat(amortTxns.reduce((s, t) => s + BusinessLogic.toNum(t.amount), 0).toFixed(2));
+        const now = Date.now();
+        const rows = admissions.length ? admissions.map(d => {
+            const gw = parseFloat(d.goodwill) || 0;
+            const months = Math.max(0, Math.floor((now - new Date(d.date).getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+            return '<tr><td>' + new Date(d.date).toLocaleDateString('ar-EG-u-nu-latn') + '</td>' +
+                '<td>' + esc(d.newPartnerName) + '</td>' +
+                '<td style="font-weight:700;color:' + (gw >= 0 ? 'var(--success)' : 'var(--danger)') + ';">' + (gw >= 0 ? '+' : '') + gw.toFixed(2) + ' ج</td>' +
+                '<td>' + (parseFloat(d.valuation) || 0).toFixed(2) + ' ج</td>' +
+                '<td>' + (parseFloat(d.bookEquityBefore) || 0).toFixed(2) + ' ج</td>' +
+                '<td>' + months + ' شهر</td></tr>';
+        }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">لا توجد عمليات سجلت شهرة/إعادة تقييم</td></tr>';
+        const amortRows = amortTxns.length ? amortTxns.slice(0, 20).map(t =>
+            '<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">' +
+            '<span>' + new Date(t.date).toLocaleDateString('ar-EG-u-nu-latn') + '</span>' +
+            '<span>' + esc(t.notes || 'إطفاء شهرة') + '</span>' +
+            '<strong style="color:var(--danger);">−' + BusinessLogic.toNum(t.amount).toFixed(2) + ' ج</strong></div>').join('')
+            : '<div style="color:var(--text-muted);font-size:0.82rem;padding:6px;">لا يوجد إطفاء مسجل بعد</div>';
+        box.innerHTML =
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+                '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">رصيد الشهرة الحالي</div><div class="stat-value ' + (balance > 0 ? 'primary' : 'success') + '">' + balance.toFixed(2) + ' ج</div></div>' +
+                '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">إجمالي المُطفأ</div><div class="stat-value danger">' + totalAmort.toFixed(2) + ' ج</div></div>' +
+                '<div class="stat-card" style="flex:1;min-width:140px;"><div class="stat-label">عدد عمليات الدخول</div><div class="stat-value">' + admissions.length + '</div></div>' +
+            '</div>' +
+            '<table class="merchant-statement-table" style="font-size:0.83rem;"><thead><tr><th>التاريخ</th><th>الشريك الداخل</th><th>الشهرة</th><th>التقييم</th><th>الدفتري قبل</th><th>العمر</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+            '<h4 style="font-size:0.9rem;margin:16px 0 6px;">🩹 إطفاء الشهرة</h4>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+                '<div class="form-group" style="flex:1;min-width:150px;margin:0;"><label>المبلغ (ج.م)</label><input type="number" id="gwAmortAmount" step="any" min="0" placeholder="0.00"></div>' +
+                '<button class="btn-sm btn-success" style="width:auto;" onclick="postGoodwillAmortization()">✅ تسجيل الإطفاء</button>' +
+            '</div>' +
+            '<div style="font-size:0.75rem;color:var(--text-muted);margin-top:6px;">الإطفاء مصروف غير نقدي: يخفض أصل الشهرة (117) ويظهر في قائمة الدخل، ولا يؤثر على الخزينة.</div>' +
+            '<h4 style="font-size:0.9rem;margin:14px 0 6px;">📜 آخر عمليات الإطفاء</h4>' + amortRows;
+    }
+
+    window.openGoodwillRegister = function () {
+        if (!requireAdmin()) return;
+        const old = document.getElementById('goodwillOverlay');
+        if (old) old.remove();
+        const overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'goodwillOverlay';
+        overlay.innerHTML =
+            '<div class="customer-statement-modal" style="max-width:1000px;">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">💎 سجل الشهرة وإعادة التقييم</h2>' +
+                '<div style="font-size:0.82rem;opacity:0.9;margin-top:2px;">فرق التقييم عن رأس المال الدفتري عند دخول الشركاء</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printGoodwillRegister()" style="background:rgba(255,255,255,0.2);">🖨️ طباعة</button>' +
+                    '<button onclick="document.getElementById(\'goodwillOverlay\').remove()">✖ إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body"><div id="goodwillBody"></div></div></div>';
+        const openedAt = Date.now();
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
+        renderGoodwillRegisterBody();
+    };
+
+    window.postGoodwillAmortization = async function () {
+        if (!requireAdmin()) return;
+        const input = document.getElementById('gwAmortAmount');
+        const amount = parseFloat(input && input.value);
+        if (!(amount > 0)) { showToast('أدخل مبلغ إطفاء صحيح', 'error'); return; }
+        const ok = await showConfirmModal('تسجيل إطفاء شهرة بقيمة ' + amount.toFixed(2) + ' ج؟\nسيُخصم من أصل الشهرة ويُحمَّل كمصروف.', '💎 إطفاء شهرة');
+        if (!ok) return;
+        const res = BusinessLogic.amortizeGoodwill({ amount, notes: 'إطفاء شهرة يدوي' });
+        if (!res || !res.success) {
+            const msgs = {
+                invalid_amount: 'مبلغ غير صحيح',
+                no_goodwill: 'لا يوجد رصيد شهرة متبقٍ',
+                exceeds_goodwill: 'المبلغ يتجاوز رصيد الشهرة المتبقي (' + (res && res.remaining) + ' ج)',
+                period_locked: 'الفترة مقفولة',
+                transaction_failed: 'تعذر إنشاء القيد'
+            };
+            showToast(msgs[res && res.reason] || 'تعذر تسجيل الإطفاء', 'error');
+            return;
+        }
+        if (input) input.value = '';
+        renderGoodwillRegisterBody();
+        renderTransactions(); renderDashboard();
+        showToast('✅ تم إطفاء ' + amount.toFixed(2) + ' ج — المتبقي ' + res.remaining.toFixed(2) + ' ج');
+    };
+
+    window.printGoodwillRegister = function () {
+        const balance = BusinessLogic.goodwillBalance();
+        const admissions = BusinessLogic.listPartnerAdmissions()
+            .filter(d => d.goodwillRecorded && Math.abs(parseFloat(d.goodwill) || 0) >= 0.01);
+        const amort = transactions.filter(t => t.type === 'partner_goodwill_amortization');
+        const totalAmort = parseFloat(amort.reduce((s, t) => s + BusinessLogic.toNum(t.amount), 0).toFixed(2));
+        const rows = admissions.map(d =>
+            '<tr><td>' + new Date(d.date).toLocaleDateString('ar-EG-u-nu-latn') + '</td><td>' + esc(d.newPartnerName) + '</td>' +
+            '<td>' + (parseFloat(d.goodwill) || 0).toFixed(2) + ' ج</td><td>' + (parseFloat(d.valuation) || 0).toFixed(2) + ' ج</td>' +
+            '<td>' + (parseFloat(d.bookEquityBefore) || 0).toFixed(2) + ' ج</td></tr>').join('');
+        const body =
+            '<div class="doc">' +
+            '<h1>💎 سجل الشهرة وإعادة التقييم</h1>' +
+            '<div class="sub">' + new Date().toLocaleString('ar-EG-u-nu-latn') + '</div>' +
+            '<div class="stat">' +
+                '<div><div class="lbl">رصيد الشهرة الحالي</div><div class="val">' + balance.toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">إجمالي المُطفأ</div><div class="val">' + totalAmort.toFixed(2) + ' ج</div></div>' +
+            '</div>' +
+            '<table><thead><tr><th>التاريخ</th><th>الشريك</th><th>الشهرة</th><th>التقييم</th><th>الدفتري قبل</th></tr></thead><tbody>' +
+            (rows || '<tr><td colspan="5">لا توجد عمليات</td></tr>') + '</tbody></table>' +
+            '</div>';
+        printHtmlDoc('سجل الشهرة', body);
+    };
+
     window.openPartnerAdmissionHistory = function() {
         if (!requireAdmin()) return;
         const list = BusinessLogic.listPartnerAdmissions();
@@ -16249,20 +16928,23 @@ body.employee-mode #undoBtn { display: none !important; }
                 (list.length
                     ? list.map(d => {
                         const isCash = d.method === 'cash_injection';
+                        const isAsset = d.method === 'asset_contribution';
                         const journal = Array.isArray(d.journal) ? d.journal : [];
                         const dTotal = journal.filter(l => l.side === 'debit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
                         const cTotal = journal.filter(l => l.side === 'credit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
                         return '<div class="card" style="padding:12px;margin-bottom:10px;">' +
                             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-                                '<strong>' + (isCash ? '💵 ضخ أموال' : '🔁 شراء حصة') + ' — ' + esc(d.newPartnerName) + '</strong>' +
+                                '<strong>' + (isCash ? '💵 ضخ أموال' : isAsset ? '📦 أصل عيني' : '🔁 شراء حصة') + ' — ' + esc(d.newPartnerName) + '</strong>' +
                                 '<span style="font-size:0.8rem;color:var(--text-muted);">' + new Date(d.date).toLocaleString('ar-EG-u-nu-latn') + '</span>' +
                                 '<span style="font-weight:700;color:var(--success);">' + (d.newPercent || 0).toFixed(4) + '%</span>' +
                                 '<button class="btn-sm btn-outline" onclick="showPartnerAdmissionDetails(\'' + esc(d.id) + '\')">🧾 عرض القيد</button>' +
+                                (isAdminSession() ? '<button class="btn-sm" style="width:auto;background:var(--danger-light);color:var(--danger);border:1px solid var(--border);" onclick="reversePartnerAdmission(\'' + esc(d.id) + '\')">↩️ عكس</button>' : '') +
                             '</div>' +
                             '<div style="font-size:0.82rem;color:var(--text-muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;">' +
                                 '<span>المبلغ: <strong>' + (d.amountPaid || 0).toFixed(2) + ' ج</strong></span>' +
                                 '<span>التقييم: <strong>' + (d.valuation || 0).toFixed(2) + ' ج</strong></span>' +
                                 (!isCash && d.sellerName ? '<span>البائع: <strong>' + esc(d.sellerName) + '</strong></span>' : '') +
+                                (d.method === 'asset_contribution' && d.assetName ? '<span>الأصل: <strong>' + esc(d.assetName) + '</strong></span>' : '') +
                                 (d.goodwillRecorded ? '<span>شهرة/تقييم: <strong>' + (d.goodwill || 0).toFixed(2) + ' ج</strong></span>' : '') +
                                 '<span>رأس المال: <strong>' + (d.bookEquityBefore || 0).toFixed(2) + ' → ' + (d.bookEquityAfter || 0).toFixed(2) + ' ج</strong></span>' +
                             '</div>' +
@@ -16317,7 +16999,8 @@ body.employee-mode #undoBtn { display: none !important; }
                 '<div class="flex gap-2 flex-wrap pt-3 border-t">' +
                     '<button class="btn-sm btn-success flex-1" onclick="addPartnerTransaction(' + p.id + ',\'deposit\')">💵 إيداع</button>' +
                     '<button class="btn-sm btn-outline flex-1" onclick="addPartnerTransaction(' + p.id + ',\'withdrawal\')">💰 سحب</button>' +
-                    '<button class="btn-sm flex-shrink-0" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
+                    '<button class="btn-sm flex-shrink-0" style="background:#ede9fe;color:#4f46e5;border:1px solid var(--border);display:inline-flex;align-items:center;gap:4px;padding:8px 10px;" onclick="showPartnerStatement(' + p.id + ')" title="كشف الحساب الكامل"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>' +
+                    '<button class="btn-sm btn-outline flex-shrink-0" onclick="openPartnerCapitalStatement(' + p.id + ')" title="حساب رأس المال">🏦</button>' +
                     '<button class="btn-sm btn-outline flex-shrink-0" onclick="editPartner(' + p.id + ')">✏️</button>' +
                     '<button class="btn-sm btn-danger flex-shrink-0" onclick="deletePartner(' + p.id + ')">🗑️</button>' +
                 '</div>' +
@@ -16485,6 +17168,184 @@ body.employee-mode #undoBtn { display: none !important; }
             '</body></html>');
         printWindow.document.close();
         showToast('تم فتح نافذة الطباعة');
+    };
+
+    // ══════════════════════════════════════════════════════════════
+    // 🖨️ طباعة مستندات الشركاء (محضر دخول / كشف رأس مال)
+    // ══════════════════════════════════════════════════════════════
+    function printHtmlDoc(title, bodyHtml) {
+        const w = window.open('', '_blank', 'width=900,height=700');
+        if (!w) { showToast('يرجى السماح بفتح النوافذ المنبثقة لطباعة PDF', 'error'); return null; }
+        w.document.write('<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n<meta charset="UTF-8">\n<title>' + esc(title) + '</title>\n<style>' +
+            '*{box-sizing:border-box;margin:0;padding:0;}' +
+            "body{background:#f8fafc;font-family:'Segoe UI',Tahoma,Arial,sans-serif;color:#0f172a;}" +
+            '@media print{body{background:white}.no-print{display:none!important}@page{margin:0.8cm;size:A4}}' +
+            '.print-bar{position:fixed;top:0;left:0;right:0;background:#4f46e5;color:white;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;z-index:999;}' +
+            '.print-bar button{background:white;color:#4f46e5;border:none;padding:8px 20px;border-radius:8px;font-size:0.95rem;font-weight:bold;cursor:pointer;}' +
+            '.content-wrap{padding-top:56px;}' +
+            '.doc{max-width:850px;margin:auto;padding:24px;}' +
+            'table{width:100%;border-collapse:collapse;}' +
+            'th{background:#4f46e5;color:#fff;padding:9px 8px;text-align:right;font-size:0.85rem;}' +
+            'td{padding:8px;border-bottom:1px solid #e2e8f0;font-size:0.85rem;}' +
+            '.stat{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}' +
+            '.stat > div{flex:1;min-width:130px;background:#fff;border:1px solid #cbd5e1;border-radius:10px;padding:12px;text-align:center;}' +
+            '.stat .lbl{font-size:0.78rem;color:#64748b;}' +
+            '.stat .val{font-size:1.15rem;font-weight:800;}' +
+            'h1{color:#4f46e5;font-size:1.45rem;text-align:center;margin-bottom:4px;}' +
+            '.sub{text-align:center;color:#64748b;font-size:0.85rem;margin-bottom:18px;}' +
+            '.card{background:#fff;border:1px solid #cbd5e1;border-radius:12px;padding:14px;margin-bottom:16px;}' +
+            '.sig{display:flex;gap:30px;margin-top:28px;}' +
+            '.sig > div{flex:1;text-align:center;border-top:1px dashed #94a3b8;padding-top:8px;font-size:0.82rem;color:#475569;}' +
+            '.note{font-size:0.78rem;color:#64748b;margin-top:8px;}' +
+            '</style></head><body>' +
+            '<div class="print-bar no-print"><span>' + esc(title) + '</span><button onclick="window.print()">🖨️ طباعة / حفظ PDF</button></div>' +
+            '<div class="content-wrap">' + bodyHtml + '</div>' +
+            '</body></html>');
+        w.document.close();
+        try { w.onafterprint = () => { try { w.close(); } catch (e) { /* تجاهل */ } }; } catch (e) { /* تجاهل */ }
+        return w;
+    }
+    window.printHtmlDoc = printHtmlDoc;
+
+    window.printPartnerAdmission = function (admissionId) {
+        const rec = BusinessLogic.listPartnerAdmissions().find(d => String(d.id) === String(admissionId));
+        if (!rec) { showToast('لم يتم العثور على العملية', 'error'); return; }
+        const isCash = rec.method === 'cash_injection';
+        const isAsset = rec.method === 'asset_contribution';
+        const journal = Array.isArray(rec.journal) ? rec.journal : [];
+        const dTotal = journal.filter(l => l.side === 'debit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+        const cTotal = journal.filter(l => l.side === 'credit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+        const pctRows = (rec.newPercents || []).map(p => {
+            const before = (rec.oldPercents || []).find(x => String(x.partnerId) === String(p.partnerId));
+            const isNew = String(p.partnerId) === String(rec.newPartnerId);
+            return '<tr><td>' + esc(p.name) + (isNew ? ' <span style="color:#059669;font-size:0.75rem;">(جديد)</span>' : '') + '</td>' +
+                '<td>' + (before ? (parseFloat(before.percent) || 0).toFixed(4) : '0.0000') + '%</td>' +
+                '<td style="font-weight:700;">' + (parseFloat(p.percent) || 0).toFixed(4) + '%</td></tr>';
+        }).join('');
+        const journalRows = journal.map(l => '<tr><td>' + esc(l.label) + '</td>' +
+            '<td style="color:#ef4444;font-weight:700;">' + (l.side === 'debit' ? (parseFloat(l.amount) || 0).toFixed(2) : '') + '</td>' +
+            '<td style="color:#059669;font-weight:700;">' + (l.side === 'credit' ? (parseFloat(l.amount) || 0).toFixed(2) : '') + '</td></tr>').join('');
+        const body =
+            '<div class="doc">' +
+            '<h1>🤝 محضر دخول شريك</h1>' +
+            '<div class="sub">' + new Date(rec.date).toLocaleString('ar-EG-u-nu-latn') + ' | رقم العملية: ' + esc(rec.id) + '</div>' +
+            '<div class="stat">' +
+                '<div><div class="lbl">طريقة الدخول</div><div class="val">' + (isCash ? '💵 ضخ أموال' : isAsset ? '📦 أصل عيني' : '🔁 شراء حصة') + '</div></div>' +
+                '<div><div class="lbl">المبلغ</div><div class="val">' + (rec.amountPaid || 0).toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">التقييم قبل الدخول</div><div class="val">' + (rec.valuation || 0).toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">نسبة الشريك</div><div class="val" style="color:#059669;">' + (rec.newPercent || 0).toFixed(4) + '%</div></div>' +
+            '</div>' +
+            '<div class="card"><table><tr><td><strong>الشريك الجديد:</strong> ' + esc(rec.newPartnerName) + '</td>' +
+                '<td><strong>رأس المال الدفتري:</strong> ' + (rec.bookEquityBefore || 0).toFixed(2) + ' → ' + (rec.bookEquityAfter || 0).toFixed(2) + ' ج</td></tr>' +
+                (rec.sellerName ? '<tr><td><strong>الشريك البائع:</strong> ' + esc(rec.sellerName) + ' (' + (rec.sellerOldPercent || 0).toFixed(2) + '%)</td>' +
+                    '<td><strong>الحصة المنقولة:</strong> ' + (rec.capitalTransferred || 0).toFixed(2) + ' ج</td></tr>' : '') +
+                '<tr><td colspan="2"><strong>شهرة / إعادة تقييم:</strong> ' + (rec.goodwillRecorded ? (rec.goodwill || 0).toFixed(2) + ' ج' : 'غير مسجلة') +
+                (rec.assetName ? ' | <strong>الأصل العيني:</strong> ' + esc(rec.assetName) : '') + '</td></tr>' +
+            '</table></div>' +
+            '<h3 style="font-size:1rem;margin:14px 0 8px;">📊 النسب قبل وبعد</h3>' +
+            '<table><thead><tr><th>الشريك</th><th>قبل</th><th>بعد</th></tr></thead><tbody>' + pctRows + '</tbody></table>' +
+            '<h3 style="font-size:1rem;margin:16px 0 8px;">🧾 قيد اليومية</h3>' +
+            '<table><thead><tr><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead><tbody>' + journalRows +
+            '<tr style="font-weight:800;"><td>الإجمالي</td><td>' + dTotal.toFixed(2) + '</td><td>' + cTotal.toFixed(2) + '</td></tr></tbody></table>' +
+            '<div class="note">' + (Math.abs(dTotal - cTotal) < 0.01 ? '✅ القيد متوازن' : '⚠️ القيد غير متوازن') + '</div>' +
+            '<div class="sig"><div>توقيع الشريك الجديد</div><div>توقيع الشركاء القدامى</div><div>توقيع الإدارة</div></div>' +
+            '</div>';
+        printHtmlDoc('محضر دخول شريك — ' + rec.newPartnerName, body);
+    };
+
+    const CAPITAL_TXN_TYPES = ['partner_deposit', 'partner_withdrawal', 'partner_capital_in', 'partner_capital_out', 'partner_goodwill', 'partner_revaluation_loss'];
+
+    function buildPartnerCapitalData(partnerId) {
+        const p = partners.find(x => x.id == partnerId);
+        if (!p) return null;
+        const capitalTxns = transactions
+            .filter(t => t.partnerId == partnerId && CAPITAL_TXN_TYPES.includes(t.type))
+            .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+        let running = 0;
+        const rows = capitalTxns.map(t => {
+            const delta = BusinessLogic.partnerBalanceDelta(t.type, t.amount);
+            running = parseFloat((running + delta).toFixed(2));
+            return { t, delta, running };
+        });
+        const capital = parseFloat(running.toFixed(2));
+        const profit = parseFloat(transactions.filter(t => t.partnerId == partnerId && t.type === 'partner_profit')
+            .reduce((s, t) => s + BusinessLogic.toNum(t.amount), 0).toFixed(2));
+        const loss = parseFloat(transactions.filter(t => t.partnerId == partnerId && t.type === 'partner_loss')
+            .reduce((s, t) => s + BusinessLogic.toNum(t.amount), 0).toFixed(2));
+        const total = parseFloat(transactions.filter(t => t.partnerId == partnerId)
+            .reduce((s, t) => s + BusinessLogic.partnerBalanceDelta(t.type, t.amount), 0).toFixed(2));
+        return { p, rows, capital, profit, loss, total, balance: BusinessLogic.toNum(p.balance) };
+    }
+
+    window.openPartnerCapitalStatement = function (partnerId) {
+        const data = buildPartnerCapitalData(partnerId);
+        if (!data) { showToast('الشريك غير موجود', 'error'); return; }
+        const old = document.getElementById('partnerCapitalOverlay');
+        if (old) old.remove();
+        const rowsHtml = data.rows.length
+            ? data.rows.map(r => {
+                const credit = r.delta >= 0;
+                return '<tr><td>' + new Date(r.t.date).toLocaleDateString('ar-EG-u-nu-latn') + '</td>' +
+                    '<td>' + esc(r.t.notes || r.t.type) + '</td>' +
+                    '<td style="color:' + (credit ? 'var(--success)' : 'var(--danger)') + ';font-weight:700;">' + (credit ? '+' : '-') + Math.abs(r.delta).toFixed(2) + '</td>' +
+                    '<td style="font-weight:700;">' + r.running.toFixed(2) + '</td></tr>';
+            }).join('')
+            : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">لا توجد حركات رأس مال</td></tr>';
+        const overlay = document.createElement('div');
+        overlay.className = 'customer-statement-overlay';
+        overlay.id = 'partnerCapitalOverlay';
+        overlay.innerHTML =
+            '<div class="customer-statement-modal" style="max-width:960px;">' +
+            '<div class="customer-statement-header">' +
+                '<div><h2 style="display:flex;align-items:center;gap:8px;">🏦 حساب رأس مال — ' + esc(data.p.name) + '</h2>' +
+                '<div style="font-size:0.82rem;opacity:0.9;margin-top:2px;">حركات رأس المال فقط (إيداع/سحب/شهرة/نقل حصة)</div></div>' +
+                '<div class="header-actions">' +
+                    '<button onclick="printPartnerCapitalStatement(' + partnerId + ')" style="background:rgba(255,255,255,0.2);">🖨️ طباعة / PDF</button>' +
+                    '<button onclick="document.getElementById(\'partnerCapitalOverlay\').remove()">✖ إغلاق</button>' +
+                '</div>' +
+            '</div>' +
+            '<div class="customer-statement-body">' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">رأس المال المسدد</div><div class="stat-value primary">' + data.capital.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">أرباح محتجزة</div><div class="stat-value success">' + data.profit.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">خسائر محملة</div><div class="stat-value danger">' + data.loss.toFixed(2) + ' ج</div></div>' +
+                    '<div class="stat-card" style="flex:1;min-width:130px;"><div class="stat-label">إجمالي الرصيد</div><div class="stat-value ' + (data.balance >= 0 ? 'success' : 'danger') + '">' + data.balance.toFixed(2) + ' ج</div></div>' +
+                '</div>' +
+                '<table class="merchant-statement-table" style="font-size:0.85rem;"><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين/دائن</th><th>الرصيد</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+                '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">' +
+                    'رأس المال المسدد ' + data.capital.toFixed(2) + ' + أرباح ' + data.profit.toFixed(2) + ' − خسائر ' + data.loss.toFixed(2) + ' = ' + data.balance.toFixed(2) + ' ج' +
+                    (Math.abs((data.capital + data.profit - data.loss) - data.balance) > 0.01 ? ' ⚠️ يوجد فرق يحتاج مراجعة' : ' ✅ مطابق') +
+                '</div>' +
+            '</div></div>';
+        const openedAt = Date.now();
+        document.body.appendChild(overlay);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay && Date.now() - openedAt > 1000) overlay.remove(); });
+    };
+
+    window.printPartnerCapitalStatement = function (partnerId) {
+        const data = buildPartnerCapitalData(partnerId);
+        if (!data) { showToast('الشريك غير موجود', 'error'); return; }
+        const rowsHtml = data.rows.map(r => {
+            const credit = r.delta >= 0;
+            return '<tr><td>' + new Date(r.t.date).toLocaleDateString('ar-EG-u-nu-latn') + '</td>' +
+                '<td>' + esc(r.t.notes || r.t.type) + '</td>' +
+                '<td style="color:' + (credit ? '#059669' : '#ef4444') + ';font-weight:700;">' + (credit ? '+' : '-') + Math.abs(r.delta).toFixed(2) + '</td>' +
+                '<td style="font-weight:700;">' + r.running.toFixed(2) + '</td></tr>';
+        }).join('');
+        const body =
+            '<div class="doc">' +
+            '<h1>🏦 كشف حساب رأس مال شريك</h1>' +
+            '<div class="sub">' + esc(data.p.name) + (data.p.phone ? ' | ' + esc(data.p.phone) : '') + ' | ' + new Date().toLocaleString('ar-EG-u-nu-latn') + '</div>' +
+            '<div class="stat">' +
+                '<div><div class="lbl">رأس المال المسدد</div><div class="val">' + data.capital.toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">أرباح محتجزة</div><div class="val" style="color:#059669;">' + data.profit.toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">خسائر محملة</div><div class="val" style="color:#ef4444;">' + data.loss.toFixed(2) + ' ج</div></div>' +
+                '<div><div class="lbl">إجمالي الرصيد</div><div class="val">' + data.balance.toFixed(2) + ' ج</div></div>' +
+            '</div>' +
+            '<table><thead><tr><th>التاريخ</th><th>البيان</th><th>مدين/دائن</th><th>الرصيد</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="4">لا توجد حركات</td></tr>') + '</tbody></table>' +
+            '<div class="note">رأس المال ' + data.capital.toFixed(2) + ' + أرباح ' + data.profit.toFixed(2) + ' − خسائر ' + data.loss.toFixed(2) + ' = ' + data.balance.toFixed(2) + ' ج</div>' +
+            '</div>';
+        printHtmlDoc('كشف رأس مال — ' + data.p.name, body);
     };
 
     document.getElementById('partnerForm').addEventListener('submit', (e) => {
@@ -18589,7 +19450,7 @@ const backup = {
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
         document.getElementById(pageId).classList.add('active-page');
         if (pageId === 'admin') renderAdminPage();
-        if (pageId === 'settings') { renderBackupsList(); renderRecycleBinCount(); updatePeriodLockStatus(); }
+        if (pageId === 'settings') { renderBackupsList(); renderRecycleBinCount(); updatePeriodLockStatus(); renderPermissionSettings(); }
     }
 
     const menuBtn = document.getElementById('menuToggleBtn');
