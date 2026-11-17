@@ -242,18 +242,18 @@
         input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); background: rgba(17,24,39,0.8); }
         input[readonly] { background: var(--primary-light); color: var(--primary); font-weight: bold; border-color: var(--primary-glow); }
         
-        button { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border: none; font-weight: 600; cursor: pointer; padding: 10px 20px; border-radius: 12px; font-size: 0.95rem; transition: all 0.15s ease; min-height: 40px; touch-action: manipulation; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.3); filter: brightness(1.05); }
-        button:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(0,0,0,0.15); filter: brightness(0.95); }
+        button { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border: none; font-weight: 600; cursor: pointer; padding: 10px 20px; border-radius: 12px !important; font-size: 0.95rem; transition: all 0.15s ease !important; min-height: 40px; touch-action: manipulation; position: relative; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important; }
+        button:hover { transform: translateY(-2px) !important; box-shadow: 0 6px 20px rgba(99,102,241,0.3) !important; filter: brightness(1.05); }
+        button:active { transform: translateY(0) !important; box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important; filter: brightness(0.95); }
         button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; box-shadow: none; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; filter: none; box-shadow: none !important; }
         button[type="submit"] { width: 100%; margin-top: 6px; }
-        .btn-sm { padding: 6px 12px; font-size: 0.82rem; width: auto; border-radius: 8px; box-shadow: none; min-height: 32px; }
-        .btn-sm:hover { transform: none; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-        .btn-success { background: linear-gradient(135deg, var(--success), #00C853); }
-        .btn-danger { background: linear-gradient(135deg, var(--danger), #D50000); }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        .btn-outline:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); transform: none; box-shadow: 0 2px 6px rgba(99,102,241,0.15); }
+        .btn-sm { padding: 6px 12px; font-size: 0.82rem; width: auto; border-radius: 8px !important; box-shadow: none !important; min-height: 32px; }
+        .btn-sm:hover { transform: none !important; box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important; }
+        .btn-success { background: linear-gradient(135deg, var(--success), #00C853) !important; }
+        .btn-danger { background: linear-gradient(135deg, var(--danger), #D50000) !important; }
+        .btn-outline { background: transparent !important; border: 1px solid var(--primary) !important; color: var(--primary) !important; }
+        .btn-outline:hover { background: var(--primary-light) !important; color: var(--primary) !important; border-color: var(--primary) !important; transform: none !important; box-shadow: 0 2px 6px rgba(99,102,241,0.15) !important; }
         .btn-outline:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
         .whatsapp-btn { background: linear-gradient(135deg, #25D366, #128C7E); }
         
