@@ -16333,8 +16333,12 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
         list = list.filter(([id, s]) => {
             const hasMerchantActivity = s.totalSales > 0 || s.totalPayments > 0 || s.totalPurchases > 0 || s.totalPaymentsOut > 0;
             if (hasMerchantActivity) return true;
-            if (installments.some(i => i.merchantId == id)) return false;
-            if (arabonSales.some(a => a.merchantId == id)) return false;
+            // التاجر المضاف حديثاً بلا حركات يجب أن يظهر حتى يمكن فتح صفحته وتسجيل أول بيع
+            if (merchants.some(m => m.id == id)) {
+                if (installments.some(i => i.merchantId == id)) return false;
+                if (arabonSales.some(a => a.merchantId == id)) return false;
+                return true;
+            }
             return false;
         });
 
@@ -16367,7 +16371,7 @@ window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_b
             '<div class="ms-summary-card info"><div>📥 مشتريات من تجار</div><div class="value">' + totalPurchases.toFixed(2) + ' ج</div></div>';
 
         if (list.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد تجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'سجّل أول بيع أو شراء لتاجر من الأعلى') + '</div></div>';
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><div class="empty-text">' + (term ? 'لا توجد نتائج' : 'لا يوجد تجار') + '</div><div class="empty-sub">' + (term ? 'جرب كلمة بحث مختلفة' : 'أضف تاجراً بزر ➕ إضافة تاجر أعلى الصفحة، ثم اضغط عليه لإدارة مبيعاته') + '</div></div>';
             return;
         }
 
