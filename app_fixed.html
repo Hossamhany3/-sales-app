@@ -11845,17 +11845,30 @@ body.employee-mode #undoBtn { display: none !important; }
             return;
         }
         const sorted = [...stockMovements].sort((a, b) => new Date(b.date) - new Date(a.date));
-        let html = '<div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">إجمالي الحركات: ' + sorted.length + '</div>';
+        const orphanCount = stockMovements.filter(m => m.productId && !products.find(p => p.id == m.productId)).length;
+        let html = '<div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">إجمالي الحركات: ' + sorted.length + (orphanCount ? ' | <span style=\"color:var(--danger);font-weight:700;\">⚠️ ' + orphanCount + ' حركة لاصناف محذوفة</span>' : '') + '</div>';
+        if (orphanCount > 0) {
+            html += '<div style="margin-bottom:10px;padding:8px 12px;border-radius:8px;background:var(--danger-light);border:1px solid var(--danger);font-size:0.82rem;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+                '<span>⚠️ توجد حركات لاصناف محذوفة (لا تظهر في المخزون). يمكنك تنظيفها.</span>' +
+                '<button class="btn-sm btn-outline" style="width:auto;" onclick="cleanOrphanStockMovements()">🧹 تنظيف الحركات اليتيمة</button>' +
+            '</div>';
+        }
         sorted.forEach(m => {
             const isIn = m.type === 'in';
             const icon = isIn ? '📥' : '📤';
             const color = isIn ? 'var(--success)' : 'var(--danger)';
             const bgColor = isIn ? 'var(--success-light)' : 'var(--danger-light)';
             const label = isIn ? 'شراء' : 'بيع';
+            const prod = products.find(p => p.id == m.productId);
+            const prodName = m.productName || (prod ? prod.name : '');
+            const isOrphan = !prod && m.productId;
+            const displayName = isOrphan
+                ? '<span style=\"color:var(--danger);\">⚠️ صنف محذوف (#' + m.productId + (prodName ? ' — ' + esc(prodName) : '') + ')</span>'
+                : (prodName ? esc(prodName) : ('صنف #' + m.productId));
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin:4px 0;background:' + bgColor + ';border-radius:8px;border-right:3px solid ' + color + ';">' +
                 '<span style="font-size:1.2rem;">' + icon + '</span>' +
                 '<div style="flex:1;">' +
-                    '<div><strong>' + m.productName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span></div>' +
+                    '<div><strong>' + displayName + '</strong> <span class="badge" style="background:' + color + ';color:#fff;font-size:0.7rem;">' + label + '</span>' + (isOrphan ? ' <span class="badge" style="background:var(--danger);color:#fff;font-size:0.65rem;">يتم</span>' : '') + '</div>' +
                     '<div style="font-size:0.8rem;color:var(--text-muted);">الكمية: ' + m.qty + ' | ' + new Date(m.date).toLocaleString('ar-EG-u-nu-latn') + '</div>' +
                     (m.notes ? '<div style="font-size:0.8rem;color:var(--text-muted);direction:ltr;text-align:right;font-family:monospace;">' + m.notes + '</div>' : '') +
                 '</div>' +
@@ -11863,6 +11876,18 @@ body.employee-mode #undoBtn { display: none !important; }
         });
         container.innerHTML = html;
     }
+
+    window.cleanOrphanStockMovements = function () {
+        const before = stockMovements.length;
+        const orphans = stockMovements.filter(m => m.productId && !products.find(p => p.id == m.productId));
+        if (orphans.length === 0) { showToast('لا توجد حركات يتيمة', 'info'); return; }
+        if (!confirm('سيتم حذف ' + orphans.length + ' حركة لاصناف محذوفة. هل تريد المتابعة؟')) return;
+        stockMovements = stockMovements.filter(m => !m.productId || products.find(p => p.id == m.productId));
+        const removed = before - stockMovements.length;
+        logAudit('repair', 'تنظيف حركات مخزون يتيمة', '', 'تم حذف ' + removed + ' حركة');
+        saveData(); renderStockMovements(); renderDashboard();
+        showToast('🧹 تم حذف ' + removed + ' حركة يتيمة');
+    };
 
     // تصدير حركة المخزون CSV
     window.exportStockMovementsCSV = function() {
