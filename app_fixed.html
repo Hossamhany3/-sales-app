@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https:; base-uri 'self'; form-action 'self';">
     <meta name="theme-color" content="#070B14">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,7 +13,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <title>نظام إدارة المبيعات</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
     <style>
         :root {
             --primary: #00E5FF;
@@ -3323,7 +3324,12 @@ body.employee-mode #undoBtn { display: none !important; }
     window.BusinessLogic = {
         // ─── توليد معرّف فريد ───
         genId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+            try {
+                if (window.crypto && typeof crypto.randomUUID === 'function') {
+                    return crypto.randomUUID();
+                }
+            } catch (e) { /* fallback */ }
+            return Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 9);
         },
 
         // معرّف رقمي فريد داخل مجموعة سجلات (تجنّب تصادم Date.now)
@@ -3591,7 +3597,7 @@ body.employee-mode #undoBtn { display: none !important; }
                   paymentSeq, slotIndex, unitCost } = opts;
             // قفل الفترة — لا يُسمح بأي قيد مالي في فترة مغلقة
             if (this.isDateLocked(date)) {
-                console.warn('postTransaction: الفترة مقفولة', { type, date, lock: this.lockDate() });
+                // postTransaction: period locked (silent)
                 if (typeof window !== 'undefined' && typeof window.__onLockedAttempt === 'function') {
                     try { window.__onLockedAttempt(date, type); } catch (e) { /* تجاهل */ }
                 }
@@ -3599,7 +3605,7 @@ body.employee-mode #undoBtn { display: none !important; }
             }
             let amt = parseFloat(amount);
             if (!isFinite(amt) || amt <= 0) {
-                console.warn('postTransaction: مبلغ غير صالح', { type, amount, sourceType, sourceId });
+                // postTransaction: invalid amount (silent)
                 return null;
             }
             if (sourceType && sourceId && this.existsDuplicate(sourceType, sourceId, operationType)) {
@@ -3660,7 +3666,12 @@ body.employee-mode #undoBtn { display: none !important; }
             if (!isAdminSession()) return false;
             let txn = transactions.find(t => t.id == transactionId);
             if (!txn) return false;
-            Object.assign(txn, updates);
+            const allowed = ['type', 'amount', 'date', 'accountId', 'notes', 'category'];
+            const safe = {};
+            for (const k of allowed) {
+                if (Object.prototype.hasOwnProperty.call(updates || {}, k)) safe[k] = updates[k];
+            }
+            Object.assign(txn, safe);
             return true;
         },
 
@@ -6809,6 +6820,13 @@ body.employee-mode #undoBtn { display: none !important; }
             if (this.isDateLocked(t.date) || this.isDateLocked(updates.date)) {
                 return { success: false, reason: 'period_locked' };
             }
+            // حماية من Prototype Pollution: السماح فقط بالحقول المعروفة
+            const allowed = ['type', 'amount', 'date', 'accountId', 'notes', 'category'];
+            const safe = {};
+            for (const k of allowed) {
+                if (Object.prototype.hasOwnProperty.call(updates || {}, k)) safe[k] = updates[k];
+            }
+            updates = safe;
             let amt = this.toNum(updates.amount);
             if (!(amt > 0)) return { success: false, reason: 'invalid_amount' };
             if (updates.type && updates.type !== 'income' && updates.type !== 'expense') {
@@ -7259,16 +7277,30 @@ body.employee-mode #undoBtn { display: none !important; }
     window.unlockApp = async function() {
         const input = document.getElementById('lockInput');
         const err = document.getElementById('lockError');
+        // قفل مؤقت بعد 3 محاولات فاشلة (5 دقائق)
+        const lockUntil = parseInt(localStorage.getItem('lockUntil') || '0', 10);
+        if (lockUntil && Date.now() < lockUntil) {
+            const mins = Math.ceil((lockUntil - Date.now()) / 60000);
+            err.textContent = '🔒 مقفل مؤقتاً — حاول بعد ' + mins + ' دقيقة';
+            return;
+        }
         const enteredHash = await hashPassword(input.value);
         if (!appPassword || enteredHash === appPassword) {
             document.getElementById('lockScreen').classList.add('hidden');
             document.getElementById('appContainer').style.display = 'block';
             lockInputAttempts = 0;
+            localStorage.removeItem('lockUntil');
             return;
         }
         lockInputAttempts++;
-        err.textContent = '❌ رمز خطأ' + (lockInputAttempts >= 3 ? ' — تم إعادة تحميل الصفحة' : '');
-        if (lockInputAttempts >= 3) { setTimeout(() => location.reload(), 1500); }
+        if (lockInputAttempts >= 3) {
+            const until = Date.now() + 5 * 60 * 1000;
+            localStorage.setItem('lockUntil', String(until));
+            err.textContent = '❌ رمز خطأ — مقفل لمدة 5 دقائق';
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            err.textContent = '❌ رمز خطأ (' + lockInputAttempts + '/3)';
+        }
     };
 
     window.removePassword = async function() {
@@ -7294,7 +7326,17 @@ body.employee-mode #undoBtn { display: none !important; }
     let currentSession = null;
     try {
         const savedSession = localStorage.getItem('employeeSession');
-        if (savedSession) currentSession = JSON.parse(savedSession);
+        if (savedSession) {
+            const parsed = JSON.parse(savedSession);
+            // تحقق من سلامة الجلسة: الموظف يجب أن يكون موجوداً وأن دوره يطابق السجل (منع تصعيد الصلاحيات)
+            const emp = Array.isArray(employees) ? employees.find(x => x.id == parsed.employeeId) : null;
+            if (emp && (emp.role || 'employee') === (parsed.role || 'employee') && parsed.employeeId) {
+                currentSession = parsed;
+            } else {
+                currentSession = null;
+                localStorage.removeItem('employeeSession');
+            }
+        }
     } catch (e) { currentSession = null; }
 
     function isAdminSession() {
@@ -7770,7 +7812,8 @@ body.employee-mode #undoBtn { display: none !important; }
         const toast = document.createElement('div');
         toast.className = 'toast ' + type;
         const icon = type === 'success' ? '✅ ' : type === 'error' ? '⚠️ ' : 'ℹ️ ';
-        toast.innerHTML = icon + message;
+        toast.textContent = icon + message;
+        // allow HTML-free icon; message is plain text (XSS-safe)
         // زر إجراء اختياري داخل التوست (مثل «تراجع»)
         let life = 3000;
         if (opts && opts.actionLabel && typeof opts.onAction === 'function') {
@@ -12452,13 +12495,17 @@ body.employee-mode #undoBtn { display: none !important; }
 
     window.sendWhatsApp = (phone, msg) => {
         if (!phone) { showToast('رقم الهاتف غير متاح', 'error'); return; }
-        window.open('https://wa.me/' + phone.replace(/^0/,'20') + '?text=' + encodeURIComponent(msg), '_blank');
+        const waPhone = String(phone || '').replace(/\D/g, '');
+if (!waPhone) { showToast('رقم هاتف غير صحيح', 'error'); return; }
+window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_blank');
     };
 
     window.sendScheduleWhatsApp = (phone, templateKey, vars) => {
         if (!phone) { showToast('رقم الهاتف غير متاح للعميل', 'error'); return; }
         let msg = buildMsg(templateKey, vars);
-        window.open('https://wa.me/' + phone.replace(/^0/,'20') + '?text=' + encodeURIComponent(msg), '_blank');
+        const waPhone = String(phone || '').replace(/\D/g, '');
+if (!waPhone) { showToast('رقم هاتف غير صحيح', 'error'); return; }
+window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_blank');
     };
 
     // ====== رسائل واتساب جماعية (تذكير الأقساط / المتأخرات) ======
@@ -12501,7 +12548,9 @@ body.employee-mode #undoBtn { display: none !important; }
             const r = recipients[i];
             const cont = await showConfirmModal('الرسالة ' + (i+1) + ' من ' + recipients.length + ':\n\n👤 ' + r.name + ' — ' + r.phone + '\n\n' + r.msg.slice(0, 120) + (r.msg.length > 120 ? '...' : ''), '📨 تأكيد الإرسال');
             if (!cont) break;
-            window.open('https://wa.me/' + r.phone.replace(/^0/, '20') + '?text=' + encodeURIComponent(r.msg), '_blank');
+            const waPhone = String(r.phone || '').replace(/\D/g, '');
+if (!waPhone) { showToast('رقم هاتف غير صحيح', 'error'); return; }
+window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(r.msg), '_blank');
         }
         showToast('✅ تم فتح الرسائل في واتساب');
     }
@@ -15303,7 +15352,9 @@ body.employee-mode #undoBtn { display: none !important; }
         let bal = calcMerchantBalance(merchantId);
         let balLabel = bal.balance > 0 ? 'المديونية' : (bal.balance < 0 ? 'زيادة لصالحه' : 'الرصيد');
         let msg = 'كشف حساب ' + m.name + '\n' + balLabel + ': ' + bal.balance.toFixed(2) + ' ج\nاجمالي المبيعات: ' + bal.totalSales.toFixed(2) + ' ج\nاجمالي المشتريات: ' + bal.totalPurchases.toFixed(2) + ' ج\nمدفوعات منه: ' + bal.totalPayments.toFixed(2) + ' ج\nمدفوعات له: ' + bal.totalPaymentsOut.toFixed(2) + ' ج';
-        window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank');
+        const waPhone = String(phone || '').replace(/\D/g, '');
+if (!waPhone) { showToast('رقم هاتف غير صحيح', 'error'); return; }
+window.open('https://wa.me/' + waPhone + '?text=' + encodeURIComponent(msg), '_blank');
         setTimeout(() => generateMerchantStatementPDF(merchantId), 300);
     };
 
@@ -19728,6 +19779,10 @@ const backup = {
             document.body.innerHTML = '<div style="padding:20px;min-height:100vh;">' + html + '</div>';
         })();
     }
+
+    // ====== معالج أخطاء عام ======
+    window.addEventListener('error', (e) => { try { console.error('App error:', e.message); } catch (x) {} return true; });
+    window.addEventListener('unhandledrejection', (e) => { try { console.error('Unhandled rejection:', e.reason); } catch (x) {} e.preventDefault(); });
 </script>
 </body>
 </html>
