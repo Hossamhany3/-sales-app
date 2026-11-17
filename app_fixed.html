@@ -9643,20 +9643,64 @@ body.employee-mode #undoBtn { display: none !important; }
         if (term) {
             items = items.filter(x => (x.entity + ' ' + x.ref + ' ' + x.detail).toLowerCase().includes(term));
         }
+        // detect orphaned references (item no longer exists)
+        const isOrphan = (x) => {
+            const ent = String(x.entity || '');
+            const ref = String(x.ref || '');
+            if (!ref) return false;
+            if (ent === 'صنف' && !products.find(p => String(p.id) === ref)) return true;
+            if (ent === 'شريك' && !partners.find(p => String(p.id) === ref)) return true;
+            if (ent === 'تاجر' && !merchants.find(m => String(m.id) === ref)) return true;
+            if (ent === 'حساب' && !accounts.find(a => String(a.id) === ref)) return true;
+            return false;
+        };
         if (!items.length) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد أحداث مسجلة بعد.</p>';
             return;
         }
-        container.innerHTML = items.map(x =>
-            '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;">' +
+        const orphanCount = items.filter(isOrphan).length;
+        let html = '';
+        if (orphanCount > 0) {
+            html += '<div style="margin-bottom:10px;padding:8px 12px;border-radius:8px;background:var(--warning-light,rgba(255,215,64,0.12));border:1px solid var(--warning,#FFD740);font-size:0.82rem;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+                '<span>⚠️ ' + orphanCount + ' سجل يشير إلى عناصر محذوفة (يُحتفظ بها للتاريخ).</span>' +
+                '<button class="btn-sm btn-outline" style="width:auto;" onclick="cleanOrphanAuditEntries()">🧹 تنظيف (اختياري)</button>' +
+            '</div>';
+        }
+        html += items.map(x => {
+            const orphan = isOrphan(x);
+            return '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;' + (orphan ? 'opacity:0.7;' : '') + '">' +
             '<div class="flex-between" style="gap:8px;flex-wrap:wrap;">' +
-            '<span style="font-weight:600;font-size:0.85rem;">' + auditActionLabel(x.action) + ' <span style="color:var(--text-muted);font-weight:400;">' + esc(x.entity || '') + (x.ref ? ' • ' + esc(x.ref) : '') + '</span></span>' +
+            '<span style="font-weight:600;font-size:0.85rem;">' + auditActionLabel(x.action) + ' <span style="color:var(--text-muted);font-weight:400;">' + esc(x.entity || '') + (x.ref ? ' • ' + esc(x.ref) : '') + (orphan ? ' <span style="color:var(--danger);font-size:0.7rem;font-weight:700;">(محذوف)</span>' : '') + '</span></span>' +
             '<span style="color:var(--text-muted);font-size:0.75rem;">' + formatAuditTime(x.ts) + '</span>' +
             '</div>' +
             (x.detail ? '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:4px;">' + esc(x.detail) + '</div>' : '') +
-            '</div>'
-        ).join('');
+            '</div>';
+        }).join('');
+        container.innerHTML = html;
     };
+
+    window.cleanOrphanAuditEntries = function () {
+        const before = auditLog.length;
+        const isOrphan = (x) => {
+            const ent = String(x.entity || '');
+            const ref = String(x.ref || '');
+            if (!ref) return false;
+            if (ent === 'صنف' && !products.find(p => String(p.id) === ref)) return true;
+            if (ent === 'شريك' && !partners.find(p => String(p.id) === ref)) return true;
+            if (ent === 'تاجر' && !merchants.find(m => String(m.id) === ref)) return true;
+            if (ent === 'حساب' && !accounts.find(a => String(a.id) === ref)) return true;
+            return false;
+        };
+        const orphans = auditLog.filter(isOrphan);
+        if (orphans.length === 0) { showToast('لا توجد سجلات يتيمة', 'info'); return; }
+        if (!confirm('سيتم حذف ' + orphans.length + ' سجل تدقيق لعناصر محذوفة. هل تريد المتابعة؟ (يؤثر على سجل التدقيق)')) return;
+        auditLog = auditLog.filter(x => !isOrphan(x));
+        const removed = before - auditLog.length;
+        logAudit('repair', 'تنظيف سجل التدقيق', '', 'تم حذف ' + removed + ' سجل يتيت');
+        saveData(); renderAuditLog();
+        showToast('🧹 تم حذف ' + removed + ' سجل يتيت');
+    };
+
     window.exportAuditLogCSV = function() {
         if (!auditLog.length) { showToast('لا توجد أحداث', 'error'); return; }
         const BOM = '\uFEFF';
