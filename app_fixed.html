@@ -8520,36 +8520,6 @@ body.employee-mode #undoBtn { display: none !important; }
     // مصدر واحد لحساب الإيراد/التكلفة/المصروف/الفائدة/العمولات لأي فترة،
     // حتى تتطابق التقارير والشاشات والرسوم البيانية مع نفس السياسة المحاسبية.
     // ══════════════════════════════════════════════════════════════
-    // ─── توزيع فائدة التقسيط على مدة العقد (استحقاق زمني) ───
-    // الفائدة تُعترف تدريجياً بين تاريخ التعاقد وتاريخ آخر قسط، لا كاملة في شهر التعاقد.
-    function recognizeInstallmentInterest(inst, totalInterest, range) {
-        const interest = BusinessLogic.toNum(totalInterest);
-        if (!(interest > 0)) return 0;
-        const startRaw = inst.date || inst.firstDueDate;
-        const start = startRaw ? new Date(startRaw) : null;
-        if (!start || isNaN(start.getTime())) return interest;
-        let end = null;
-        const sched = inst.schedule || [];
-        if (sched.length) {
-            const last = sched[sched.length - 1];
-            if (last && last.dueDate) {
-                const d = new Date(last.dueDate);
-                if (!isNaN(d.getTime())) end = d;
-            }
-        }
-        if (!end) {
-            end = new Date(start);
-            end.setMonth(end.getMonth() + (BusinessLogic.toNum(inst.numInstallments) || 1));
-        }
-        const span = end - start;
-        if (!(span > 0)) return interest;
-        const frac = d => Math.max(0, Math.min(1, (d - start) / span));
-        const toFrac = range.to ? frac(range.to) : frac(new Date());
-        const fromFrac = range.from ? frac(range.from) : 0;
-        const recognized = interest * (toFrac - fromFrac);
-        return isFinite(recognized) ? Math.max(recognized, 0) : 0;
-    }
-
     function computeIncomeStatement(range) {
         range = range || { from: null, to: null };
         let revenue = 0;
@@ -8617,24 +8587,16 @@ body.employee-mode #undoBtn { display: none !important; }
 
         filteredInst.forEach(inst => {
             // تخطي الأقساط الناتجة عن تحويل عربون (إيرادها محسوب بالفعل ضمن إيراد العربون)
-            if (arabonSales.some(a => a.instId == inst.id)) return;
+            if (arabonSales.some(a => a.instId == inst.id)) {
+                interestProfit += BusinessLogic.toNum(inst.totalAfterInterest) - BusinessLogic.toNum(inst.purchasePrice);
+                return;
+            }
             // الإيراد صافي خصم العقد (مثل البيع النقدي: amount = sellPrice - discount)
             revenue += BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.discount);
             totalDiscounts += BusinessLogic.toNum(inst.discount);
             cogs += BusinessLogic.recordUnitCost(inst);
-        });
-
-        // فوائد التقسيط تُعترف زمنياً لكل عقد امتدّت مدته داخل الفترة، لا للعقود الموقّعة داخل الفترة فقط؛
-        // وإلا ظهر الرقم صفراً في أي تقرير شهري لعقود سبقت بداية الفترة.
-        installments.forEach(inst => {
-            const price = BusinessLogic.toNum(inst.purchasePrice);
-            const financed = BusinessLogic.toNum(inst.totalAfterInterest);
-            // العربون المحوّل: ثمن الجهاز دخل إيراد العربون، فيبقى من التمويل المتبقي المحوّل فقط
-            const isFromArabon = arabonSales.some(a => a.instId == inst.id);
-            const totalInterest = isFromArabon
-                ? financed - price
-                : financed - (price - BusinessLogic.toNum(inst.paidUpfront));
-            interestProfit += recognizeInstallmentInterest(inst, totalInterest, range);
+            // فائدة العقد كاملة عند التعاقد (كما كان في الملف الأول قبل التعديل)
+            interestProfit += BusinessLogic.toNum(inst.totalAfterInterest) - (BusinessLogic.toNum(inst.purchasePrice) - BusinessLogic.toNum(inst.paidUpfront));
         });
 
         const totalCommissions = getTotalCommissions(range);

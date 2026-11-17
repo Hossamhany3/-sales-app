@@ -51,7 +51,7 @@ if (blStart < 0) throw new Error('BusinessLogic not found');
 const blObj = sliceBalanced(js, js.indexOf('{', blStart));
 const blSrc = 'const BusinessLogic = ' + blObj + ';';
 
-const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'recognizeInstallmentInterest', 'uniqueProductByName', 'getInstSchedule', 'slotPaidDate', 'paidScheduleSlots', 'slotPayDesc', 'installmentRemaining', 'buildGeneralStatementRows', 'buildComprehensiveRows',
+const FN = ['calcTransactionProfit', 'computeIncomeStatement', 'uniqueProductByName', 'getInstSchedule', 'slotPaidDate', 'paidScheduleSlots', 'slotPayDesc', 'installmentRemaining', 'buildGeneralStatementRows', 'buildComprehensiveRows',
   '__cloneDeep', 'snapshotAll', 'restoreAllSnap', 'recordUndoPoint',
   'repairMoney', 'repairTable', 'repairRow', 'repairPlan'].map(n => extractFunction(js, n)).join('\n');
 
@@ -195,22 +195,17 @@ test('تقسيط: إنشاء عقد بمقدم نقدي', () => {
   return 'عقد #' + inst.id;
 });
 
-test('تقسيط: فائدة العقد تُعترف زمنياً وتظهر في الفترات اللاحقة', () => {
+test('تقسيط: فائدة العقد تُحتسب كاملة في شهر التعاقد', () => {
   factory.seed(BASE());
   // 10000 ممولة × 20% = 2000 فائدة، 10 أقساط أولها 2026-02-05
   newInst({ interestRate: 20, numInstallments: 10, firstDueDate: '2026-02-05', date: '2026-01-01T10:00:00.000Z' });
   const monthRange = (y, m) => ({ from: new Date(y, m - 1, 1, 0, 0, 0, 0), to: new Date(y, m, 0, 23, 59, 59, 999) });
-  const full = computeIncomeStatement({ from: new Date('2026-01-01T00:00:00'), to: new Date('2026-12-31T23:59:59') });
-  eq(full.interestProfit, 2000, 'فائدة العقد كاملة داخل مدته');
-  let sum = 0;
-  for (let m = 1; m <= 12; m++) sum += computeIncomeStatement(monthRange(2026, m)).interestProfit;
-  eq(sum, 2000, 'مجموع الفوائد الشهرية = فائدة العقد (بلا تكرار أو نقص)');
-  const june = computeIncomeStatement(monthRange(2026, 6));
-  ok(june.interestProfit > 0, 'يجب أن تُعترف الفائدة في شهر لاحق لتاريخ التعاقد');
-  ok(june.interestProfit < 1000, 'وليست كاملة في شهر واحد');
-  const before = computeIncomeStatement(monthRange(2025, 12));
-  eq(before.interestProfit, 0, 'لا فائدة قبل التعاقد');
-  return 'فائدة يونيو ' + june.interestProfit.toFixed(2);
+  const jan = computeIncomeStatement(monthRange(2026, 1));
+  eq(jan.interestProfit, 2000, 'الفائدة كاملة في شهر التعاقد');
+  eq(computeIncomeStatement(monthRange(2026, 6)).interestProfit, 0, 'لا تُكرّر الفائدة في شهر لاحق');
+  const full = computeIncomeStatement({ from: null, to: null });
+  eq(full.interestProfit, 2000, 'كل الفترات = فائدة العقد مرة واحدة');
+  return 'فائدة 2000 في شهر التعاقد';
 });
 
 test('تقسيط: إنشاء عقد بمقدم بنكي', () => {
